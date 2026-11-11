@@ -235,6 +235,9 @@ fun AppNavigation(
                         },
                         onOpenJellyfinDashboard = {
                             navController.navigateSafely(Screen.JellyfinDashboard.route)
+                        },
+                        onOpenGDriveDashboard = {
+                            navController.navigateSafely(Screen.GDriveDashboard.route)
                         }
                     )
                 }
@@ -500,6 +503,15 @@ fun AppNavigation(
             ) {
                 ScreenWrapper(navController = navController, playerViewModel = playerViewModel, animatedVisibilityScope = this) {
                     com.theveloper.pixelplay.presentation.jellyfin.dashboard.JellyfinDashboardScreen(
+                        onBack = { navController.popBackStack() }
+                    )
+                }
+            }
+            composable(
+                Screen.GDriveDashboard.route,
+            ) {
+                ScreenWrapper(navController = navController, playerViewModel = playerViewModel, animatedVisibilityScope = this) {
+                    com.theveloper.pixelplay.presentation.gdrive.dashboard.GDriveDashboardScreen(
                         onBack = { navController.popBackStack() }
                     )
                 }

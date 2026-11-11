@@ -1,8 +1,16 @@
 package com.theveloper.pixelplay.data.gdrive
 
+import com.theveloper.pixelplay.BuildConfig
+
 object GDriveConstants {
-    // TODO: Replace with your Google Cloud Console OAuth2 Web Client ID
-    const val WEB_CLIENT_ID = "YOUR_WEB_CLIENT_ID.apps.googleusercontent.com"
+    // Configured via local.properties (GDRIVE_WEB_CLIENT_ID) or fallback
+    val WEB_CLIENT_ID: String = BuildConfig.GDRIVE_WEB_CLIENT_ID.ifEmpty {
+        "YOUR_WEB_CLIENT_ID.apps.googleusercontent.com"
+    }
+
+    fun isConfigured(): Boolean {
+        return WEB_CLIENT_ID.isNotBlank() && !WEB_CLIENT_ID.startsWith("YOUR_WEB_CLIENT_ID")
+    }
 
     const val SCOPE_DRIVE_READONLY = "https://www.googleapis.com/auth/drive.readonly"
     const val TOKEN_ENDPOINT = "https://oauth2.googleapis.com/token"

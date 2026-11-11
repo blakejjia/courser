@@ -42,18 +42,50 @@ class GDriveLoginViewModel @Inject constructor(
      * Process the credential from Credential Manager.
      * Exchanges the server auth code for access + refresh tokens.
      */
-    fun processCredential(idToken: String, serverAuthCode: String?) {
+    fun processCredential(
+        idToken: String,
+        serverAuthCode: String?,
+        email: String? = null,
+        displayName: String? = null,
+        profilePictureUri: String? = null
+    ) {
         _state.value = GDriveLoginState.Loading
         viewModelScope.launch {
-            val result = repository.loginWithCredential(idToken, serverAuthCode)
+            val result = repository.loginWithCredential(
+                idToken = idToken,
+                serverAuthCode = serverAuthCode,
+                email = email,
+                displayName = displayName,
+                profilePictureUri = profilePictureUri
+            )
             result.fold(
-                onSuccess = { email ->
-                    _state.value = GDriveLoginState.LoggedIn(email)
+                onSuccess = { userIdentifier ->
+                    _state.value = GDriveLoginState.LoggedIn(userIdentifier)
                     // Automatically transition to folder setup
                     browseFolders("root")
                 },
                 onFailure = { error ->
                     Timber.e(error, "GDrive login failed")
+                    _state.value = GDriveLoginState.Error(error.message ?: "Login failed")
+                }
+            )
+        }
+    }
+
+    /**
+     * Login directly with an access token (for developer / manual entry).
+     */
+    fun loginWithAccessToken(accessToken: String) {
+        _state.value = GDriveLoginState.Loading
+        viewModelScope.launch {
+            val result = repository.loginWithAccessToken(accessToken = accessToken)
+            result.fold(
+                onSuccess = { userIdentifier ->
+                    _state.value = GDriveLoginState.LoggedIn(userIdentifier)
+                    browseFolders("root")
+                },
+                onFailure = { error ->
+                    Timber.e(error, "GDrive access token login failed")
                     _state.value = GDriveLoginState.Error(error.message ?: "Login failed")
                 }
             )

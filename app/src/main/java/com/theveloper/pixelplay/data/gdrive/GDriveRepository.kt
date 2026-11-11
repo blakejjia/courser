@@ -102,6 +102,33 @@ class GDriveRepository @Inject constructor(
     }
 
     /**
+     * Direct login with an OAuth2 access token (e.g. from developer console or OAuth playground).
+     */
+    suspend fun loginWithAccessToken(
+        accessToken: String,
+        refreshToken: String? = null,
+        expiresInSeconds: Long = 3600L,
+        email: String? = null,
+        displayName: String? = null
+    ): Result<String> {
+        return withContext(Dispatchers.IO) {
+            try {
+                saveTokens(accessToken, refreshToken, expiresInSeconds)
+                api.setAccessToken(accessToken)
+                prefs.edit()
+                    .putString("gdrive_email", email)
+                    .putString("gdrive_display_name", displayName)
+                    .apply()
+                _isLoggedInFlow.value = true
+                Result.success(displayName ?: email ?: "User")
+            } catch (e: Exception) {
+                Timber.e(e, "GDrive token login failed")
+                Result.failure(e)
+            }
+        }
+    }
+
+    /**
      * Login using a Google ID token from Credential Manager.
      * For server auth code flow: exchanges the auth code for access + refresh tokens.
      */
@@ -317,23 +344,49 @@ class GDriveRepository @Inject constructor(
                     pageToken = root.optString("nextPageToken").takeIf { it.isNotBlank() }
                 } while (pageToken != null)
 
-                dao.deleteSongsByFolder(folderId)
-                dao.insertSongs(allEntities)
+                // Differential sync reconciliation:
+                // 1. Fetch existing songs for this folder
+                val existingSongs = dao.getSongsByFolderList(folderId).associateBy { it.driveFileId }
+                val remoteFileIds = allEntities.map { it.driveFileId }.toSet()
 
-                // Update folder with song count
+                // 2. Identify deleted / moved files (locally present but missing from remote)
+                val deletedSongs = existingSongs.filterKeys { it !in remoteFileIds }.values
+                if (deletedSongs.isNotEmpty()) {
+                    dao.deleteSongsByIds(deletedSongs.map { it.id })
+                    Timber.d("GDrive sync: removed ${deletedSongs.size} deleted songs from folder $folderId")
+                }
+
+                // 3. Reconcile metadata: preserve enriched fields (duration, album tags) from local DB if remote has placeholders
+                val reconciledEntities = allEntities.map { remote ->
+                    val existing = existingSongs[remote.driveFileId]
+                    if (existing != null) {
+                        remote.copy(
+                            duration = if (existing.duration > 0L) existing.duration else remote.duration,
+                            album = if (existing.album.isNotBlank() && existing.album != "Google Drive") existing.album else remote.album,
+                            albumArtUrl = existing.albumArtUrl ?: remote.albumArtUrl
+                        )
+                    } else {
+                        remote
+                    }
+                }
+
+                dao.insertSongs(reconciledEntities)
+
+                // 4. Update folder metadata (song count and last sync time)
+                val currentFolder = dao.getAllFoldersList().find { it.id == folderId }
                 dao.insertFolder(
                     GDriveFolderEntity(
                         id = folderId,
-                        name = dao.getAllFoldersList().find { it.id == folderId }?.name ?: "Drive Folder",
-                        songCount = allEntities.size,
+                        name = currentFolder?.name ?: "Drive Folder",
+                        songCount = reconciledEntities.size,
                         lastSyncTime = System.currentTimeMillis()
                     )
                 )
 
                 syncUnifiedLibrarySongsFromGDrive()
 
-                Timber.d("Synced ${allEntities.size} songs for folder $folderId")
-                Result.success(allEntities.size)
+                Timber.d("Synced ${reconciledEntities.size} songs for folder $folderId (added/updated: ${reconciledEntities.size}, deleted: ${deletedSongs.size})")
+                Result.success(reconciledEntities.size)
             } catch (e: Exception) {
                 Timber.e(e, "Failed to sync folder $folderId")
                 Result.failure(e)

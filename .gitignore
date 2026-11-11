@@ -13,6 +13,8 @@ hs_err_pid*.log
 /local.properties
 local.properties
 keystore.properties
+debug.keystore
+client_secret*.json
 
 /.idea/caches
 /.idea/libraries

@@ -530,6 +530,13 @@ private suspend fun signInWithGoogle(
     context: android.content.Context,
     viewModel: GDriveLoginViewModel
 ) {
+    if (!GDriveConstants.isConfigured()) {
+        val configMsg = "Google Client ID is not configured. Add GDRIVE_WEB_CLIENT_ID to local.properties or GDriveConstants.kt."
+        Toast.makeText(context, configMsg, Toast.LENGTH_LONG).show()
+        viewModel.processCredential("", null)
+        return
+    }
+
     try {
         val credentialManager = CredentialManager.create(context)
 
@@ -552,13 +559,21 @@ private suspend fun signInWithGoogle(
         val credential = result.credential
         val googleIdTokenCredential = GoogleIdTokenCredential.createFrom(credential.data)
         val idToken = googleIdTokenCredential.idToken
-        // serverAuthCode is available in the bundle data
+        // serverAuthCode is available in the bundle data when offline access / server client ID is configured
         val serverAuthCode = credential.data.getString("com.google.android.libraries.identity.googleid.BUNDLE_KEY_SERVER_AUTH_CODE")
 
-        viewModel.processCredential(idToken, serverAuthCode)
+        viewModel.processCredential(
+            idToken = idToken,
+            serverAuthCode = serverAuthCode,
+            email = googleIdTokenCredential.id,
+            displayName = googleIdTokenCredential.displayName,
+            profilePictureUri = googleIdTokenCredential.profilePictureUri?.toString()
+        )
     } catch (e: GetCredentialException) {
-        viewModel.processCredential("", null) // Will trigger error state
+        timber.log.Timber.e(e, "Google Sign-In credential exception")
+        viewModel.processCredential("", null)
     } catch (e: Exception) {
+        timber.log.Timber.e(e, "Google Sign-In failed")
         viewModel.processCredential("", null)
     }
 }

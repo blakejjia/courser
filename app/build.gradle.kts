@@ -101,7 +101,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.theveloper.pixelplay"
+        applicationId = "com.blake.courser"
         minSdk = 30
         targetSdk = 37
         versionCode = (project.findProperty("APP_VERSION_CODE") as? String)?.toInt() ?: 1
@@ -115,9 +115,23 @@ android {
             ?: "b18441a1ff607e10a989891a5462e627"
         buildConfigField("int", "TELEGRAM_API_ID", telegramApiId)
         buildConfigField("String", "TELEGRAM_API_HASH", "\"$telegramApiHash\"")
+
+        val gdriveWebClientId = localProperties.getProperty("GDRIVE_WEB_CLIENT_ID")?.ifEmpty { null }
+            ?: "YOUR_WEB_CLIENT_ID.apps.googleusercontent.com"
+        buildConfigField("String", "GDRIVE_WEB_CLIENT_ID", "\"$gdriveWebClientId\"")
     }
 
     signingConfigs {
+        getByName("debug") {
+            val debugKeyFile = file("$rootDir/debug.keystore")
+            if (debugKeyFile.exists()) {
+                storeFile = debugKeyFile
+                storePassword = "android"
+                keyAlias = "androiddebugkey"
+                keyPassword = "android"
+            }
+        }
+
         create("release") {
             storeFile = file("$rootDir/vz-pixelplay.jks")
             storePassword = keystoreProperties.getProperty("storePassword") ?: "dummyPassword"
@@ -128,7 +142,7 @@ android {
 
     buildTypes {
         debug {
-            applicationIdSuffix = ".debug"
+            // No suffix so package name matches com.blake.courser for OAuth and replacement
         }
 
         release {

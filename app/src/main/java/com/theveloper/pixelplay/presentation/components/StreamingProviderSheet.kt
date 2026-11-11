@@ -49,6 +49,8 @@ fun StreamingProviderSheet(
     onNavigateToNavidromeDashboard: () -> Unit = {},
     isJellyfinLoggedIn: Boolean = false,
     onNavigateToJellyfinDashboard: () -> Unit = {},
+    isGDriveLoggedIn: Boolean = false,
+    onNavigateToGDriveDashboard: () -> Unit = {},
     sheetState: SheetState = rememberModalBottomSheetState(
         skipPartiallyExpanded = true
     )
@@ -120,10 +122,17 @@ fun StreamingProviderSheet(
                         iconPainter = painterResource(R.drawable.rounded_drive_export_24),
                         iconTint = Color(0xFF4285F4),
                         title = "Google Drive",
-                        subtitle = "Coming soon",
+                        subtitle = if (isGDriveLoggedIn) "Connected · Google Cloud" else "Stream from Google Drive",
                         shape = providerSegmentItemShape,
-                        enabled = false,
-                        onClick = { }
+                        isConnected = isGDriveLoggedIn,
+                        onClick = {
+                            if (isGDriveLoggedIn) {
+                                onNavigateToGDriveDashboard()
+                            } else {
+                                context.startActivity(Intent(context, com.theveloper.pixelplay.presentation.gdrive.auth.GDriveLoginActivity::class.java))
+                            }
+                            onDismissRequest()
+                        }
                     )
 
                     ProviderRow(

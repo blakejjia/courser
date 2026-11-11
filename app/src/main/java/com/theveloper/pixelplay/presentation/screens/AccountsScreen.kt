@@ -98,6 +98,7 @@ fun AccountsScreen(
     onOpenQqMusicDashboard: () -> Unit = {},
     onOpenNavidromeDashboard: () -> Unit = {},
     onOpenJellyfinDashboard: () -> Unit = {},
+    onOpenGDriveDashboard: () -> Unit = {},
     viewModel: AccountsViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
@@ -213,6 +214,7 @@ fun AccountsScreen(
                                 onOpenQqMusicDashboard = onOpenQqMusicDashboard,
                                 onOpenNavidromeDashboard = onOpenNavidromeDashboard,
                                 onOpenJellyfinDashboard = onOpenJellyfinDashboard,
+                                onOpenGDriveDashboard = onOpenGDriveDashboard,
                                 preferNeteaseDashboard = true
                             )
                         },
@@ -223,6 +225,8 @@ fun AccountsScreen(
                             painterResource(R.drawable.qq_music)
                         } else if (account.service == ExternalServiceAccount.TELEGRAM) {
                             painterResource(R.drawable.telegram)
+                        } else if (account.service == ExternalServiceAccount.GOOGLE_DRIVE) {
+                            painterResource(R.drawable.rounded_drive_export_24)
                         } else if (account.service == ExternalServiceAccount.JELLYFIN) {
                             painterResource(R.drawable.ic_jellyfin)
                         } else if (account.service == ExternalServiceAccount.NAVIDROME) {
@@ -242,6 +246,7 @@ fun AccountsScreen(
                                 onOpenQqMusicDashboard = onOpenQqMusicDashboard,
                                 onOpenNavidromeDashboard = onOpenNavidromeDashboard,
                                 onOpenJellyfinDashboard = onOpenJellyfinDashboard,
+                                onOpenGDriveDashboard = onOpenGDriveDashboard,
                                 preferNeteaseDashboard = false
                             )
                         }
@@ -355,7 +360,7 @@ private fun ConnectedAccountCard(
     val loggingOut = stringResource(R.string.accounts_logging_out_status)
     val logOut = stringResource(R.string.cloud_cd_logout)
     val palette = servicePalette(account.service)
-    val isComingSoon = account.service == ExternalServiceAccount.GOOGLE_DRIVE
+    val isComingSoon = false
     val cardShape = AbsoluteSmoothCornerShape(28.dp, 60)
 
     Card(
@@ -555,7 +560,7 @@ private fun EmptyAccountsCard(
             )
 
             disconnectedServices.forEach { service ->
-                val isComingSoon = service == ExternalServiceAccount.GOOGLE_DRIVE
+                val isComingSoon = false
                 val painter = when (service) {
                     ExternalServiceAccount.NETEASE -> painterResource(R.drawable.netease_cloud_music_logo_icon_206716__1_)
                     ExternalServiceAccount.QQ_MUSIC -> painterResource(R.drawable.qq_music)
@@ -731,6 +736,7 @@ private fun openService(
     onOpenQqMusicDashboard: () -> Unit,
     onOpenNavidromeDashboard: () -> Unit,
     onOpenJellyfinDashboard: () -> Unit,
+    onOpenGDriveDashboard: () -> Unit,
     preferNeteaseDashboard: Boolean
 ) {
     when (service) {
@@ -741,7 +747,14 @@ private fun openService(
             )
         }
         ExternalServiceAccount.GOOGLE_DRIVE -> {
-            Toast.makeText(context, context.getString(R.string.accounts_google_drive_soon), Toast.LENGTH_SHORT).show()
+            if (preferNeteaseDashboard) {
+                onOpenGDriveDashboard()
+            } else {
+                safeStartActivity(
+                    context = context,
+                    intent = Intent(context, GDriveLoginActivity::class.java)
+                )
+            }
         }
         ExternalServiceAccount.NETEASE -> {
             if (preferNeteaseDashboard) {

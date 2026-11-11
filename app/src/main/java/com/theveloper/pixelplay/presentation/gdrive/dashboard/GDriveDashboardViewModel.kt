@@ -41,8 +41,8 @@ class GDriveDashboardViewModel @Inject constructor(
             _syncMessage.value = "Syncing all folders..."
             val result = repository.syncAllFoldersAndSongs()
             result.fold(
-                onSuccess = { count ->
-                    _syncMessage.value = "Synced $count songs"
+                onSuccess = { bulk ->
+                    _syncMessage.value = "Synced ${bulk.syncedSongCount} songs across ${bulk.folderCount} folders"
                 },
                 onFailure = {
                     _syncMessage.value = "Sync failed: ${it.message}"

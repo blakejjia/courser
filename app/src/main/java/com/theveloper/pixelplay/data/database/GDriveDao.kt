@@ -20,6 +20,9 @@ interface GDriveDao {
     @Query("SELECT * FROM gdrive_songs WHERE folder_id = :folderId ORDER BY title ASC")
     fun getSongsByFolder(folderId: String): Flow<List<GDriveSongEntity>>
 
+    @Query("SELECT * FROM gdrive_songs WHERE folder_id = :folderId")
+    suspend fun getSongsByFolderList(folderId: String): List<GDriveSongEntity>
+
     @Query("SELECT * FROM gdrive_songs WHERE title LIKE '%' || :query || '%' OR artist LIKE '%' || :query || '%'")
     fun searchSongs(query: String): Flow<List<GDriveSongEntity>>
 
@@ -31,6 +34,9 @@ interface GDriveDao {
 
     @Query("DELETE FROM gdrive_songs WHERE id = :songId")
     suspend fun deleteSong(songId: String)
+
+    @Query("DELETE FROM gdrive_songs WHERE id IN (:ids)")
+    suspend fun deleteSongsByIds(ids: List<String>)
 
     @Query("DELETE FROM gdrive_songs WHERE folder_id = :folderId")
     suspend fun deleteSongsByFolder(folderId: String)

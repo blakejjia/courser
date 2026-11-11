@@ -99,7 +99,7 @@ class GDriveStreamProxy @Inject constructor(
     fun resolveGDriveUri(uriString: String): String? {
         val uri = Uri.parse(uriString)
         if (uri.scheme != "gdrive") return null
-        val fileId = uri.host ?: return null
+        val fileId = uri.host ?: uri.authority ?: uri.schemeSpecificPart.removePrefix("//")
         if (!CloudStreamSecurity.validateGDriveFileId(fileId)) return null
         return getProxyUrl(fileId)
     }
