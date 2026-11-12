@@ -5,6 +5,5 @@
         <item name="android:windowIsTranslucent">false</item>
         <item name="android:windowDisablePreview">true</item>
     </style>
-
     <style name="Theme.PixelPlayWear" parent="Theme.CourserWear" />
 </resources>
