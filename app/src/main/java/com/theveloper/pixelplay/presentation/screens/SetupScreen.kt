@@ -141,7 +141,6 @@ import com.theveloper.pixelplay.presentation.components.PermissionIconCollage
 import com.theveloper.pixelplay.presentation.components.BackupModuleSelectionDialog
 import com.theveloper.pixelplay.presentation.components.subcomps.MaterialYouVectorDrawable
 import com.theveloper.pixelplay.presentation.components.subcomps.SineWaveLine
-import com.theveloper.pixelplay.presentation.components.FileExplorerDialog
 import com.theveloper.pixelplay.presentation.viewmodel.DirectoryEntry
 import com.theveloper.pixelplay.presentation.viewmodel.SetupEvent
 import com.theveloper.pixelplay.presentation.viewmodel.SetupUiState
@@ -171,13 +170,6 @@ fun SetupScreen(
     val context = LocalContext.current
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
     val uiState by setupViewModel.uiState.collectAsStateWithLifecycle()
-    val currentPath by setupViewModel.currentPath.collectAsStateWithLifecycle()
-    val directoryChildren by setupViewModel.currentDirectoryChildren.collectAsStateWithLifecycle()
-    val availableStorages by setupViewModel.availableStorages.collectAsStateWithLifecycle()
-    val selectedStorageIndex by setupViewModel.selectedStorageIndex.collectAsStateWithLifecycle()
-    val isExplorerPriming by setupViewModel.isExplorerPriming.collectAsStateWithLifecycle()
-    val isExplorerReady by setupViewModel.isExplorerReady.collectAsStateWithLifecycle()
-    val isCurrentDirectoryResolved by setupViewModel.isCurrentDirectoryResolved.collectAsStateWithLifecycle()
     var selectedBackupUri by remember { mutableStateOf<Uri?>(null) }
     
     var showCornerRadiusOverlay by remember { mutableStateOf(false) }
@@ -344,26 +336,9 @@ fun SetupScreen(
                     )
                     SetupPage.DirectorySelection -> DirectorySelectionPage(
                         uiState = uiState,
-                        currentPath = currentPath,
-                        directoryChildren = directoryChildren,
-                        availableStorages = availableStorages,
-                        selectedStorageIndex = selectedStorageIndex,
-                        isExplorerPriming = isExplorerPriming,
-                        isExplorerReady = isExplorerReady,
-                        isCurrentDirectoryResolved = isCurrentDirectoryResolved,
-                        isAtRoot = setupViewModel.isAtRoot(),
-                        explorerRoot = setupViewModel.explorerRoot(),
-                        onOpenExplorer = setupViewModel::openExplorer,
-                        onNavigateTo = setupViewModel::loadDirectory,
-                        onNavigateUp = setupViewModel::navigateUp,
-                        onRefresh = setupViewModel::refreshCurrentDirectory,
-                        onPrimeExplorer = setupViewModel::primeExplorer,
                         onSkip = {
                             navigateToPage(pagerState.currentPage + 1)
-                        },
-                        onToggleAllowed = setupViewModel::toggleDirectoryAllowed,
-                        onSelectionFinished = setupViewModel::applyPendingDirectoryRuleChanges,
-                        onStorageSelected = setupViewModel::selectStorage
+                        }
                     )
                     SetupPage.NotificationsPermission -> NotificationsPermissionPage(
                         uiState = uiState,
@@ -450,24 +425,7 @@ fun SetupScreen(
 @Composable
 fun DirectorySelectionPage(
     uiState: SetupUiState,
-    currentPath: File,
-    directoryChildren: List<DirectoryEntry>,
-    availableStorages: List<StorageInfo>,
-    selectedStorageIndex: Int,
-    isExplorerPriming: Boolean,
-    isExplorerReady: Boolean,
-    isCurrentDirectoryResolved: Boolean,
-    isAtRoot: Boolean,
-    explorerRoot: File,
-    onOpenExplorer: () -> Unit,
-    onNavigateTo: (File) -> Unit,
-    onNavigateUp: () -> Unit,
-    onRefresh: () -> Unit,
-    onPrimeExplorer: () -> Unit,
-    onSkip: () -> Unit,
-    onToggleAllowed: (File) -> Unit,
-    onSelectionFinished: () -> Unit,
-    onStorageSelected: (Int) -> Unit
+    onSkip: () -> Unit
 ) {
     var showDirectoryPicker by remember { mutableStateOf(false) }
     val context = LocalContext.current
@@ -475,21 +433,14 @@ fun DirectorySelectionPage(
     val hasMediaPermission = uiState.mediaPermissionGranted
     val canOpenDirectoryPicker = hasMediaPermission
 
-    LaunchedEffect(canOpenDirectoryPicker) {
-        if (canOpenDirectoryPicker) {
-            onPrimeExplorer()
-        }
-    }
-
     PermissionPageLayout(
-        title = stringResource(R.string.setup_excluded_folders_title),
-        description = stringResource(R.string.setup_excluded_folders_description),
-        buttonText = stringResource(R.string.setup_choose_folders_ignore),
+        title = "Add Course Folders",
+        description = "Courser organizes each audio folder into a full course. Select the folders from your device or Google Drive to get started.",
+        buttonText = "Select Course Folders",
         buttonEnabled = canOpenDirectoryPicker,
         onGrantClicked = {
             if (canOpenDirectoryPicker) {
                 showDirectoryPicker = true
-                onOpenExplorer()
             } else {
                 Toast.makeText(context, context.getString(R.string.setup_toast_grant_storage_first), Toast.LENGTH_SHORT).show()
             }
@@ -507,33 +458,21 @@ fun DirectorySelectionPage(
         }
     }
 
-    FileExplorerDialog(
-        visible = showDirectoryPicker,
-        currentPath = currentPath,
-        directoryChildren = directoryChildren,
-        availableStorages = availableStorages,
-        selectedStorageIndex = selectedStorageIndex,
-        isLoading = uiState.isLoadingDirectories,
-        isPriming = isExplorerPriming,
-        isReady = isExplorerReady,
-        isCurrentDirectoryResolved = isCurrentDirectoryResolved,
-        isAtRoot = isAtRoot,
-        rootDirectory = explorerRoot,
-        onNavigateTo = onNavigateTo,
-        onNavigateUp = onNavigateUp,
-        onNavigateHome = { onNavigateTo(explorerRoot) },
-        onToggleAllowed = onToggleAllowed,
-        onRefresh = onRefresh,
-        onStorageSelected = onStorageSelected,
-        onDone = {
-            onSelectionFinished()
-            showDirectoryPicker = false
-        },
-        onDismiss = {
-            onSelectionFinished()
-            showDirectoryPicker = false
+    if (showDirectoryPicker) {
+        Dialog(
+            onDismissRequest = { showDirectoryPicker = false },
+            properties = DialogProperties(usePlatformDefaultWidth = false)
+        ) {
+            CourseFolderSelectionScreen(
+                onBack = { showDirectoryPicker = false },
+                isSetupFlow = true,
+                onContinueSetup = {
+                    showDirectoryPicker = false
+                    onSkip()
+                }
+            )
         }
-    )
+    }
 }
 
 sealed class SetupPage {

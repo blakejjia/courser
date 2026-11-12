@@ -1149,6 +1149,9 @@ class DualPlayerEngine @Inject constructor(
         playerB?.let { return it }
         return buildPlayer().also { player ->
             player.setWakeMode(currentWakeMode)
+            if (::playerA.isInitialized) {
+                player.playbackParameters = playerA.playbackParameters
+            }
             playerB = player
         }
     }

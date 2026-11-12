@@ -35,8 +35,20 @@ class GDriveLoginViewModel @Inject constructor(
     private val repository: GDriveRepository
 ) : ViewModel() {
 
-    private val _state = MutableStateFlow<GDriveLoginState>(GDriveLoginState.Idle)
+    private val _state = MutableStateFlow<GDriveLoginState>(
+        if (repository.isLoggedIn) {
+            GDriveLoginState.LoggedIn(repository.userDisplayName ?: repository.userEmail ?: "User")
+        } else {
+            GDriveLoginState.Idle
+        }
+    )
     val state: StateFlow<GDriveLoginState> = _state.asStateFlow()
+
+    init {
+        if (repository.isLoggedIn) {
+            browseFolders("root")
+        }
+    }
 
     /**
      * Process the credential from Credential Manager.

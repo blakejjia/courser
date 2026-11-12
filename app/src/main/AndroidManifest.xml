@@ -293,17 +293,6 @@
 
         <!-- Quick Settings Tiles -->
         <service
-            android:name=".data.service.tile.ShuffleAllTileService"
-            android:exported="true"
-            android:label="@string/tile_shuffle_all"
-            android:icon="@drawable/ic_shortcut_shuffle"
-            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
-            <intent-filter>
-                <action android:name="android.service.quicksettings.action.QS_TILE" />
-            </intent-filter>
-        </service>
-
-        <service
             android:name=".data.service.tile.LastPlaylistTileService"
             android:exported="true"
             android:label="@string/tile_last_playlist"

@@ -21,6 +21,7 @@ import com.theveloper.pixelplay.data.model.Song
 import com.theveloper.pixelplay.data.stream.CloudMusicUtils
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -80,13 +81,17 @@ class GDriveRepository @Inject constructor(
 
     init {
         initFromSavedTokens()
-        _isLoggedInFlow.value = api.hasToken()
-        Timber.d("GDriveRepository init: isLoggedIn=${api.hasToken()}, email=${userEmail}")
+        _isLoggedInFlow.value = isLoggedIn
+        Timber.d("GDriveRepository init: isLoggedIn=$isLoggedIn, email=${userEmail}")
     }
 
     // --- Auth State ---
 
-    val isLoggedIn: Boolean get() = api.hasToken()
+    val isLoggedIn: Boolean
+        get() = api.hasToken() ||
+                !prefs.getString("gdrive_refresh_token", null).isNullOrBlank() ||
+                !prefs.getString("gdrive_access_token", null).isNullOrBlank()
+
     val userEmail: String? get() = prefs.getString("gdrive_email", null)
     val userDisplayName: String? get() = prefs.getString("gdrive_display_name", null)
     val userAvatar: String? get() = prefs.getString("gdrive_avatar", null)
@@ -94,14 +99,19 @@ class GDriveRepository @Inject constructor(
     // --- Token Management ---
 
     private fun initFromSavedTokens() {
-        val accessToken = prefs.getString("gdrive_access_token", null) ?: return
+        val accessToken = prefs.getString("gdrive_access_token", null)
+        val refreshToken = prefs.getString("gdrive_refresh_token", null)
         val expiresAt = prefs.getLong("gdrive_token_expires_at", 0L)
 
-        if (System.currentTimeMillis() < expiresAt) {
+        if (!accessToken.isNullOrBlank()) {
             api.setAccessToken(accessToken)
-        } else {
-            // Token expired, will refresh on next API call
-            Timber.d("GDrive access token expired, will refresh on next use")
+        }
+
+        if ((accessToken.isNullOrBlank() || System.currentTimeMillis() >= expiresAt) && !refreshToken.isNullOrBlank()) {
+            Timber.d("GDrive token needs refresh on startup, scheduling background refresh")
+            kotlinx.coroutines.CoroutineScope(Dispatchers.IO).launch {
+                refreshAccessToken()
+            }
         }
     }
 

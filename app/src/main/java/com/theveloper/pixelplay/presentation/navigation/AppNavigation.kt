@@ -544,6 +544,15 @@ fun AppNavigation(
                     )
                 }
             }
+            composable(
+                Screen.CourseFolderSelection.route,
+            ) {
+                ScreenWrapper(navController = navController, playerViewModel = playerViewModel, animatedVisibilityScope = this) {
+                    com.theveloper.pixelplay.presentation.screens.CourseFolderSelectionScreen(
+                        onBack = { navController.popBackStack() }
+                    )
+                }
+            }
         }
     }
 }
