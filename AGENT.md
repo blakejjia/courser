@@ -1,18 +1,19 @@
-# AGENT.md: PixelPlayer-gcloud Knowledge Base & Architecture Guide
+# AGENT.md: Courser Knowledge Base & Architecture Guide
 
-> **Target Audience**: AI Agents (and Human Contributors) working on the `PixelPlayer-gcloud` codebase.
-> **Last Updated**: November 2026 (Reflects App Version `0.7.5-beta`, Room DB Version `42`, SDK 37 target).
+> **Target Audience**: AI Agents (and Human Contributors) working on the `Courser` codebase.
+> **Last Updated**: November 2026.
 
 ---
 
 ## 1. Project Overview & Mission
 
-**PixelPlayer-gcloud** (also branded as **PixelPlay**) is a modern, high-performance offline & multi-cloud music player for Android 11+ (API 30–37) and Wear OS.
+**Courser** is an open-source course- and dictionary-based audio player for Android 11+ (API 30–37).
 
-Originating as a fork/extension of the open-source PixelPlayer project, the distinguishing superpower of this repository is **deep multi-cloud streaming and unified library management**:
-- It unifies local storage (Android MediaStore / Scoped Storage) with **Google Drive**, **Navidrome / Subsonic**, **Jellyfin**, **NetEase Cloud Music (网易云音乐)**, **QQ Music (QQ音乐)**, and **Telegram** (via TDLib).
-- It streams cloud audio directly into a customized **Media3 ExoPlayer** pipeline via embedded local HTTP proxies (Ktor CIO), enabling features like gapless playback, crossfade, and equalizer across all sources.
-- Built 100% with modern Kotlin, Jetpack Compose, Material Design 3 (Material You), and Android Jetpack architecture components.
+Originating as a fork of PixelPlayer, the core mission of Courser is **structured, distraction-free course audio playing from local storage and Google Drive**:
+- **Course-Centric Hierarchy**: 1 selected folder = 1 course. All audio files within the folder and its subdirectories are recursively indexed into that course.
+- **Dedicated Learning Hub**: Features "Today's Learn" for daily study and a unified Course Library with instant search.
+- **Deep Cloud Streaming**: Integrates **Google Drive** (with differential sync and local Ktor streaming proxy) alongside self-hosted servers (Navidrome / Subsonic and Jellyfin). Consumer music platforms (Netease, QQ Music) are excluded.
+- Built 100% with modern Kotlin, Jetpack Compose, Material Design 3 Expressive, and Media3 ExoPlayer.
 
 ---
 

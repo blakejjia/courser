@@ -137,7 +137,9 @@ android {
         }
 
         create("release") {
-            storeFile = file("$rootDir/vz-pixelplay.jks")
+            val ksName = keystoreProperties.getProperty("storeFile") ?: "courser-upload.jks"
+            val ksFile = file("$rootDir/$ksName").let { if (it.exists()) it else file("$rootDir/vz-pixelplay.jks") }
+            storeFile = ksFile
             storePassword = keystoreProperties.getProperty("storePassword") ?: "dummyPassword"
             keyAlias = keystoreProperties.getProperty("keyAlias") ?: "dummyAlias"
             keyPassword = keystoreProperties.getProperty("keyPassword") ?: "dummyPassword"
@@ -150,7 +152,8 @@ android {
         }
 
         release {
-            val keystoreFile = file("$rootDir/vz-pixelplay.jks")
+            val ksName = keystoreProperties.getProperty("storeFile") ?: "courser-upload.jks"
+            val keystoreFile = file("$rootDir/$ksName").let { if (it.exists()) it else file("$rootDir/vz-pixelplay.jks") }
             signingConfig = if (keystoreFile.exists()) {
                 signingConfigs.getByName("release")
             } else {

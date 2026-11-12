@@ -34,7 +34,6 @@ import com.theveloper.pixelplay.data.preferences.PlaylistPreferencesRepository
 import com.theveloper.pixelplay.data.preferences.dataStore
 import com.theveloper.pixelplay.data.media.SongMetadataEditor
 import com.theveloper.pixelplay.data.network.deezer.DeezerApiService
-import com.theveloper.pixelplay.data.network.netease.NeteaseApiService
 import com.theveloper.pixelplay.data.network.lyrics.LrcLibApiService
 import com.theveloper.pixelplay.data.repository.ArtistImageRepository
 import com.theveloper.pixelplay.data.repository.LyricsRepository
@@ -236,12 +235,6 @@ object AppModule {
 
     @Singleton
     @Provides
-    fun provideQqMusicDao(database: PixelPlayDatabase): com.theveloper.pixelplay.data.database.QqMusicDao {
-        return database.qqmusicDao()
-    }
-
-    @Singleton
-    @Provides
     fun provideNavidromeDao(database: PixelPlayDatabase): com.theveloper.pixelplay.data.database.NavidromeDao {
         return database.navidromeDao()
     }
@@ -353,12 +346,6 @@ object AppModule {
     @Provides
     fun provideTelegramDao(database: PixelPlayDatabase): com.theveloper.pixelplay.data.database.TelegramDao {
         return database.telegramDao()
-    }
-
-    @Singleton
-    @Provides
-    fun provideNeteaseDao(database: PixelPlayDatabase): com.theveloper.pixelplay.data.database.NeteaseDao {
-        return database.neteaseDao()
     }
 
     @Provides

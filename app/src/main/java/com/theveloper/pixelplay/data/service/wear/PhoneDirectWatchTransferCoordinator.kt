@@ -13,12 +13,10 @@ import com.theveloper.pixelplay.data.gdrive.GDriveStreamProxy
 import com.google.android.gms.wearable.Wearable
 import com.theveloper.pixelplay.data.model.Song
 import com.theveloper.pixelplay.data.navidrome.NavidromeStreamProxy
-import com.theveloper.pixelplay.data.netease.NeteaseStreamProxy
 import com.theveloper.pixelplay.data.preferences.AlbumArtPaletteStyle
 import com.theveloper.pixelplay.data.preferences.AlbumArtColorAccuracy
 import com.theveloper.pixelplay.data.preferences.ThemePreferencesRepository
 import com.theveloper.pixelplay.data.preferences.ThemePreference
-import com.theveloper.pixelplay.data.qqmusic.QqMusicStreamProxy
 import com.theveloper.pixelplay.data.repository.MusicRepository
 import com.theveloper.pixelplay.data.telegram.TelegramRepository
 import com.theveloper.pixelplay.data.telegram.TelegramStreamProxy
@@ -62,8 +60,6 @@ class PhoneDirectWatchTransferCoordinator @Inject constructor(
     private val transferCancellationStore: PhoneWatchTransferCancellationStore,
     private val telegramRepository: TelegramRepository,
     private val telegramStreamProxy: Lazy<TelegramStreamProxy>,
-    private val neteaseStreamProxy: NeteaseStreamProxy,
-    private val qqMusicStreamProxy: QqMusicStreamProxy,
     private val navidromeStreamProxy: NavidromeStreamProxy,
     private val jellyfinStreamProxy: com.theveloper.pixelplay.data.jellyfin.JellyfinStreamProxy,
     private val gDriveStreamProxy: GDriveStreamProxy,
@@ -284,7 +280,6 @@ class PhoneDirectWatchTransferCoordinator @Inject constructor(
         val contentUri = song.contentUriString
         if (
             contentUri.startsWith("telegram://") ||
-            contentUri.startsWith("netease://") ||
             contentUri.startsWith("gdrive://")
         ) {
             return false
@@ -394,15 +389,6 @@ class PhoneDirectWatchTransferCoordinator @Inject constructor(
         return when (uri.scheme?.lowercase()) {
             "http", "https" -> rawUri
             "telegram" -> resolveTelegramStreamUrl(song, uri, rawUri)
-            "netease" -> {
-                ensureCloudProxyReady(neteaseStreamProxy) || return null
-                neteaseStreamProxy.resolveNeteaseUri(rawUri)
-            }
-            "qqmusic" -> {
-                ensureCloudProxyReady(qqMusicStreamProxy) || return null
-                qqMusicStreamProxy.warmUpStreamUrl(rawUri)
-                qqMusicStreamProxy.resolveQqMusicUri(rawUri)
-            }
             "navidrome" -> {
                 ensureCloudProxyReady(navidromeStreamProxy) || return null
                 navidromeStreamProxy.warmUpStreamUrl(rawUri)
@@ -449,8 +435,6 @@ class PhoneDirectWatchTransferCoordinator @Inject constructor(
 
     private suspend fun ensureCloudProxyReady(proxy: Any): Boolean {
         return when (proxy) {
-            is NeteaseStreamProxy -> proxy.ensureReady(5_000L)
-            is QqMusicStreamProxy -> proxy.ensureReady(5_000L)
             is NavidromeStreamProxy -> proxy.ensureReady(5_000L)
             is com.theveloper.pixelplay.data.jellyfin.JellyfinStreamProxy -> proxy.ensureReady(5_000L)
             else -> false

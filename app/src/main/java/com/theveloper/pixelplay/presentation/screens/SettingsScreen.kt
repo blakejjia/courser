@@ -290,6 +290,7 @@ fun SettingsScreen(
                 title = stringResource(R.string.common_settings),
                 collapseFraction = collapseFraction,
                 headerHeight = currentTopBarHeightDp,
+                showBackButton = false,
                 onBackClick = onNavigationIconClick
         )
 

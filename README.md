@@ -1,38 +1,23 @@
-# Courser 🎵
+# Courser 🎓
 
 <p align="center">
   <img src="assets/PixelPlayer.svg" alt="App Icon" height="250"/>
 </p>
-<p align="center">
-<a href="https://trendshift.io/repositories/15551" target="_blank"><img src="https://trendshift.io/api/badge/repositories/15551" alt="PixelPlayerHQ%2FPixelPlayer | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
-</p>
-<p align="center">
-  <strong>A beautiful, feature-rich music player for Android</strong><br>
-  Built with Jetpack Compose and Material Design 3
-</p>
 
 <p align="center">
-  <img src="assets/screenshot1.jpg" alt="Screenshot 1" width="200" style="border-radius:26px;"/>
-  <img src="assets/screenshot2.jpg" alt="Screenshot 2" width="200" style="border-radius:26px;"/>
-  <img src="assets/screenshot3.jpg" alt="Screenshot 3" width="200" style="border-radius:26px;"/>
-  <img src="assets/screenshot4.jpg" alt="Screenshot 4" width="200" style="border-radius:26px;"/>
-</p>
-
-<p align="center">
-    <a href="https://github.com/theovilardo/PixelPlayer/releases/latest">
-        <img src="https://img.shields.io/github/v/release/theovilardo/PixelPlayer?include_prereleases&logo=github&style=for-the-badge&label=Latest%20Release" alt="Latest Release">
-    </a>
-    <a href="https://github.com/theovilardo/PixelPlayer/releases">
-        <img src="https://img.shields.io/github/downloads/theovilardo/PixelPlayer/total?logo=github&style=for-the-badge" alt="Total Downloads">
-    </a>
-    <img src="https://img.shields.io/badge/Android-11%2B-green?style=for-the-badge&logo=android" alt="Android 11+">
-    <img src="https://img.shields.io/badge/Kotlin-100%25-purple?style=for-the-badge&logo=kotlin" alt="Kotlin">
+  <strong>A course- and dictionary-based audio player for Android</strong><br>
+  A PixelPlayer fork focused on local and Google Drive course playing.<br>
+  Built with Jetpack Compose and Material Design 3 Expressive
 </p>
 
 ---
 
-## ‼️ DISCLAIMER
-- No fork of this project will recieve support, if you use a fork, ask the forker to support you.
+## 📖 About Courser
+Courser is an open-source Android application designed specifically for listening to and studying audio courses. Forked from PixelPlayer, it transforms the traditional music-centric interface into a structured learning player:
+- **Course Folders**: Point to any folder in Google Drive or local storage; every folder is recursively treated as a unified course.
+- **Today's Learn**: A dedicated daily learning journey highlighting enrolled courses.
+- **Search & Library**: Unified Course Library with real-time course title searching.
+- **Seamless Streaming**: Direct streaming from Google Drive with differential sync and offline playback support.
 
 ---
 

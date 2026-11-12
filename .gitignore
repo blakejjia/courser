@@ -5,8 +5,10 @@ hs_err_pid*.log
 *.apk
 *.aab
 **.jks
-
-.gradle
+*.jks.base64.txt
+generate_keystore.ps1
+keystore.properties
+.gradle/
 .gradle-local/
 .gradle-temp/
 .kotlin/

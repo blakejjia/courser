@@ -415,9 +415,7 @@ class PlaylistsModuleHandler @Inject constructor(
     private suspend fun buildCloudSongIdSet(): Set<String> {
         val cloudIds = mutableSetOf<String>()
         musicDao.getAllTelegramSongIds().mapTo(cloudIds) { it.toString() }
-        musicDao.getAllNeteaseSongIds().mapTo(cloudIds) { it.toString() }
         musicDao.getAllGDriveSongIds().mapTo(cloudIds) { it.toString() }
-        musicDao.getAllQqMusicSongIds().mapTo(cloudIds) { it.toString() }
         return cloudIds
     }
 

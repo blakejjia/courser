@@ -611,8 +611,8 @@ class MainActivity : ComponentActivity() {
         val commonNavItems = remember {
             persistentListOf(
                 BottomNavItem("Home", R.string.nav_bar_home, R.drawable.rounded_home_24, R.drawable.home_24_rounded_filled, Screen.Home),
-                BottomNavItem("Search", R.string.nav_bar_search, R.drawable.rounded_search_24, R.drawable.rounded_search_24, Screen.Search),
-                BottomNavItem("Library", R.string.nav_bar_library, R.drawable.rounded_library_music_24, R.drawable.round_library_music_24, Screen.Library)
+                BottomNavItem("Library", R.string.nav_bar_library, R.drawable.rounded_library_music_24, R.drawable.round_library_music_24, Screen.Library),
+                BottomNavItem("Settings", R.string.common_settings, R.drawable.rounded_settings_24, R.drawable.rounded_settings_24, Screen.Settings)
             )
         }
         val navBackStackEntry by navController.currentBackStackEntryAsState()
@@ -621,7 +621,6 @@ class MainActivity : ComponentActivity() {
 
         val routesWithHiddenNavigationBar = remember {
             setOf(
-                Screen.Settings.route,
                 Screen.Accounts.route,
                 Screen.PlaylistDetail.route,
                 Screen.DailyMixScreen.route,

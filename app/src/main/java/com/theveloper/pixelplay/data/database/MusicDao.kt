@@ -258,14 +258,8 @@ interface MusicDao {
     """)
     suspend fun getTelegramSongIdsByTopicId(chatId: Long, threadId: Long): List<Long>
 
-    @Query("SELECT id FROM songs WHERE source_type = 2")
-    suspend fun getAllNeteaseSongIds(): List<Long>
-
     @Query("SELECT id FROM songs WHERE source_type = 3")
     suspend fun getAllGDriveSongIds(): List<Long>
-
-    @Query("SELECT id FROM songs WHERE source_type = 4")
-    suspend fun getAllQqMusicSongIds(): List<Long>
 
     @Query("SELECT id FROM songs WHERE source_type = 5")
     suspend fun getAllNavidromeSongIds(): List<Long>
@@ -287,24 +281,10 @@ interface MusicDao {
     }
 
     @Transaction
-    suspend fun clearAllNeteaseSongs() {
-        val neteaseSongIds = getAllNeteaseSongIds()
-        if (neteaseSongIds.isEmpty()) return
-        deleteSongsAndRelatedData(neteaseSongIds)
-    }
-
-    @Transaction
     suspend fun clearAllGDriveSongs() {
         val gdriveSongIds = getAllGDriveSongIds()
         if (gdriveSongIds.isEmpty()) return
         deleteSongsAndRelatedData(gdriveSongIds)
-    }
-
-    @Transaction
-    suspend fun clearAllQqMusicSongs() {
-        val qqMusicSongIds = getAllQqMusicSongIds()
-        if (qqMusicSongIds.isEmpty()) return
-        deleteSongsAndRelatedData(qqMusicSongIds)
     }
 
     @Transaction

@@ -5,8 +5,6 @@ import androidx.lifecycle.viewModelScope
 import com.theveloper.pixelplay.data.gdrive.GDriveRepository
 import com.theveloper.pixelplay.data.jellyfin.JellyfinRepository
 import com.theveloper.pixelplay.data.navidrome.NavidromeRepository
-import com.theveloper.pixelplay.data.netease.NeteaseRepository
-import com.theveloper.pixelplay.data.qqmusic.QqMusicRepository
 import com.theveloper.pixelplay.data.repository.MusicRepository
 import com.theveloper.pixelplay.data.telegram.TelegramRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -25,8 +23,6 @@ import org.drinkless.tdlib.TdApi
 enum class ExternalServiceAccount {
     TELEGRAM,
     GOOGLE_DRIVE,
-    NETEASE,
-    QQ_MUSIC,
     NAVIDROME,
     JELLYFIN
 }
@@ -49,8 +45,6 @@ class AccountsViewModel @Inject constructor(
     private val telegramRepository: TelegramRepository,
     private val musicRepository: MusicRepository,
     private val gDriveRepository: GDriveRepository,
-    private val neteaseRepository: NeteaseRepository,
-    private val qqMusicRepository: QqMusicRepository,
     private val navidromeRepository: NavidromeRepository,
     private val jellyfinRepository: JellyfinRepository
 ) : ViewModel() {
@@ -73,20 +67,6 @@ class AccountsViewModel @Inject constructor(
         connected to folderCount
     }
 
-    private val neteaseStateFlow = combine(
-        neteaseRepository.isLoggedInFlow,
-        neteaseRepository.getPlaylists().map { it.size }
-    ) { connected, playlistCount ->
-        connected to playlistCount
-    }
-
-    private val qqMusicStateFlow = combine(
-        qqMusicRepository.isLoggedInFlow,
-        qqMusicRepository.getPlaylists().map { it.size }
-    ) { connected, playlistCount ->
-        connected to playlistCount
-    }
-
     private val navidromeStateFlow = combine(
         navidromeRepository.isLoggedInFlow,
         navidromeRepository.getPlaylists().map { it.size }
@@ -106,8 +86,6 @@ class AccountsViewModel @Inject constructor(
             listOf(
                 telegramStateFlow,
                 gDriveStateFlow,
-                neteaseStateFlow,
-                qqMusicStateFlow,
                 navidromeStateFlow,
                 jellyfinStateFlow
             )
@@ -116,10 +94,8 @@ class AccountsViewModel @Inject constructor(
     ) { states, activeLogouts ->
         val (telegramConnected, telegramChannelCount) = states[0] as Pair<Boolean, Int>
         val (gDriveConnected, gDriveFolderCount) = states[1] as Pair<Boolean, Int>
-        val (neteaseConnected, neteasePlaylistCount) = states[2] as Pair<Boolean, Int>
-        val (qqConnected, qqPlaylistCount) = states[3] as Pair<Boolean, Int>
-        val (navidromeConnected, navidromePlaylistCount) = states[4] as Pair<Boolean, Int>
-        val (jellyfinConnected, jellyfinPlaylistCount) = states[5] as Pair<Boolean, Int>
+        val (navidromeConnected, navidromePlaylistCount) = states[2] as Pair<Boolean, Int>
+        val (jellyfinConnected, jellyfinPlaylistCount) = states[3] as Pair<Boolean, Int>
 
         val connectedAccounts = buildList {
             if (telegramConnected) {
@@ -153,40 +129,6 @@ class AccountsViewModel @Inject constructor(
                             plural = "synced folders"
                         ),
                         isLoggingOut = ExternalServiceAccount.GOOGLE_DRIVE in activeLogouts
-                    )
-                )
-            }
-            if (neteaseConnected) {
-                add(
-                    ExternalAccountUiModel(
-                        service = ExternalServiceAccount.NETEASE,
-                        title = "Netease Music",
-                        accountLabel = neteaseRepository.userNickname
-                            ?.takeIf { it.isNotBlank() }
-                            ?: "Netease account connected",
-                        syncedContentLabel = formatCount(
-                            count = neteasePlaylistCount,
-                            singular = "synced playlist",
-                            plural = "synced playlists"
-                        ),
-                        isLoggingOut = ExternalServiceAccount.NETEASE in activeLogouts
-                    )
-                )
-            }
-            if (qqConnected) {
-                add(
-                    ExternalAccountUiModel(
-                        service = ExternalServiceAccount.QQ_MUSIC,
-                        title = "QQ Music",
-                        accountLabel = qqMusicRepository.userNickname
-                            ?.takeIf { it.isNotBlank() }
-                            ?: "QQ Music account connected",
-                        syncedContentLabel = formatCount(
-                            count = qqPlaylistCount,
-                            singular = "synced playlist",
-                            plural = "synced playlists"
-                        ),
-                        isLoggingOut = ExternalServiceAccount.QQ_MUSIC in activeLogouts
                     )
                 )
             }
@@ -229,8 +171,6 @@ class AccountsViewModel @Inject constructor(
         val disconnectedServices = buildList {
             if (!telegramConnected) add(ExternalServiceAccount.TELEGRAM)
             if (!gDriveConnected) add(ExternalServiceAccount.GOOGLE_DRIVE)
-            if (!neteaseConnected) add(ExternalServiceAccount.NETEASE)
-            if (!qqConnected) add(ExternalServiceAccount.QQ_MUSIC)
             if (!navidromeConnected) add(ExternalServiceAccount.NAVIDROME)
             if (!jellyfinConnected) add(ExternalServiceAccount.JELLYFIN)
         }
@@ -255,8 +195,6 @@ class AccountsViewModel @Inject constructor(
                             musicRepository.clearTelegramData()
                         }
                         ExternalServiceAccount.GOOGLE_DRIVE -> gDriveRepository.logout()
-                        ExternalServiceAccount.NETEASE -> neteaseRepository.logout()
-                        ExternalServiceAccount.QQ_MUSIC -> qqMusicRepository.logout()
                         ExternalServiceAccount.NAVIDROME -> navidromeRepository.logout()
                         ExternalServiceAccount.JELLYFIN -> jellyfinRepository.logout()
                     }

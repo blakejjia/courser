@@ -1,7 +1,6 @@
-package com.theveloper.pixelplay.presentation.screens
+@file:OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 
-import com.theveloper.pixelplay.presentation.navigation.navigateSafely
-import com.theveloper.pixelplay.presentation.navigation.navigateSafelyReplacing
+package com.theveloper.pixelplay.presentation.screens
 
 import android.content.Intent
 import androidx.activity.compose.ReportDrawnWhen
@@ -16,555 +15,379 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.MusicNote
-import androidx.compose.material.icons.rounded.Refresh
+import androidx.compose.material.icons.rounded.AutoAwesome
+import androidx.compose.material.icons.rounded.CloudQueue
+import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.School
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.LargeExtendedFloatingActionButton
-import androidx.compose.material3.LoadingIndicator
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberDrawerState
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.ExperimentalTextApi
-import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.Font
-import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontVariation
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.media3.common.util.UnstableApi
 import androidx.navigation.NavController
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
-import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.theveloper.pixelplay.R
-import com.theveloper.pixelplay.data.model.Song
-import com.theveloper.pixelplay.data.preferences.CollagePattern
-import com.theveloper.pixelplay.presentation.components.AlbumArtCollage
+import com.theveloper.pixelplay.data.model.Playlist
 import com.theveloper.pixelplay.presentation.components.BetaInfoBottomSheet
-import com.theveloper.pixelplay.presentation.components.Beta05CleanInstallDisclaimerDialog
 import com.theveloper.pixelplay.presentation.components.ChangelogBottomSheet
-import com.theveloper.pixelplay.presentation.netease.dashboard.NeteaseDashboardViewModel
+import com.theveloper.pixelplay.presentation.components.HomeGradientTopBar
+import com.theveloper.pixelplay.presentation.components.MiniPlayerHeight
+import com.theveloper.pixelplay.presentation.components.PlaylistItem
+import com.theveloper.pixelplay.presentation.components.StreamingProviderSheet
+import com.theveloper.pixelplay.presentation.gdrive.auth.GDriveLoginActivity
+import com.theveloper.pixelplay.presentation.gdrive.dashboard.GDriveDashboardViewModel
 import com.theveloper.pixelplay.presentation.jellyfin.dashboard.JellyfinDashboardViewModel
 import com.theveloper.pixelplay.presentation.navidrome.dashboard.NavidromeDashboardViewModel
-import com.theveloper.pixelplay.presentation.qqmusic.dashboard.QqMusicDashboardViewModel
-import com.theveloper.pixelplay.presentation.components.DailyMixSection
-import com.theveloper.pixelplay.presentation.components.HomeGradientTopBar
-import com.theveloper.pixelplay.presentation.components.HomeOptionsBottomSheet
-import com.theveloper.pixelplay.presentation.components.MiniPlayerHeight
-import com.theveloper.pixelplay.presentation.components.RecentlyPlayedSection
-import com.theveloper.pixelplay.presentation.components.RecentlyPlayedSectionMinSongsToShow
-import com.theveloper.pixelplay.presentation.components.SmartImage
-import com.theveloper.pixelplay.presentation.components.StatsOverviewCard
-import com.theveloper.pixelplay.presentation.components.resolveMainScreenBottomGradientHeight
-import com.theveloper.pixelplay.presentation.model.collectRecentlyPlayedSongIds
-import com.theveloper.pixelplay.presentation.model.mapRecentlyPlayedSongs
-import com.theveloper.pixelplay.presentation.components.subcomps.PlayingEqIcon
 import com.theveloper.pixelplay.presentation.navigation.Screen
-import com.theveloper.pixelplay.presentation.components.StreamingProviderSheet
-import com.theveloper.pixelplay.presentation.telegram.auth.TelegramLoginActivity
+import com.theveloper.pixelplay.presentation.navigation.navigateSafely
 import com.theveloper.pixelplay.presentation.viewmodel.PlayerViewModel
-import com.theveloper.pixelplay.presentation.viewmodel.SettingsViewModel
-import com.theveloper.pixelplay.presentation.viewmodel.StatsViewModel
-import com.theveloper.pixelplay.ui.theme.ExpTitleTypography
-import kotlinx.collections.immutable.persistentListOf
-import kotlinx.collections.immutable.toImmutableList
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.launch
+import com.theveloper.pixelplay.presentation.viewmodel.PlaylistViewModel
+import com.theveloper.pixelplay.ui.theme.GoogleSansRounded
 import racra.compose.smooth_corner_rect_library.AbsoluteSmoothCornerShape
-import androidx.compose.ui.res.stringResource
 
-private const val HomeLoadingPlaceholderMinDurationMillis = 1200L
-
-// Modern HomeScreen with collapsible top bar and staggered grid layout
+/**
+ * Course Player Home Screen.
+ * Displays "Today's Learn" (all enrolled courses once with custom journey annotation)
+ * and "All Courses" (all course playlists from Google Drive and local storage).
+ */
 @androidx.annotation.OptIn(UnstableApi::class)
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
     navController: NavController,
     paddingValuesParent: PaddingValues,
     playerViewModel: PlayerViewModel = hiltViewModel(),
-    settingsViewModel: SettingsViewModel = hiltViewModel(),
-    neteaseViewModel: NeteaseDashboardViewModel = hiltViewModel(),
-    qqMusicViewModel: QqMusicDashboardViewModel = hiltViewModel(),
+    playlistViewModel: PlaylistViewModel = hiltViewModel(),
+    gdriveViewModel: GDriveDashboardViewModel = hiltViewModel(),
     navidromeViewModel: NavidromeDashboardViewModel = hiltViewModel(),
     jellyfinViewModel: JellyfinDashboardViewModel = hiltViewModel(),
-    gdriveViewModel: com.theveloper.pixelplay.presentation.gdrive.dashboard.GDriveDashboardViewModel = hiltViewModel(),
-    onOpenSidebar: () -> Unit
+    onOpenSidebar: () -> Unit = {}
 ) {
     val context = LocalContext.current
-    // DETECTAR MODO BENCHMARK
-    val isBenchmarkMode = remember {
-        (context as? android.app.Activity)?.intent?.getBooleanExtra("is_benchmark", false) ?: false
+    val playlistUiState by playlistViewModel.uiState.collectAsStateWithLifecycle()
+    val allCourses = playlistUiState.playlists
+
+    val listState = rememberSaveable(saver = androidx.compose.foundation.lazy.LazyListState.Saver) {
+        androidx.compose.foundation.lazy.LazyListState()
     }
-    val statsViewModel: StatsViewModel = hiltViewModel()
-    val settingsUiState by settingsViewModel.uiState.collectAsStateWithLifecycle()
-    val dailyMixSongs by playerViewModel.dailyMixSongs.collectAsStateWithLifecycle()
-    val curatedYourMixSongs by playerViewModel.yourMixSongs.collectAsStateWithLifecycle()
-    val homeMixPreviewSongs by playerViewModel.homeMixPreviewSongs.collectAsStateWithLifecycle()
-    val playbackHistory by playerViewModel.playbackHistory.collectAsStateWithLifecycle()
-    val lifecycleOwner = LocalLifecycleOwner.current
-
-    val usesFallbackHomeMix = remember(curatedYourMixSongs, dailyMixSongs) {
-        curatedYourMixSongs.isEmpty() && dailyMixSongs.isEmpty()
-    }
-    val yourMixSongs = remember(curatedYourMixSongs, dailyMixSongs, homeMixPreviewSongs) {
-        when {
-            curatedYourMixSongs.isNotEmpty() -> curatedYourMixSongs
-            dailyMixSongs.isNotEmpty() -> dailyMixSongs
-            else -> homeMixPreviewSongs
-        }
-    }
-    var homePlaceholderRefreshGeneration by rememberSaveable { mutableIntStateOf(0) }
-    var hasHomeLoadingMinimumElapsed by rememberSaveable(homePlaceholderRefreshGeneration) {
-        mutableStateOf(false)
-    }
-
-    LaunchedEffect(homePlaceholderRefreshGeneration, yourMixSongs.isEmpty()) {
-        if (yourMixSongs.isEmpty()) {
-            hasHomeLoadingMinimumElapsed = false
-            delay(HomeLoadingPlaceholderMinDurationMillis)
-            hasHomeLoadingMinimumElapsed = true
-        } else {
-            hasHomeLoadingMinimumElapsed = true
-        }
-    }
-
-    val shouldShowYourMixLoadingPlaceholder = yourMixSongs.isEmpty() && !hasHomeLoadingMinimumElapsed
-    val recentSongIds = remember(playbackHistory) {
-        collectRecentlyPlayedSongIds(
-            playbackHistory = playbackHistory,
-            maxItems = 64
-        )
-    }
-    val recentlyPlayedSourceSongsInitialValue = remember(recentSongIds) {
-        if (recentSongIds.isEmpty()) persistentListOf<Song>() else null
-    }
-    val recentlyPlayedSourceSongs by remember(recentSongIds, playerViewModel) {
-        playerViewModel.observeSongs(recentSongIds)
-            .map<List<Song>, List<Song>?> { it }
-    }.collectAsStateWithLifecycle(initialValue = recentlyPlayedSourceSongsInitialValue)
-    val latestRecentlyPlayedSongs = remember(playbackHistory, recentlyPlayedSourceSongs) {
-        val sourceSongs = recentlyPlayedSourceSongs ?: return@remember emptyList()
-        mapRecentlyPlayedSongs(
-            playbackHistory = playbackHistory,
-            songs = sourceSongs,
-            maxItems = 64
-        )
-    }
-    // Keep the visible Home snapshot stable and only refresh it once the screen is off-screen.
-    var recentlyPlayedSongs by rememberSaveable { mutableStateOf(latestRecentlyPlayedSongs) }
-    val latestRecentlyPlayedSongsState = rememberUpdatedState(latestRecentlyPlayedSongs)
-
-    LaunchedEffect(latestRecentlyPlayedSongs, lifecycleOwner) {
-        val isHomeVisible = lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)
-        if (recentlyPlayedSongs.isEmpty() || !isHomeVisible) {
-            recentlyPlayedSongs = latestRecentlyPlayedSongs
-        }
-    }
-
-    DisposableEffect(lifecycleOwner) {
-        val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_STOP) {
-                recentlyPlayedSongs = latestRecentlyPlayedSongsState.value
-            }
-        }
-        lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose {
-            lifecycleOwner.lifecycle.removeObserver(observer)
-        }
-    }
-
-    val recentlyPlayedQueue = remember(recentlyPlayedSongs) {
-        recentlyPlayedSongs.map { it.song }.toImmutableList()
-    }
-
-    ReportDrawnWhen {
-        yourMixSongs.isNotEmpty() || hasHomeLoadingMinimumElapsed || isBenchmarkMode
-    }
-
-    val yourMixSong: String = "Today's Mix for you"
-
-    // 2) Observar sólo el currentSong (o null) para saber si mostrar padding
-    val currentSong by remember(playerViewModel.stablePlayerState) {
-        playerViewModel.stablePlayerState.map { it.currentSong }
-    }.collectAsStateWithLifecycle(initialValue = null)
-
-    // 3) Observe shuffle state for sync
-    val isShuffleEnabled by remember(playerViewModel.stablePlayerState) {
-        playerViewModel.stablePlayerState
-            .map { it.isShuffleEnabled }
-            .distinctUntilChanged()
-    }.collectAsStateWithLifecycle(initialValue = false)
-
-    // Padding inferior si hay canción en reproducción
-    val bottomPadding = if (currentSong != null) MiniPlayerHeight else 0.dp
-    val navBarCompactMode by playerViewModel.navBarCompactMode.collectAsStateWithLifecycle()
-    val bottomGradientHeight = resolveMainScreenBottomGradientHeight(navBarCompactMode)
-
-    var showOptionsBottomSheet by remember { mutableStateOf(false) }
-    var showChangelogBottomSheet by remember { mutableStateOf(false) }
-    var showBetaInfoBottomSheet by remember { mutableStateOf(false) }
-    var showStreamingProviderSheet by remember { mutableStateOf(false) }
-    var cleanInstallDisclaimerDismissedThisSession by rememberSaveable { mutableStateOf(false) }
-    val sheetState = rememberModalBottomSheetState()
-    val betaSheetState = rememberModalBottomSheetState()
-    val scope = rememberCoroutineScope()
-    LocalContext.current
-
-    val homeStatsOverview by statsViewModel.homeOverview.collectAsStateWithLifecycle()
-
-    val listState = rememberSaveable(saver = LazyListState.Saver) { LazyListState() }
     val density = LocalDensity.current
     val scrollThresholdPx = remember(density) { with(density) { 180.dp.toPx() } }
     val isScrolledPastThreshold = remember {
         derivedStateOf { listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > scrollThresholdPx }
     }
 
-    // Persist the scroll position across navigation away/back. The Stats card and other
-    // conditional sections can shift indices while data re-emits when returning, which
-    // would otherwise leave the list scrolled to the wrong place or jump to the top.
-    var savedScrollIndex by rememberSaveable { mutableIntStateOf(0) }
-    var savedScrollOffset by rememberSaveable { mutableIntStateOf(0) }
-    var needsScrollRestore by rememberSaveable { mutableStateOf(false) }
+    var showChangelogBottomSheet by remember { mutableStateOf(false) }
+    var showBetaInfoBottomSheet by remember { mutableStateOf(false) }
+    var showStreamingProviderSheet by remember { mutableStateOf(false) }
 
-    DisposableEffect(lifecycleOwner, listState) {
-        val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_PAUSE) {
-                savedScrollIndex = listState.firstVisibleItemIndex
-                savedScrollOffset = listState.firstVisibleItemScrollOffset
-                needsScrollRestore = true
-            }
+    ReportDrawnWhen {
+        allCourses.isNotEmpty() || !playlistUiState.isLoading
+    }
+
+    val cardShape = AbsoluteSmoothCornerShape(
+        cornerRadiusTR = 24.dp, cornerRadiusTL = 24.dp,
+        cornerRadiusBR = 24.dp, cornerRadiusBL = 24.dp,
+        smoothnessAsPercentTR = 60, smoothnessAsPercentTL = 60,
+        smoothnessAsPercentBR = 60, smoothnessAsPercentBL = 60
+    )
+
+    Scaffold(
+        modifier = Modifier.fillMaxSize(),
+        topBar = {
+            HomeGradientTopBar(
+                onNavigationIconClick = {},
+                onMoreOptionsClick = { showChangelogBottomSheet = true },
+                onBetaClick = { showBetaInfoBottomSheet = true },
+                onTelegramClick = { showStreamingProviderSheet = true },
+                onMenuClick = {},
+                isScrolled = isScrolledPastThreshold.value
+            )
         }
-        lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
-    }
-
-    LaunchedEffect(
-        needsScrollRestore,
-        yourMixSongs.isNotEmpty(),
-        dailyMixSongs.isNotEmpty(),
-        recentlyPlayedSongs.size,
-        homeStatsOverview
-    ) {
-        if (!needsScrollRestore) return@LaunchedEffect
-        val totalItems = listState.layoutInfo.totalItemsCount
-        if (totalItems == 0) return@LaunchedEffect
-        val targetIndex = savedScrollIndex.coerceIn(0, (totalItems - 1).coerceAtLeast(0))
-        listState.scrollToItem(targetIndex, savedScrollOffset)
-        needsScrollRestore = false
-    }
-
-    // Drawer state for sidebar
-    val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
-    val shouldShowCleanInstallDisclaimer =
-        settingsUiState.beta05CleanInstallDisclaimerDismissed == false &&
-            !cleanInstallDisclaimerDismissedThisSession
-
-    Box(
-        modifier = Modifier.fillMaxSize()
-    ) {
-        Scaffold(
-            modifier = Modifier.fillMaxSize(),
-            topBar = {
-                HomeGradientTopBar(
-                    onNavigationIconClick = {
-                        navController.navigateSafely(Screen.Settings.route)
-                    },
-                    onMoreOptionsClick = {
-                        showChangelogBottomSheet = true
-                    },
-                    onBetaClick = {
-                        showBetaInfoBottomSheet = true
-                    },
-                    onTelegramClick = {
-                         showStreamingProviderSheet = true
-                    },
-                    onMenuClick = {
-                        // onOpenSidebar() // Disabled
-                    },
-                    isScrolled = isScrolledPastThreshold.value
-                )
-            }
-        ) { innerPadding ->
-            LazyColumn(
-                state = listState,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(MaterialTheme.colorScheme.background),
-                contentPadding = PaddingValues(
-                    top = innerPadding.calculateTopPadding(),
-                    bottom = paddingValuesParent.calculateBottomPadding()
-                            + 38.dp + bottomPadding
-                ),
-                verticalArrangement = Arrangement.spacedBy(24.dp)
-            ) {
-                if (yourMixSongs.isEmpty()) {
-                    item(
-                        key = "your_mix_placeholder",
-                        contentType = "your_mix_placeholder"
+    ) { innerPadding ->
+        LazyColumn(
+            state = listState,
+            modifier = Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background),
+            contentPadding = PaddingValues(
+                top = innerPadding.calculateTopPadding(),
+                bottom = paddingValuesParent.calculateBottomPadding() + MiniPlayerHeight + 36.dp
+            ),
+            verticalArrangement = Arrangement.spacedBy(20.dp)
+        ) {
+            // ────────────────────────────────────────────────────────────────
+            // 1. TODAY'S LEARN SECTION
+            // ────────────────────────────────────────────────────────────────
+            item(key = "todays_learn_header") {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        if (shouldShowYourMixLoadingPlaceholder) {
-                            YourMixLoadingPlaceholder()
-                        } else {
-                            YourMixEmptyPlaceholder(
-                                onRefresh = {
-                                    homePlaceholderRefreshGeneration++
-                                    settingsViewModel.refreshLibrary()
-                                    playerViewModel.forceUpdateDailyMix()
+                        Text(
+                            text = "Today's Learn",
+                            style = MaterialTheme.typography.headlineMedium.copy(
+                                fontFamily = GoogleSansRounded,
+                                fontWeight = FontWeight.Bold
+                            ),
+                            color = MaterialTheme.colorScheme.onBackground
+                        )
+
+                        // Coming soon annotation badge
+                        Surface(
+                            shape = CircleShape,
+                            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f),
+                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.AutoAwesome,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(14.dp)
+                                )
+                                Text(
+                                    text = "Custom Journey (Coming Soon)",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+                        }
+                    }
+
+                    Text(
+                        text = "All enrolled courses scheduled for today. In future updates, you'll be able to customize your daily learning targets, review schedule, and dictionary links.",
+                        style = MaterialTheme.typography.bodySmall,
+                        fontFamily = GoogleSansRounded,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            // Today's Learn Course Carousel
+            if (allCourses.isEmpty()) {
+                item(key = "todays_learn_empty") {
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 20.dp),
+                        shape = cardShape,
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+                        )
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(24.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(14.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(56.dp)
+                                    .clip(CircleShape)
+                                    .background(MaterialTheme.colorScheme.secondaryContainer),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.School,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.secondary,
+                                    modifier = Modifier.size(30.dp)
+                                )
+                            }
+
+                            Text(
+                                text = "No courses enrolled yet",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontFamily = GoogleSansRounded,
+                                fontWeight = FontWeight.Bold
+                            )
+
+                            Text(
+                                text = "Select a course folder from Google Drive or local storage. Each folder is automatically organized into a full course.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontFamily = GoogleSansRounded,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                            )
+
+                            FilledTonalButton(
+                                onClick = {
+                                    context.startActivity(Intent(context, GDriveLoginActivity::class.java))
+                                },
+                                shape = RoundedCornerShape(16.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.CloudQueue,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(Modifier.width(8.dp))
+                                Text(
+                                    text = "Connect Google Drive",
+                                    fontFamily = GoogleSansRounded,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+                        }
+                    }
+                }
+            } else {
+                item(key = "todays_learn_carousel") {
+                    LazyRow(
+                        modifier = Modifier.fillMaxWidth(),
+                        contentPadding = PaddingValues(horizontal = 20.dp),
+                        horizontalArrangement = Arrangement.spacedBy(14.dp)
+                    ) {
+                        items(allCourses, key = { "today_${it.id}" }) { course ->
+                            TodayCourseCard(
+                                course = course,
+                                cardShape = cardShape,
+                                onClick = {
+                                    navController.navigateSafely(Screen.PlaylistDetail.createRoute(course.id))
+                                },
+                                onPlay = {
+                                    navController.navigateSafely(Screen.PlaylistDetail.createRoute(course.id))
                                 }
                             )
                         }
                     }
-                } else {
-                    item(
-                        key = "your_mix_header",
-                        contentType = "your_mix_header"
+                }
+            }
+
+            // ────────────────────────────────────────────────────────────────
+            // 2. ALL COURSES SECTION
+            // ────────────────────────────────────────────────────────────────
+            item(key = "all_courses_header") {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp, vertical = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "All Courses",
+                        style = MaterialTheme.typography.titleLarge.copy(
+                            fontFamily = GoogleSansRounded,
+                            fontWeight = FontWeight.Bold
+                        ),
+                        color = MaterialTheme.colorScheme.onBackground
+                    )
+
+                    Surface(
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.surfaceContainerHigh
                     ) {
-                        YourMixHeader(
-                            song = yourMixSong,
-                            isShuffleEnabled = isShuffleEnabled,
-                            onPlayShuffled = {
-                                if (usesFallbackHomeMix) {
-                                    playerViewModel.shuffleAllSongs(queueName = "Your Mix")
-                                } else {
-                                    playerViewModel.playSongsShuffled(
-                                        songsToPlay = yourMixSongs,
-                                        queueName = "Your Mix",
-                                        startAtZero = true,
-                                    )
-                                }
+                        Text(
+                            text = "${allCourses.size} ${if (allCourses.size == 1) "course" else "courses"}",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontFamily = GoogleSansRounded,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+
+            if (allCourses.isNotEmpty()) {
+                items(allCourses, key = { "all_${it.id}" }) { course ->
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 20.dp)
+                    ) {
+                        PlaylistItem(
+                            playlist = course,
+                            playerViewModel = playerViewModel,
+                            isAddingToPlaylist = false,
+                            onClick = {
+                                navController.navigateSafely(Screen.PlaylistDetail.createRoute(course.id))
+                            },
+                            onLongPress = {
+                                navController.navigateSafely(Screen.PlaylistDetail.createRoute(course.id))
                             }
-                        )
-                    }
-                }
-
-                // Collage
-                if (yourMixSongs.isNotEmpty()) {
-                    item(
-                        key = "album_art_collage",
-                        contentType = "album_art_collage"
-                    ) {
-                        val basePattern = settingsUiState.collagePattern
-                        val isAutoRotate = settingsUiState.collageAutoRotate
-                        val patterns = remember { CollagePattern.entries }
-
-                        val activePattern = if (isAutoRotate) {
-                            var rotationIndex by rememberSaveable { mutableIntStateOf(-1) }
-                            LaunchedEffect(Unit) { rotationIndex++ }
-                            remember(rotationIndex) {
-                                patterns[rotationIndex.coerceAtLeast(0) % patterns.size]
-                            }
-                        } else {
-                            basePattern
-                        }
-
-                        AlbumArtCollage(
-                            modifier = Modifier.fillMaxWidth(),
-                            songs = yourMixSongs,
-                            padding = 14.dp,
-                            height = 400.dp,
-                            pattern = activePattern,
-                            onSongClick = { song ->
-                                if (usesFallbackHomeMix) {
-                                    playerViewModel.showAndPlaySongFromLibrary(song, queueName = "Your Mix")
-                                } else {
-                                    playerViewModel.showAndPlaySong(song, yourMixSongs, "Your Mix")
-                                }
-                            }
-                        )
-                    }
-                }
-
-                // Daily Mix
-                if (dailyMixSongs.isNotEmpty()) {
-                    item(
-                        key = "daily_mix_section",
-                        contentType = "daily_mix_section"
-                    ) {
-                        DailyMixSection(
-                            songs = dailyMixSongs,
-                            onClickOpen = {
-                                navController.navigateSafely(Screen.DailyMixScreen.route)
-                            },
-                            onNavigateToAlbum = { song ->
-                                navController.navigateSafelyReplacing(
-                                    route = Screen.AlbumDetail.createRoute(song.albumId),
-                                    patternToPop = Screen.AlbumDetail.route
-                                )
-                            },
-                            onNavigateToArtist = { song ->
-                                navController.navigateSafelyReplacing(
-                                    route = Screen.ArtistDetail.createRoute(song.artistId),
-                                    patternToPop = Screen.ArtistDetail.route
-                                )
-                            },
-                            onNavigateToGenre = { song ->
-                                song.genre?.let {
-                                    navController.navigateSafely(Screen.GenreDetail.createRoute(java.net.URLEncoder.encode(it, "UTF-8")))
-                                }
-                            },
-                            playerViewModel = playerViewModel
-                        )
-                    }
-                }
-
-                if (recentlyPlayedSongs.size >= RecentlyPlayedSectionMinSongsToShow) {
-                    item(
-                        key = "recently_played_section",
-                        contentType = "recently_played_section"
-                    ) {
-                        RecentlyPlayedSection(
-                            songs = recentlyPlayedSongs,
-                            onSongClick = { song ->
-                                if (recentlyPlayedQueue.isNotEmpty()) {
-                                    playerViewModel.playSongs(
-                                        songsToPlay = recentlyPlayedQueue,
-                                        startSong = song,
-                                        queueName = "Recently Played"
-                                    )
-                                }
-                            },
-                            onOpenAllClick = {
-                                navController.navigateSafely(Screen.RecentlyPlayed.route)
-                            },
-                            themeStateHolder = playerViewModel.themeStateHolder,
-                            currentSongId = currentSong?.id,
-                            contentPadding = PaddingValues(start = 8.dp, end = 24.dp)
-                        )
-                    }
-                }
-
-                if (homeStatsOverview != null) {
-                    item(
-                        key = "listening_stats_preview",
-                        contentType = "listening_stats_preview"
-                    ) {
-                        StatsOverviewCard(
-                            summary = homeStatsOverview,
-                            onClick = { navController.navigateSafely(Screen.Stats.route) }
                         )
                     }
                 }
             }
         }
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .align(Alignment.BottomCenter)
-                .height(bottomGradientHeight)
-                .background(
-                    brush = Brush.verticalGradient(
-                        colorStops = arrayOf(
-                            0.0f to Color.Transparent,
-                            0.2f to Color.Transparent,
-                            0.8f to MaterialTheme.colorScheme.surfaceContainerLowest,
-                            1.0f to MaterialTheme.colorScheme.surfaceContainerLowest
-                        )
-                    )
-                )
-        ) {
+    }
 
-        }
-    }
-    if (showOptionsBottomSheet) {
-        ModalBottomSheet(
-            onDismissRequest = { showOptionsBottomSheet = false },
-            sheetState = sheetState
-        ) {
-            HomeOptionsBottomSheet(
-                onNavigateToMashup = {
-                    scope.launch {
-                        sheetState.hide()
-                    }.invokeOnCompletion {
-                        if (!sheetState.isVisible) {
-                            showOptionsBottomSheet = false
-                            navController.navigateSafely(Screen.DJSpace.route)
-                        }
-                    }
-                }
-            )
-        }
-    }
     if (showChangelogBottomSheet) {
         ModalBottomSheet(
-            onDismissRequest = { showChangelogBottomSheet = false },
-            sheetState = sheetState
+            onDismissRequest = { showChangelogBottomSheet = false }
         ) {
             ChangelogBottomSheet()
         }
     }
+
     if (showBetaInfoBottomSheet) {
         ModalBottomSheet(
-            onDismissRequest = { showBetaInfoBottomSheet = false },
-            sheetState = betaSheetState,
-            //contentWindowInsets = { WindowInsets.statusBars.only(WindowInsets.statusBars) }
+            onDismissRequest = { showBetaInfoBottomSheet = false }
         ) {
             BetaInfoBottomSheet()
         }
     }
+
     if (showStreamingProviderSheet) {
-        val isNeteaseLoggedIn by neteaseViewModel.isLoggedIn.collectAsStateWithLifecycle()
-        val isQqMusicLoggedIn by qqMusicViewModel.isLoggedIn.collectAsStateWithLifecycle()
         val isNavidromeLoggedIn by navidromeViewModel.isLoggedIn.collectAsStateWithLifecycle()
         val isJellyfinLoggedIn by jellyfinViewModel.isLoggedIn.collectAsStateWithLifecycle()
         val isGDriveLoggedIn by gdriveViewModel.isLoggedIn.collectAsStateWithLifecycle()
+
         StreamingProviderSheet(
             onDismissRequest = { showStreamingProviderSheet = false },
-            isNeteaseLoggedIn = isNeteaseLoggedIn,
-            onNavigateToNeteaseDashboard = {
-                navController.navigateSafely(Screen.NeteaseDashboard.route)
-            },
-            isQqMusicLoggedIn = isQqMusicLoggedIn,
-            onNavigateToQqMusicDashboard = {
-                navController.navigateSafely(Screen.QqMusicDashboard.route)
-            },
             isNavidromeLoggedIn = isNavidromeLoggedIn,
             onNavigateToNavidromeDashboard = {
                 navController.navigateSafely(Screen.NavidromeDashboard.route)
@@ -579,315 +402,133 @@ fun HomeScreen(
             }
         )
     }
-    if (shouldShowCleanInstallDisclaimer) {
-        Beta05CleanInstallDisclaimerDialog(
-            onDismiss = { dontShowAgain ->
-                cleanInstallDisclaimerDismissedThisSession = true
-                if (dontShowAgain) {
-                    settingsViewModel.setBeta05CleanInstallDisclaimerDismissed(true)
-                }
-            }
-        )
-    }
 }
 
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+/**
+ * Featured course card for Today's Learn carousel.
+ */
 @Composable
-private fun YourMixLoadingPlaceholder() {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(256.dp)
-            .padding(16.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        LoadingIndicator(
-            modifier = Modifier.size(128.dp),
-            color = MaterialTheme.colorScheme.primary
-        )
-    }
-}
-
-@Composable
-private fun YourMixEmptyPlaceholder(
-    onRefresh: () -> Unit
+private fun TodayCourseCard(
+    course: Playlist,
+    cardShape: AbsoluteSmoothCornerShape,
+    onClick: () -> Unit,
+    onPlay: () -> Unit
 ) {
-    val colors = MaterialTheme.colorScheme
-
-    Box(
+    Card(
         modifier = Modifier
-            .fillMaxWidth()
-            .heightIn(min = 256.dp)
-            .padding(horizontal = 24.dp, vertical = 16.dp),
-        contentAlignment = Alignment.Center
+            .width(260.dp)
+            .height(170.dp)
+            .clickable(onClick = onClick),
+        shape = cardShape,
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+        )
     ) {
-        Column(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+        Box(
+            modifier = Modifier.fillMaxSize()
         ) {
-            Surface(
-                modifier = Modifier.size(76.dp),
-                shape = AbsoluteSmoothCornerShape(
-                    cornerRadiusTL = 28.dp,
-                    smoothnessAsPercentTR = 60,
-                    cornerRadiusBR = 28.dp,
-                    smoothnessAsPercentTL = 60,
-                    cornerRadiusBL = 28.dp,
-                    smoothnessAsPercentBR = 60,
-                    cornerRadiusTR = 28.dp,
-                    smoothnessAsPercentBL = 60,
-                ),
-                color = colors.secondaryContainer,
-                contentColor = colors.onSecondaryContainer
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(
-                        imageVector = Icons.Rounded.MusicNote,
-                        contentDescription = null,
-                        modifier = Modifier.size(34.dp)
+            // Subtle gradient accent background
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(
+                                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f),
+                                Color.Transparent
+                            )
+                        )
                     )
-                }
-            }
+            )
 
             Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                Text(
-                    text = stringResource(R.string.home_empty_placeholder_title),
-                    style = MaterialTheme.typography.titleLarge,
-                    color = colors.onSurface,
-                    textAlign = TextAlign.Center
-                )
-                Text(
-                    text = stringResource(R.string.home_empty_placeholder_subtitle),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = colors.onSurfaceVariant,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-
-            FilledTonalButton(
-                onClick = onRefresh,
-                shape = AbsoluteSmoothCornerShape(
-                    cornerRadiusTL = 22.dp,
-                    smoothnessAsPercentTR = 60,
-                    cornerRadiusBR = 22.dp,
-                    smoothnessAsPercentTL = 60,
-                    cornerRadiusBL = 22.dp,
-                    smoothnessAsPercentBR = 60,
-                    cornerRadiusTR = 22.dp,
-                    smoothnessAsPercentBL = 60,
-                )
-            ) {
-                Icon(
-                    imageVector = Icons.Rounded.Refresh,
-                    contentDescription = null,
-                    modifier = Modifier.size(20.dp)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(text = stringResource(R.string.home_empty_placeholder_refresh))
-            }
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
-@Composable
-fun YourMixHeader(
-    song: String,
-    isShuffleEnabled: Boolean = false,
-    onPlayShuffled: () -> Unit
-) {
-    val buttonCorners = 68.dp
-    val colors = MaterialTheme.colorScheme
-
-    val titleStyle = rememberYourMixTitleStyle()
-
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(256.dp)
-            .padding(16.dp)
-    ) {
-        Column(
-            modifier = Modifier
-                .align(Alignment.TopStart)
-                .padding(top = 48.dp, start = 12.dp)
-        ) {
-            // Your Mix Title
-            Text(
-                text = stringResource(R.string.home_your_mix_title),
-                style = titleStyle,
-                color = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier
-            )
-
-            // Artist/Song subtitle
-            Text(
-                text = song,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
-                modifier = Modifier.padding(start = 8.dp)
-            )
-        }
-        // Play Button - color changes based on shuffle state
-        LargeExtendedFloatingActionButton(
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(end = 12.dp),
-            onClick = onPlayShuffled,
-            containerColor = if (isShuffleEnabled) colors.primary else colors.tertiaryContainer,
-            contentColor = if (isShuffleEnabled) colors.onPrimary else colors.onTertiaryContainer,
-            shape = AbsoluteSmoothCornerShape(
-                cornerRadiusTL = buttonCorners,
-                smoothnessAsPercentTR = 60,
-                cornerRadiusBR = buttonCorners,
-                smoothnessAsPercentTL = 60,
-                cornerRadiusBL = buttonCorners,
-                smoothnessAsPercentBR = 60,
-                cornerRadiusTR = buttonCorners,
-                smoothnessAsPercentBL = 60,
-            )
-        ) {
-            Icon(
-                painter = painterResource(R.drawable.rounded_shuffle_24),
-                contentDescription = stringResource(R.string.common_shuffle_play),
-                modifier = Modifier.size(36.dp)
-            )
-        }
-    }
-}
-
-
-// SongListItem (modificado para aceptar parámetros individuales)
-@Composable
-fun SongListItemFavs(
-    modifier: Modifier = Modifier,
-    cardCorners: Dp = 12.dp,
-    title: String,
-    artist: String,
-    albumArtUrl: String?,
-    isPlaying: Boolean,
-    isCurrentSong: Boolean,
-    onClick: () -> Unit
-) {
-    val colors = MaterialTheme.colorScheme
-    val containerColor = if (isCurrentSong) colors.primaryContainer.copy(alpha = 0.46f) else colors.surfaceContainer
-    val contentColor = if (isCurrentSong) colors.primary else colors.onSurface
-
-    Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick),
-        shape = RoundedCornerShape(cardCorners),
-        colors = CardDefaults.cardColors(containerColor = containerColor),
-        elevation = CardDefaults.cardElevation(0.dp)
-    ) {
-        Row(
-            modifier = Modifier
-                .padding(12.dp)
-                .fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Row(
-                modifier = Modifier
-                    .weight(0.9f),
-                verticalAlignment = Alignment.CenterVertically
+                    .fillMaxSize()
+                    .padding(18.dp),
+                verticalArrangement = Arrangement.SpaceBetween
             ) {
-                SmartImage(
-                    model = albumArtUrl,
-                    contentDescription = stringResource(R.string.common_album_art_for_title, title),
-                    contentScale = ContentScale.Crop,
-                    shape = RoundedCornerShape(8.dp),
-                    modifier = Modifier.size(48.dp)
-                )
-                Spacer(Modifier.width(16.dp))
-                Column(modifier = Modifier) {
+                // Top: Course badge & lesson count
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Surface(
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            if (course.source == "GDRIVE") {
+                                Icon(
+                                    painter = painterResource(R.drawable.rounded_drive_export_24),
+                                    contentDescription = "Google Drive",
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(14.dp)
+                                )
+                            } else {
+                                Icon(
+                                    imageVector = Icons.Rounded.School,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(14.dp)
+                                )
+                            }
+                            Text(
+                                text = if (course.source == "GDRIVE") "Google Drive" else "Course",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
+
                     Text(
-                        text = title,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = if (isCurrentSong) FontWeight.Bold else FontWeight.Normal,
-                        color = contentColor,
-                        maxLines = 1, overflow = TextOverflow.Ellipsis
-                    )
-                    Text(
-                        text = artist, style = MaterialTheme.typography.bodyMedium,
-                        color = contentColor.copy(alpha = 0.7f),
-                        maxLines = 1, overflow = TextOverflow.Ellipsis
+                        text = "${course.songIds.size} lessons",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontFamily = GoogleSansRounded,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-            }
-            Spacer(Modifier.width(16.dp))
-            if (isCurrentSong) {
-                PlayingEqIcon(
-                    modifier = Modifier
-                        .weight(0.1f)
-                        .padding(start = 8.dp)
-                        .size(width = 18.dp, height = 16.dp), // similar al tamaño del ícono
-                    color = colors.primary,
-                    isPlaying = isPlaying  // o conectalo a tu estado real de reproducción
+
+                // Middle: Course Name
+                Text(
+                    text = course.name,
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontFamily = GoogleSansRounded,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 18.sp
+                    ),
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    color = MaterialTheme.colorScheme.onSurface
                 )
+
+                // Bottom: Play Action
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    FilledIconButton(
+                        onClick = onPlay,
+                        modifier = Modifier.size(38.dp),
+                        colors = IconButtonDefaults.filledIconButtonColors(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary
+                        )
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.PlayArrow,
+                            contentDescription = "Play Course",
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
             }
         }
-    }
-}
-
-// Wrapper Composable for SongListItemFavs to isolate state observation
-@androidx.annotation.OptIn(UnstableApi::class)
-@Composable
-fun SongListItemFavsWrapper(
-    song: Song,
-    playerViewModel: PlayerViewModel,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    // Collect the stablePlayerState once
-    val stablePlayerState by playerViewModel.stablePlayerState.collectAsStateWithLifecycle()
-
-    // Derive isThisSongPlaying using remember
-    val isThisSongPlaying = remember(song.id, stablePlayerState.currentSong?.id, stablePlayerState.isPlaying) {
-        song.id == stablePlayerState.currentSong?.id
-    }
-
-    // Call the presentational composable
-    SongListItemFavs(
-        modifier = modifier,
-        cardCorners = 0.dp,
-        title = song.title,
-        artist = song.displayArtist,
-        albumArtUrl = song.albumArtUriString,
-        isPlaying = stablePlayerState.isPlaying,
-        isCurrentSong = song.id == stablePlayerState.currentSong?.id,
-        onClick = onClick
-    )
-}
-
-
-@OptIn(ExperimentalTextApi::class)
-@Composable
-private fun rememberYourMixTitleStyle(): TextStyle {
-    return remember {
-        TextStyle(
-            fontFamily = FontFamily(
-                Font(
-                    resId = R.font.gflex_variable,
-                    variationSettings = FontVariation.Settings(
-                        FontVariation.weight(636),
-                        FontVariation.width(152f),
-                        FontVariation.Setting("ROND", 50f),
-                        FontVariation.Setting("XTRA", 520f),
-                        FontVariation.Setting("YOPQ", 90f),
-                        FontVariation.Setting("YTLC", 505f)
-                    )
-                )
-            ),
-            fontWeight = FontWeight(760),
-            fontSize = 64.sp,
-            lineHeight = 62.sp
-        )
     }
 }

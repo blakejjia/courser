@@ -620,7 +620,7 @@
     <!-- About category -->
     <string name="about_screen_title">About</string>
     <string name="about_app_name">Courser</string>
-    <string name="about_tagline">Open source music player built with its community.</string>
+    <string name="about_tagline">Course-based audio player for local and Google Drive learning. A PixelPlayer fork.</string>
     <string name="about_version_format">Version v%1$s</string>
     <string name="about_signal_open_source">Open source</string>
     <string name="about_signal_community_first">Community-first</string>

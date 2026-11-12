@@ -20,14 +20,10 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         SongEngagementEntity::class,
         FavoritesEntity::class,
         LyricsEntity::class,
-        NeteaseSongEntity::class,
-        NeteasePlaylistEntity::class,
         GDriveSongEntity::class,
         GDriveFolderEntity::class,
         PlaylistEntity::class,
         PlaylistSongEntity::class,
-        QqMusicSongEntity::class,
-        QqMusicPlaylistEntity::class,
         NavidromeSongEntity::class,
         NavidromePlaylistEntity::class,
         TelegramTopicEntity::class,
@@ -36,8 +32,8 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         AiCacheEntity::class,
         AiUsageEntity::class
     ],
-    version = 42,
-    exportSchema = true
+    version = 43,
+    exportSchema = false
 )
 abstract class PixelPlayDatabase : RoomDatabase() {
     abstract fun albumArtThemeDao(): AlbumArtThemeDao
@@ -48,10 +44,8 @@ abstract class PixelPlayDatabase : RoomDatabase() {
     abstract fun engagementDao(): EngagementDao
     abstract fun favoritesDao(): FavoritesDao
     abstract fun lyricsDao(): LyricsDao
-    abstract fun neteaseDao(): NeteaseDao
     abstract fun gdriveDao(): GDriveDao
     abstract fun localPlaylistDao(): LocalPlaylistDao
-    abstract fun qqmusicDao(): QqMusicDao
     abstract fun navidromeDao(): NavidromeDao
     abstract fun jellyfinDao(): JellyfinDao
     abstract fun aiCacheDao(): AiCacheDao

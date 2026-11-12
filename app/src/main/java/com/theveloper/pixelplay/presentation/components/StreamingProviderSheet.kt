@@ -27,8 +27,6 @@ import androidx.compose.ui.res.stringResource
 import com.theveloper.pixelplay.R
 import com.theveloper.pixelplay.presentation.jellyfin.auth.JellyfinLoginActivity
 import com.theveloper.pixelplay.presentation.navidrome.auth.NavidromeLoginActivity
-import com.theveloper.pixelplay.presentation.netease.auth.NeteaseLoginActivity
-import com.theveloper.pixelplay.presentation.qqmusic.auth.QqMusicLoginActivity
 import com.theveloper.pixelplay.presentation.telegram.auth.TelegramLoginActivity
 import com.theveloper.pixelplay.ui.theme.GoogleSansRounded
 
@@ -41,10 +39,6 @@ import com.theveloper.pixelplay.ui.theme.GoogleSansRounded
 @Composable
 fun StreamingProviderSheet(
     onDismissRequest: () -> Unit,
-    isNeteaseLoggedIn: Boolean = false,
-    onNavigateToNeteaseDashboard: () -> Unit = {},
-    isQqMusicLoggedIn: Boolean = false,
-    onNavigateToQqMusicDashboard: () -> Unit = {},
     isNavidromeLoggedIn: Boolean = false,
     onNavigateToNavidromeDashboard: () -> Unit = {},
     isJellyfinLoggedIn: Boolean = false,
@@ -164,40 +158,6 @@ fun StreamingProviderSheet(
                                 onNavigateToJellyfinDashboard()
                             } else {
                                 context.startActivity(Intent(context, JellyfinLoginActivity::class.java))
-                            }
-                            onDismissRequest()
-                        }
-                    )
-
-                    ProviderRow(
-                        iconPainter = painterResource(R.drawable.netease_cloud_music_logo_icon_206716__1_),
-                        iconTint = Color(0xFFE85959),
-                        title = "Netease Music",
-                        subtitle = if (isNeteaseLoggedIn) "Connected" else "Sign in to stream",
-                        shape = providerSegmentItemShape,
-                        isConnected = isNeteaseLoggedIn,
-                        onClick = {
-                            if (isNeteaseLoggedIn) {
-                                onNavigateToNeteaseDashboard()
-                            } else {
-                                context.startActivity(Intent(context, NeteaseLoginActivity::class.java))
-                            }
-                            onDismissRequest()
-                        }
-                    )
-
-                    ProviderRow(
-                        iconPainter = painterResource(R.drawable.qq_music),
-                        iconTint = Color(0xFF31C27C),
-                        title = "QQ Music",
-                        subtitle = if (isQqMusicLoggedIn) "Connected" else "Sign in to stream",
-                        shape = providerSegmentItemShape,
-                        isConnected = isQqMusicLoggedIn,
-                        onClick = {
-                            if (isQqMusicLoggedIn) {
-                                onNavigateToQqMusicDashboard()
-                            } else {
-                                context.startActivity(Intent(context, QqMusicLoginActivity::class.java))
                             }
                             onDismissRequest()
                         }

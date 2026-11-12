@@ -58,9 +58,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.coroutines.resume
 
-import com.theveloper.pixelplay.data.netease.NeteaseStreamProxy
 import com.theveloper.pixelplay.data.navidrome.NavidromeStreamProxy
-import com.theveloper.pixelplay.data.qqmusic.QqMusicStreamProxy
 import androidx.core.net.toUri
 import com.theveloper.pixelplay.data.diagnostics.AdvancedPerformanceDiagnostics
 
@@ -215,8 +213,6 @@ class DualPlayerEngine @Inject constructor(
     @param:ApplicationContext private val context: Context,
     private val telegramRepository: TelegramRepository,
     private val telegramStreamProxy: com.theveloper.pixelplay.data.telegram.TelegramStreamProxy,
-    private val neteaseStreamProxy: NeteaseStreamProxy,
-    private val qqMusicStreamProxy: QqMusicStreamProxy,
     private val navidromeStreamProxy: NavidromeStreamProxy,
     private val jellyfinStreamProxy: com.theveloper.pixelplay.data.jellyfin.JellyfinStreamProxy,
     private val gdriveStreamProxy: com.theveloper.pixelplay.data.gdrive.GDriveStreamProxy,
@@ -234,10 +230,10 @@ class DualPlayerEngine @Inject constructor(
         private const val POST_TRANSITION_OFFLOAD_GUARD_MS = 2_000L
         private const val MAX_AUXILIARY_TIMELINE_ITEMS = 200
         private val LOCAL_MEDIA_SCHEMES = setOf("content", "file", "android.resource")
-        private val REMOTE_MEDIA_SCHEMES = setOf("http", "https", "telegram", "netease", "qqmusic", "navidrome", "jellyfin", "gdrive")
+        private val REMOTE_MEDIA_SCHEMES = setOf("http", "https", "telegram", "navidrome", "jellyfin", "gdrive")
         // Subset of REMOTE_MEDIA_SCHEMES: schemes that need proxy resolution.
         // http/https resolve directly and must NOT enter the resolvedUriCache lookup path.
-        private val CLOUD_PROXY_SCHEMES = setOf("telegram", "netease", "qqmusic", "navidrome", "jellyfin", "gdrive")
+        private val CLOUD_PROXY_SCHEMES = setOf("telegram", "navidrome", "jellyfin", "gdrive")
     }
 
     data class TransitionTarget(
@@ -1199,8 +1195,6 @@ class DualPlayerEngine @Inject constructor(
 
         val resolved: Uri? = when (uri.scheme) {
             "telegram" -> resolveTelegramUriAsync(uri, uriString)
-            "netease" -> resolveNeteaseUriAsync(uriString)
-            "qqmusic" -> resolveQqMusicUriAsync(uriString)
             "navidrome" -> resolveNavidromeUriAsync(uriString)
             "jellyfin" -> resolveJellyfinUriAsync(uriString)
             "gdrive" -> resolveGDriveUriAsync(uriString)
@@ -1235,17 +1229,6 @@ class DualPlayerEngine @Inject constructor(
         if (!telegramStreamProxy.ensureReady(5_000L)) return@withContext null
         val proxyUrl = telegramStreamProxy.getProxyUrl(fileId, 0L)
         if (proxyUrl.isNotEmpty()) Uri.parse(proxyUrl) else null
-    }
-
-    private suspend fun resolveNeteaseUriAsync(uriString: String): Uri? = withContext(Dispatchers.IO) {
-        if (!neteaseStreamProxy.ensureReady(5_000L)) return@withContext null
-        neteaseStreamProxy.resolveNeteaseUri(uriString)?.let { Uri.parse(it) }
-    }
-
-    private suspend fun resolveQqMusicUriAsync(uriString: String): Uri? = withContext(Dispatchers.IO) {
-        if (!qqMusicStreamProxy.ensureReady(5_000L)) return@withContext null
-        qqMusicStreamProxy.warmUpStreamUrl(uriString)
-        qqMusicStreamProxy.resolveQqMusicUri(uriString)?.let { Uri.parse(it) }
     }
 
     private suspend fun resolveNavidromeUriAsync(uriString: String): Uri? = withContext(Dispatchers.IO) {

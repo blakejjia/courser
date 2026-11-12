@@ -245,7 +245,6 @@ fun GDriveLoginScreen(
                         onSelectFolder = { folder ->
                             viewModel.selectFolder(folder.id, folder.name)
                         },
-                        onCreateFolder = { viewModel.createMusicFolder() },
                         onBreadcrumbClick = { index -> viewModel.navigateToBreadcrumb(index) }
                     )
                 }
@@ -355,7 +354,6 @@ private fun FolderSetupContent(
     cardShape: AbsoluteSmoothCornerShape,
     onFolderClick: (FolderItem) -> Unit,
     onSelectFolder: (FolderItem) -> Unit,
-    onCreateFolder: () -> Unit,
     onBreadcrumbClick: (Int) -> Unit
 ) {
     Column(
@@ -407,50 +405,6 @@ private fun FolderSetupContent(
                         fontWeight = if (index == state.currentPath.lastIndex) FontWeight.Bold else FontWeight.Normal,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
-                    )
-                }
-            }
-        }
-
-        Spacer(Modifier.height(8.dp))
-
-        // Create folder button
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp)
-                .clickable(enabled = !state.isLoading, onClick = onCreateFolder),
-            shape = cardShape,
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.secondaryContainer
-            )
-        ) {
-            Row(
-                modifier = Modifier
-                    .padding(16.dp)
-                    .fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    Icons.Rounded.CreateNewFolder,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.secondary,
-                    modifier = Modifier.size(24.dp)
-                )
-                Spacer(Modifier.width(12.dp))
-                Column {
-                    Text(
-                        text = stringResource(R.string.auth_gdrive_create_action),
-                        style = MaterialTheme.typography.titleSmall,
-                        fontFamily = GoogleSansRounded,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSecondaryContainer
-                    )
-                    Text(
-                        text = stringResource(R.string.auth_gdrive_create_subtitle),
-                        style = MaterialTheme.typography.bodySmall,
-                        fontFamily = GoogleSansRounded,
-                        color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f)
                     )
                 }
             }

@@ -270,8 +270,6 @@ class SongInfoBottomSheetViewModel @Inject constructor(
         val normalized = contentUriString.lowercase().trim()
         return when {
             normalized.startsWith("telegram://") || normalized.startsWith("telegram:") -> "Telegram"
-            normalized.startsWith("netease://") || normalized.startsWith("netease:") -> "Netease Music"
-            normalized.startsWith("qqmusic://") || normalized.startsWith("qqmusic:") -> "QQ Music"
             normalized.startsWith("navidrome://") || normalized.startsWith("navidrome:") -> "Navidrome"
             normalized.startsWith("gdrive://") || normalized.startsWith("gdrive:") -> "Google Drive"
             normalized.startsWith("jellyfin://") || normalized.startsWith("jellyfin:") -> "Jellyfin"
