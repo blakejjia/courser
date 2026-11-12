@@ -179,6 +179,16 @@ class PlaybackStateHolder @Inject constructor(
                 _currentPosition.value = snapshotPositionMs
             }
         }
+        scope?.launch {
+            userPreferencesRepository.playbackSpeedFlow.collect { speed ->
+                val safeSpeed = speed.coerceIn(0.25f, 3.0f)
+                _stablePlayerState.update { it.copy(playbackSpeed = safeSpeed) }
+                val player = activeLocalPlayer()
+                if (player.playbackParameters.speed != safeSpeed) {
+                    player.playbackParameters = androidx.media3.common.PlaybackParameters(safeSpeed)
+                }
+            }
+        }
     }
 
     fun setMediaController(controller: MediaController?) {
@@ -191,6 +201,20 @@ class PlaybackStateHolder @Inject constructor(
         mediaControllerStack.removeAll { it === controller }
         mediaControllerStack.add(controller)
         mediaController = controller
+
+        val speed = _stablePlayerState.value.playbackSpeed
+        if (speed > 0f && controller.playbackParameters.speed != speed) {
+            controller.playbackParameters = androidx.media3.common.PlaybackParameters(speed)
+        }
+    }
+
+    fun setPlaybackSpeed(speed: Float) {
+        val clampedSpeed = speed.coerceIn(0.25f, 3.0f)
+        activeLocalPlayer().playbackParameters = androidx.media3.common.PlaybackParameters(clampedSpeed)
+        _stablePlayerState.update { it.copy(playbackSpeed = clampedSpeed) }
+        scope?.launch {
+            userPreferencesRepository.setPlaybackSpeed(clampedSpeed)
+        }
     }
 
     fun clearMediaController(controller: MediaController?) {

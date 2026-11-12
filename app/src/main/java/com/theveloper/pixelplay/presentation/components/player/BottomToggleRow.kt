@@ -2,28 +2,41 @@ package com.theveloper.pixelplay.presentation.components.player
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import androidx.media3.common.Player
 import com.theveloper.pixelplay.R
-import com.theveloper.pixelplay.presentation.components.LocalMaterialTheme
 import com.theveloper.pixelplay.presentation.components.ToggleSegmentButton
 import racra.compose.smooth_corner_rect_library.AbsoluteSmoothCornerShape
+import java.util.Locale
+
+fun formatPlaybackSpeed(speed: Float): String {
+    return if ((speed * 10).toInt() % 10 == 0) {
+        String.format(Locale.US, "%.1fx", speed)
+    } else {
+        String.format(Locale.US, "%.2fx", speed)
+    }
+}
 
 @Composable
 fun BottomToggleRow(
     modifier: Modifier,
-    isShuffleEnabled: Boolean,
-    repeatMode: Int,
+    playbackSpeed: Float = 1.0f,
     isFavoriteProvider: () -> Boolean,
-    onShuffleToggle: () -> Unit,
-    onRepeatToggle: () -> Unit,
-    onFavoriteToggle: () -> Unit,
+    onSpeedClick: () -> Unit = {},
+    onFavoriteToggle: () -> Unit = {},
+    // Backward-compatible optional parameters for existing call sites
+    isShuffleEnabled: Boolean = false,
+    repeatMode: Int = 0,
+    onShuffleToggle: () -> Unit = {},
+    onRepeatToggle: () -> Unit = {},
     activeColorMain: Color = MaterialTheme.colorScheme.primary,
     activeColorSecondary: Color = MaterialTheme.colorScheme.secondary,
     activeColorTertiary: Color = MaterialTheme.colorScheme.tertiary,
@@ -36,6 +49,7 @@ fun BottomToggleRow(
 ) {
     val isFavorite = isFavoriteProvider()
     val rowCorners = 60.dp
+    val isSpeedActive = playbackSpeed != 1.0f
 
     Box(
         modifier = modifier.background(
@@ -76,33 +90,16 @@ fun BottomToggleRow(
 
             ToggleSegmentButton(
                 modifier = commonModifier,
-                active = isShuffleEnabled,
+                active = isSpeedActive,
                 activeColor = activeColorMain,
                 activeCornerRadius = rowCorners,
                 activeContentColor = onActiveColorMain,
                 inactiveColor = inactiveColor,
                 inactiveContentColor = inactiveContentColor,
-                onClick = onShuffleToggle,
-                iconId = R.drawable.rounded_shuffle_24,
-                contentDesc = "Shuffle"
-            )
-            val repeatActive = repeatMode != Player.REPEAT_MODE_OFF
-            val repeatIcon = when (repeatMode) {
-                Player.REPEAT_MODE_ONE -> R.drawable.rounded_repeat_one_24
-                Player.REPEAT_MODE_ALL -> R.drawable.rounded_repeat_24
-                else -> R.drawable.rounded_repeat_24
-            }
-            ToggleSegmentButton(
-                modifier = commonModifier,
-                active = repeatActive,
-                activeColor = activeColorSecondary,
-                activeCornerRadius = rowCorners,
-                activeContentColor = onActiveColorSecondary,
-                inactiveColor = inactiveColor,
-                inactiveContentColor = inactiveContentColor,
-                onClick = onRepeatToggle,
-                iconId = repeatIcon,
-                contentDesc = "Repeat"
+                onClick = onSpeedClick,
+                imageVector = Icons.Rounded.Speed,
+                text = formatPlaybackSpeed(playbackSpeed),
+                contentDesc = stringResource(R.string.player_playback_speed)
             )
             ToggleSegmentButton(
                 modifier = commonModifier,

@@ -105,7 +105,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.coerceAtLeast
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Cloud
+import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.runtime.derivedStateOf
@@ -113,6 +115,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import com.theveloper.pixelplay.R
+import com.theveloper.pixelplay.presentation.components.PlaybackSpeedBottomSheet
 import com.theveloper.pixelplay.data.diagnostics.AdvancedPerformanceDiagnostics
 import com.theveloper.pixelplay.data.model.Artist
 import com.theveloper.pixelplay.data.model.Song
@@ -226,8 +229,10 @@ fun FullPlayerContent(
     onQueueDrag: (Float) -> Unit,
     onQueueRelease: (Float, Float) -> Unit,
     onShowCastClicked: () -> Unit,
-    onShuffleToggle: () -> Unit,
-    onRepeatToggle: () -> Unit,
+    playbackSpeedProvider: () -> Float = { playerViewModel.stablePlayerState.value.playbackSpeed },
+    onSetPlaybackSpeed: (Float) -> Unit = { playerViewModel.setPlaybackSpeed(it) },
+    onShuffleToggle: () -> Unit = {},
+    onRepeatToggle: () -> Unit = {},
     onFavoriteToggle: () -> Unit
 ) {
     var retainedSong by remember { mutableStateOf(currentSong) }
@@ -241,6 +246,7 @@ fun FullPlayerContent(
     var showSongInfoBottomSheet by remember { mutableStateOf(false) }
     var showLyricsSheet by remember { mutableStateOf(false) }
     var showArtistPicker by rememberSaveable { mutableStateOf(false) }
+    var showPlaybackSpeedBottomSheet by rememberSaveable { mutableStateOf(false) }
     
     val lyricsSearchUiState by playerViewModel.lyricsSearchUiState.collectAsStateWithLifecycle()
 
@@ -557,12 +563,9 @@ fun FullPlayerContent(
             onNext = onNextWithOptimisticCarousel,
             transportPlayPauseColors = transportPlayPauseColors,
             transportSkipColors = transportSkipButtonColors,
-            isShuffleEnabledProvider = isShuffleEnabledProvider,
-            shuffleTransitionInProgress = shuffleTransitionInProgress,
-            repeatModeProvider = repeatModeProvider,
+            playbackSpeedProvider = playbackSpeedProvider,
+            onSpeedClick = { showPlaybackSpeedBottomSheet = true },
             isFavoriteProvider = isFavoriteProvider,
-            onShuffleToggle = onShuffleToggle,
-            onRepeatToggle = onRepeatToggle,
             onFavoriteToggle = onFavoriteToggle
         )
     }
@@ -974,12 +977,22 @@ fun FullPlayerContent(
             immersiveLyricsTimeout = immersiveLyricsTimeout,
             isImmersiveTemporarilyDisabled = isImmersiveTemporarilyDisabled,
             onSetImmersiveTemporarilyDisabled = { playerViewModel.setImmersiveTemporarilyDisabled(it) },
+            playbackSpeed = playbackSpeedProvider(),
+            onSpeedClick = { showPlaybackSpeedBottomSheet = true },
             isShuffleEnabled = isShuffleEnabled,
             repeatMode = repeatMode,
             isFavoriteProvider = isFavoriteProvider,
             onShuffleToggle = onShuffleToggle,
             onRepeatToggle = onRepeatToggle,
             onFavoriteToggle = onFavoriteToggle
+        )
+    }
+
+    if (showPlaybackSpeedBottomSheet) {
+        PlaybackSpeedBottomSheet(
+            currentSpeed = playbackSpeedProvider(),
+            onSpeedSelected = onSetPlaybackSpeed,
+            onDismiss = { showPlaybackSpeedBottomSheet = false }
         )
     }
 
@@ -1120,12 +1133,9 @@ private fun FullPlayerControlsSection(
     onNext: () -> Unit,
     transportPlayPauseColors: TransportButtonColors,
     transportSkipColors: TransportButtonColors,
-    isShuffleEnabledProvider: () -> Boolean,
-    shuffleTransitionInProgress: Boolean,
-    repeatModeProvider: () -> Int,
+    playbackSpeedProvider: () -> Float,
+    onSpeedClick: () -> Unit,
     isFavoriteProvider: () -> Boolean,
-    onShuffleToggle: () -> Unit,
-    onRepeatToggle: () -> Unit,
     onFavoriteToggle: () -> Unit
 ) {
     val motionScheme = remember { MotionScheme.expressive() }
@@ -1183,12 +1193,9 @@ private fun FullPlayerControlsSection(
                     .heightIn(min = 66.dp, max = 86.dp)
                     .padding(horizontal = 26.dp, vertical = 0.dp)
                     .padding(bottom = 6.dp),
-                isShuffleEnabled = isShuffleEnabledProvider(),
-                isShuffleTransitionInProgress = shuffleTransitionInProgress,
-                repeatMode = repeatModeProvider(),
+                playbackSpeed = playbackSpeedProvider(),
+                onSpeedClick = onSpeedClick,
                 isFavoriteProvider = isFavoriteProvider,
-                onShuffleToggle = onShuffleToggle,
-                onRepeatToggle = onRepeatToggle,
                 onFavoriteToggle = onFavoriteToggle
             )
         }
@@ -2508,7 +2515,7 @@ private fun ControlsPlaceholder(color: Color, onColor: Color) {
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                repeat(3) {
+                repeat(2) {
                     PlaceholderBox(
                         modifier = Modifier
                             .weight(1f)
@@ -2544,19 +2551,16 @@ private fun expressiveSkipButtonColors(colorScheme: ColorScheme): TransportButto
 @Composable
 private fun BottomToggleRow(
     modifier: Modifier,
-    isShuffleEnabled: Boolean,
-    isShuffleTransitionInProgress: Boolean,
-    repeatMode: Int,
+    playbackSpeed: Float,
     isFavoriteProvider: () -> Boolean,
-    onShuffleToggle: () -> Unit,
-    onRepeatToggle: () -> Unit,
+    onSpeedClick: () -> Unit,
     onFavoriteToggle: () -> Unit
 ) {
     val isFavorite = isFavoriteProvider()
     val rowCorners = 60.dp
     val inactiveBg = LocalMaterialTheme.current.onSurface.copy(alpha = 0.07f)
     val inactiveContentColor = LocalMaterialTheme.current.onSurface
-
+    val isSpeedActive = playbackSpeed != 1.0f
 
     Box(
         modifier = modifier.background(
@@ -2597,34 +2601,16 @@ private fun BottomToggleRow(
 
             ToggleSegmentButton(
                 modifier = commonModifier,
-                active = isShuffleEnabled,
-                enabled = !isShuffleTransitionInProgress,
+                active = isSpeedActive,
                 activeColor = LocalMaterialTheme.current.primaryFixed,
                 activeCornerRadius = rowCorners,
                 activeContentColor = LocalMaterialTheme.current.onPrimaryFixed,
                 inactiveColor = inactiveBg,
                 inactiveContentColor = inactiveContentColor,
-                onClick = onShuffleToggle,
-                iconId = R.drawable.rounded_shuffle_24,
-                contentDesc = "Aleatorio"
-            )
-            val repeatActive = repeatMode != Player.REPEAT_MODE_OFF
-            val repeatIcon = when (repeatMode) {
-                Player.REPEAT_MODE_ONE -> R.drawable.rounded_repeat_one_24
-                Player.REPEAT_MODE_ALL -> R.drawable.rounded_repeat_24
-                else -> R.drawable.rounded_repeat_24
-            }
-            ToggleSegmentButton(
-                modifier = commonModifier,
-                active = repeatActive,
-                activeColor = LocalMaterialTheme.current.secondaryFixed,
-                activeCornerRadius = rowCorners,
-                activeContentColor = LocalMaterialTheme.current.onSecondaryFixed,
-                inactiveColor = inactiveBg,
-                inactiveContentColor = inactiveContentColor,
-                onClick = onRepeatToggle,
-                iconId = repeatIcon,
-                contentDesc = "Repetir"
+                onClick = onSpeedClick,
+                imageVector = Icons.Rounded.Speed,
+                text = formatPlaybackSpeed(playbackSpeed),
+                contentDesc = stringResource(R.string.player_playback_speed)
             )
             ToggleSegmentButton(
                 modifier = commonModifier,

@@ -86,11 +86,13 @@ fun LyricsMoreBottomSheet(
     onShowRomanizationChange: (Boolean) -> Unit,
     immersiveLyricsEnabled: Boolean,
     // BottomToggleRow params
-    isShuffleEnabled: Boolean,
-    repeatMode: Int,
+    playbackSpeed: Float = 1.0f,
+    onSpeedClick: () -> Unit = {},
+    isShuffleEnabled: Boolean = false,
+    repeatMode: Int = 0,
     isFavoriteProvider: () -> Boolean,
-    onShuffleToggle: () -> Unit,
-    onRepeatToggle: () -> Unit,
+    onShuffleToggle: () -> Unit = {},
+    onRepeatToggle: () -> Unit = {},
     onFavoriteToggle: () -> Unit,
     // Colors
     containerColor: Color = MaterialTheme.colorScheme.surfaceContainerLow,
@@ -581,11 +583,9 @@ fun LyricsMoreBottomSheet(
                         .fillMaxWidth()
                         .height(74.dp)
                         .padding(horizontal = 20.dp),
-                    isShuffleEnabled = isShuffleEnabled,
-                    repeatMode = repeatMode,
+                    playbackSpeed = playbackSpeed,
+                    onSpeedClick = onSpeedClick,
                     isFavoriteProvider = isFavoriteProvider,
-                    onShuffleToggle = onShuffleToggle,
-                    onRepeatToggle = onRepeatToggle,
                     onFavoriteToggle = onFavoriteToggle
                 )
             }

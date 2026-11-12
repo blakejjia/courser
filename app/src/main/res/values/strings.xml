@@ -107,6 +107,7 @@
     <string name="common_add">Add</string>
     <string name="common_remove">Remove</string>
     <string name="common_play">Play</string>
+    <string name="common_play_all">Play all</string>
     <string name="common_previous_track">Previous track</string>
     <string name="common_next_track">Next track</string>
     <string name="common_favorite">Favorite</string>

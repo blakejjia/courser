@@ -53,7 +53,6 @@ import androidx.compose.material.icons.rounded.DragIndicator
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Repeat
 import androidx.compose.material.icons.rounded.RepeatOne
-import androidx.compose.material.icons.rounded.Shuffle
 import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
@@ -1440,17 +1439,6 @@ private fun QueueControlsToolbar(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.Center
         ) {
-            FilledTonalIconButton(
-                onClick = onToggleShuffle,
-                colors = if (isShuffleOn) activeColors else inactiveColors,
-                modifier = Modifier.size(48.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Rounded.Shuffle,
-                    contentDescription = stringResource(R.string.queue_cd_toggle_shuffle_action),
-                )
-            }
-            Spacer(modifier = Modifier.width(12.dp))
             FilledTonalIconButton(
                 onClick = onToggleRepeat,
                 colors = if (repeatMode != Player.REPEAT_MODE_OFF) activeColors else inactiveColors,

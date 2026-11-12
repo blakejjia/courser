@@ -1074,7 +1074,7 @@ class PlayerViewModel @Inject constructor(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), listOf("SONGS", "ALBUMS", "ARTIST", "PLAYLISTS", "FOLDERS", "LIKED"))
 
     private val _loadedTabs = MutableStateFlow(emptySet<String>())
-    private var lastBlockedDirectories: Set<String>? = null
+    private var lastAllowedDirectories: Set<String>? = null
 
     private val _currentLibraryTabId = MutableStateFlow(LibraryTabId.SONGS)
     val currentLibraryTabId: StateFlow<LibraryTabId> = _currentLibraryTabId.asStateFlow()
@@ -1595,16 +1595,16 @@ class PlayerViewModel @Inject constructor(
         }
 
         viewModelScope.launch {
-            userPreferencesRepository.blockedDirectoriesFlow
+            userPreferencesRepository.allowedDirectoriesFlow
                 .distinctUntilChanged()
-                .collect { blocked ->
-                    if (lastBlockedDirectories == null) {
-                        lastBlockedDirectories = blocked
+                .collect { allowed ->
+                    if (lastAllowedDirectories == null) {
+                        lastAllowedDirectories = allowed
                         return@collect
                     }
 
-                    if (blocked != lastBlockedDirectories) {
-                        lastBlockedDirectories = blocked
+                    if (allowed != lastAllowedDirectories) {
+                        lastAllowedDirectories = allowed
                         onBlockedDirectoriesChanged()
                     }
                 }
@@ -2253,6 +2253,10 @@ class PlayerViewModel @Inject constructor(
 
     fun cycleRepeatMode() {
         playbackStateHolder.cycleRepeatMode()
+    }
+
+    fun setPlaybackSpeed(speed: Float) {
+        playbackStateHolder.setPlaybackSpeed(speed)
     }
 
     private suspend fun setFavoriteStatusEverywhere(songId: String, isFavorite: Boolean) {

@@ -247,11 +247,13 @@ fun LyricsSheet(
     onSaveLyricsToFile: (Song, Lyrics, Boolean) -> Unit,
     onTranslateViaAi: () -> Unit,
     // BottomToggleRow Params
-    isShuffleEnabled: Boolean,
-    repeatMode: Int,
+    playbackSpeed: Float = 1.0f,
+    onSpeedClick: () -> Unit = {},
+    isShuffleEnabled: Boolean = false,
+    repeatMode: Int = 0,
     isFavoriteProvider: () -> Boolean,
-    onShuffleToggle: () -> Unit,
-    onRepeatToggle: () -> Unit,
+    onShuffleToggle: () -> Unit = {},
+    onRepeatToggle: () -> Unit = {},
     onFavoriteToggle: () -> Unit,
     modifier: Modifier = Modifier,
     swipeThreshold: Dp = 100.dp,
@@ -1071,6 +1073,11 @@ fun LyricsSheet(
                         }
                     },
                     immersiveLyricsEnabled = immersiveLyricsEnabled,
+                    playbackSpeed = playbackSpeed,
+                    onSpeedClick = {
+                        resetImmersiveTimer()
+                        onSpeedClick()
+                    },
                     isShuffleEnabled = isShuffleEnabled,
                     repeatMode = repeatMode,
                     isFavoriteProvider = isFavoriteProvider,

@@ -206,6 +206,12 @@ internal fun BoxScope.UnifiedPlayerMiniAndFullLayers(
                     val isFavoriteProvider = remember {
                         { latestIsFavorite.value }
                     }
+                    val playbackSpeedProvider = remember {
+                        { latestInfrequentPlayerState.value.playbackSpeed }
+                    }
+                    val onSetPlaybackSpeed = remember(playerViewModel) {
+                        { speed: Float -> playerViewModel.setPlaybackSpeed(speed) }
+                    }
                     val onPlayPause = remember(playerViewModel) { playerViewModel::playPause }
                     val onSeek = remember(playerViewModel) { playerViewModel::seekTo }
                     val onNext = remember(playerViewModel) { playerViewModel::nextSong }
@@ -243,6 +249,8 @@ internal fun BoxScope.UnifiedPlayerMiniAndFullLayers(
                         lyricsProvider = lyricsProvider,
                         isCastConnecting = isCastConnecting,
                         isFavoriteProvider = isFavoriteProvider,
+                        playbackSpeedProvider = playbackSpeedProvider,
+                        onSetPlaybackSpeed = onSetPlaybackSpeed,
                         onPlayPause = onPlayPause,
                         onSeek = onSeek,
                         onNext = onNext,
@@ -309,6 +317,10 @@ internal fun UnifiedPlayerPrewarmLayer(
                 val totalDurationProvider = remember { { latestInfrequentPlayerState.value.totalDuration } }
                 val lyricsProvider = remember { { latestInfrequentPlayerState.value.lyrics } }
                 val isFavoriteProvider = remember { { latestIsFavorite.value } }
+                val playbackSpeedProvider = remember { { latestInfrequentPlayerState.value.playbackSpeed } }
+                val onSetPlaybackSpeed = remember(playerViewModel) {
+                    { speed: Float -> playerViewModel.setPlaybackSpeed(speed) }
+                }
                 val onPlayPause = remember(playerViewModel) { playerViewModel::playPause }
                 val onSeek = remember(playerViewModel) { playerViewModel::seekTo }
                 val onNext = remember(playerViewModel) { playerViewModel::nextSong }
@@ -340,6 +352,8 @@ internal fun UnifiedPlayerPrewarmLayer(
                     lyricsProvider = lyricsProvider,
                     isCastConnecting = isCastConnecting,
                     isFavoriteProvider = isFavoriteProvider,
+                    playbackSpeedProvider = playbackSpeedProvider,
+                    onSetPlaybackSpeed = onSetPlaybackSpeed,
                     onShowQueueClicked = onShowQueueClicked,
                     onQueueDragStart = onQueueDragStart,
                     onQueueDrag = onQueueDrag,

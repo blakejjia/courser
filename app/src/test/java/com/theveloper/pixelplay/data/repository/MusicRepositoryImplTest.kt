@@ -53,8 +53,8 @@ class MusicRepositoryImplTest {
     fun setUp() {
         Dispatchers.setMain(testDispatcher) // Usar el dispatcher de prueba para Main
         // Mockear los flows de preferencias por defecto, pueden ser sobrescritos por test
-        coEvery { mockUserPreferencesRepository.allowedDirectoriesFlow } returns flowOf(emptySet())
-        coEvery { mockUserPreferencesRepository.blockedDirectoriesFlow } returns flowOf(setOf("/dummy"))
+        coEvery { mockUserPreferencesRepository.allowedDirectoriesFlow } returns flowOf(setOf("/music/folder1", "/music/folder2"))
+        coEvery { mockUserPreferencesRepository.blockedDirectoriesFlow } returns flowOf(emptySet())
         every { mockUserPreferencesRepository.mockGenresEnabledFlow } returns flowOf(false)
         coEvery { mockUserPreferencesRepository.initialSetupDoneFlow } returns flowOf(true)
         coEvery { mockUserPreferencesRepository.isFolderFilterActiveFlow } returns flowOf(false)
@@ -140,7 +140,7 @@ class MusicRepositoryImplTest {
         every { mockMusicDao.getAllSongs(any(), eq(false)) } returns flowOf(songEntities)
         
         every { mockUserPreferencesRepository.allowedDirectoriesFlow } returns flowOf(allowedDirs) // No es suspend
-        every { mockUserPreferencesRepository.blockedDirectoriesFlow } returns flowOf(setOf("/dummy")) // Trigger filter
+        every { mockUserPreferencesRepository.blockedDirectoriesFlow } returns flowOf(emptySet())
         every { mockUserPreferencesRepository.initialSetupDoneFlow } returns flowOf(true) // No es suspend
         every { mockUserPreferencesRepository.isFolderFilterActiveFlow } returns flowOf(true)
         coEvery { mockMusicDao.getDistinctParentDirectories() } returns listOf("/allowed/path", "/forbidden/path")

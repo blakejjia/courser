@@ -36,8 +36,8 @@
 
     <!-- Music Management category -->
     <string name="settings_library_structure_section">媒体库结构</string>
-    <string name="settings_excluded_directories_title">排除的目录</string>
-    <string name="settings_excluded_directories_subtitle">扫描媒体库时将跳过此处的文件夹。</string>
+    <string name="settings_excluded_directories_title">课程文件夹</string>
+    <string name="settings_excluded_directories_subtitle">选择本地及谷歌云盘文件夹作为课程。</string>
     <string name="settings_artists_title">艺术家</string>
     <string name="settings_artists_subtitle">多艺术家解析和整理选项。</string>
     <string name="settings_filtering_section">过滤</string>

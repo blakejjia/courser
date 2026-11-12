@@ -8,54 +8,33 @@
     <!--
         Courser Music Player — In-App Brand Logo
         Used across app surfaces (e.g. About Screen, Dialogs).
-        Features a self-contained warm background container and
-        Material Design 3 Golden Vinyl / Acoustic Sun emblem.
+        Features a pure black background container and the
+        Material Design 3 Faceted Play Button with unified 尖尖角.
     -->
 
     <!-- Self-contained Background Disc for In-App Surface Displays -->
     <path
-        android:fillColor="#FEF7DA"
+        android:fillColor="#000000"
         android:pathData="M 54,14 A 40,40 0 1,1 54,94 A 40,40 0 1,1 54,14 Z" />
 
-    <!-- Soft Golden Aura Ring -->
+    <!-- Facet 1: Top slope (Luminous Canary Yellow #FFD54F) -->
     <path
-        android:fillColor="#FFE082"
-        android:fillAlpha="0.45"
-        android:pathData="M 54,18 A 36,36 0 1,1 54,90 A 36,36 0 1,1 54,18 Z" />
+        android:fillColor="#FFD54F"
+        android:pathData="M 36,36 C 36,32.2 40.2,30.0 43.5,31.8 L 76.5,51.8 C 78.0,52.7 78.8,53.4 78.8,54.0 L 51.0,54.0 L 36,45.0 Z" />
 
-    <!-- Hero Golden Vinyl / Acoustic Sun Disc (Material Amber 600 #FFB300) -->
+    <!-- Facet 2: Left spine (Material Amber 600 #FFB300) -->
     <path
         android:fillColor="#FFB300"
-        android:pathData="M 54,21.5 A 32.5,32.5 0 1,1 54,86.5 A 32.5,32.5 0 1,1 54,21.5 Z" />
+        android:pathData="M 36,45.0 L 51.0,54.0 L 36,63.0 Z" />
 
-    <!-- Outer Acoustic Sound Wave Groove (Tone 90 Cream #FFF0B5) -->
+    <!-- Facet 3: Bottom slope (Warm Honey Orange #FB8C00) - joins at (78.8, 54.0) with zero gap -->
     <path
-        android:strokeColor="#FFF0B5"
-        android:strokeWidth="1.8"
-        android:strokeLineCap="round"
-        android:pathData="M 54,27.5 A 26.5,26.5 0 1,1 54,80.5 A 26.5,26.5 0 1,1 54,27.5 Z" />
+        android:fillColor="#FB8C00"
+        android:pathData="M 36,63.0 L 51.0,54.0 L 78.8,54.0 C 78.8,54.6 78.0,55.3 76.5,56.2 L 43.5,76.2 C 40.2,78.0 36,75.8 36,72.0 Z" />
 
-    <!-- Inner Acoustic Sound Wave Groove (Tone 70 Amber #FFA000) -->
+    <!-- Inner Aperture Cutout (Pure Black #000000) -->
     <path
-        android:strokeColor="#FFA000"
-        android:strokeWidth="1.5"
-        android:strokeLineCap="round"
-        android:pathData="M 54,32.5 A 21.5,21.5 0 1,1 54,75.5 A 21.5,21.5 0 1,1 54,32.5 Z" />
-
-    <!-- Center Turntable Core / Label Disc (Ivory Luminous Surface #FFFDF6) -->
-    <path
-        android:fillColor="#FFFDF6"
-        android:pathData="M 54,37.5 A 16.5,16.5 0 1,1 54,70.5 A 16.5,16.5 0 1,1 54,37.5 Z" />
-
-    <!-- Center Subtle Accent Ring (#FFE082) -->
-    <path
-        android:strokeColor="#FFE082"
-        android:strokeWidth="1.2"
-        android:pathData="M 54,40 A 14,14 0 1,1 54,68 A 14,14 0 1,1 54,40 Z" />
-
-    <!-- Bold Rounded Play Button (High-Contrast Deep Espresso #2E1C03, Optically Centered) -->
-    <path
-        android:fillColor="#2E1C03"
-        android:pathData="M 49.0,47.5 C 49.0,45.2 51.5,43.8 53.5,45.0 L 62.5,50.8 C 64.5,52.0 64.5,54.8 62.5,56.0 L 53.5,61.8 C 51.5,63.0 49.0,61.6 49.0,59.3 Z" />
+        android:fillColor="#000000"
+        android:pathData="M 45.0,47.0 C 45.0,45.2 46.8,44.2 48.2,45.0 L 58.8,51.8 C 60.1,52.6 60.1,55.4 58.8,56.2 L 48.2,63.0 C 46.8,63.8 45.0,62.8 45.0,61.0 Z" />
 
 </vector>

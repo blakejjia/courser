@@ -20,22 +20,18 @@ class FolderTreeBuilder @Inject constructor() {
     fun buildFolderTree(
         folderSongs: List<FolderSongRow>,
         allowedDirs: Set<String>,
-        blockedDirs: Set<String>,
+        blockedDirs: Set<String> = emptySet(),
         isFolderFilterActive: Boolean,
         folderSource: FolderSource,
         context: Context
     ): List<MusicFolder> {
-        // 1. Resolve Rules
-        val resolver = DirectoryRuleResolver(allowedDirs, blockedDirs)
+        // 1. Resolve Rules (strict whitelist)
+        val resolver = DirectoryRuleResolver(allowed = allowedDirs)
 
         // 2. Filter Songs based on Directory Rules
-        val filteredSongs = if (isFolderFilterActive && blockedDirs.isNotEmpty()) {
-            folderSongs.filter { song ->
-                val normalizedParent = normalizePath(song.parentDirectoryPath)
-                normalizedParent.isNotBlank() && !resolver.isBlocked(normalizedParent)
-            }
-        } else {
-            folderSongs
+        val filteredSongs = folderSongs.filter { song ->
+            val normalizedParent = normalizePath(song.parentDirectoryPath)
+            normalizedParent.isNotBlank() && resolver.isAllowed(normalizedParent)
         }
 
         if (filteredSongs.isEmpty()) return emptyList()

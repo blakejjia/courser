@@ -1,6 +1,10 @@
 ﻿<?xml version="1.0" encoding="utf-8" ?>
 <resources>
     <!-- Player UI & Playback Controls -->
+    <string name="player_playback_speed">Playback Speed</string>
+    <string name="player_playback_speed_global_desc">Global setting applied to all course audio</string>
+    <string name="player_playback_speed_normal">Normal (1.0x)</string>
+    <string name="player_playback_speed_reset">Reset</string>
     <string name="player_cd_collapse">Collapse player</string>
     <string name="player_now_playing">Now Playing</string>
     <string name="player_cd_cloud_stream">Cloud stream</string>

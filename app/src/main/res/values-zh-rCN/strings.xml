@@ -107,6 +107,7 @@
     <string name="common_add">添加</string>
     <string name="common_remove">移除</string>
     <string name="common_play">播放</string>
+    <string name="common_play_all">播放全部</string>
     <string name="common_previous_track">上一首</string>
     <string name="common_next_track">下一首</string>
     <string name="common_favorite">收藏</string>

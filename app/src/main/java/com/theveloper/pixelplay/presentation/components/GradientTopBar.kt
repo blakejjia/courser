@@ -99,9 +99,9 @@ fun GenreGradientTopBar(
 @Composable
 fun HomeGradientTopBar(
     onNavigationIconClick: () -> Unit = {},
-    onMoreOptionsClick: () -> Unit,
-    onBetaClick: () -> Unit,
-    onTelegramClick: () -> Unit,
+    onMoreOptionsClick: () -> Unit = {},
+    onBetaClick: () -> Unit = {},
+    onTelegramClick: () -> Unit = {},
     onMenuClick: () -> Unit = {},
     isScrolled: Boolean = false,
 ) {
@@ -117,72 +117,19 @@ fun HomeGradientTopBar(
 
     TopAppBar(
         modifier = Modifier.background(surfaceContainerHigh.copy(alpha = animatedAlpha)),
-        title = { /* nada, usamos solo acciones */ },
-        navigationIcon = {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.padding(start = 12.dp)
-            ) {
-                FilledTonalButton(
-                    modifier = Modifier.padding(start = 4.dp),
-                    shape = CircleShape,
-                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 10.dp),
-                    colors = ButtonDefaults.filledTonalButtonColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                        contentColor = MaterialTheme.colorScheme.onSurface
-                    ),
-                    onClick = onBetaClick
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Text(
-                            text = stringResource(R.string.topbar_beta_letter),
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.Black
-                        )
-                        Text(
-                            text = stringResource(R.string.topbar_beta_label),
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                    }
-                }
-            }
+        title = {
+            Text(
+                text = "Courser",
+                style = MaterialTheme.typography.titleLarge.copy(
+                    fontFamily = GoogleSansRounded,
+                    fontWeight = FontWeight.Bold
+                ),
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.padding(start = 8.dp)
+            )
         },
-        actions = {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding(end = 14.dp)
-            ) {
-                FilledIconButton(
-                    colors = IconButtonDefaults.filledIconButtonColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                        contentColor = MaterialTheme.colorScheme.onSurface
-                    ),
-                    onClick = onTelegramClick
-                ) {
-                    Icon(
-                         imageVector = Icons.Rounded.Cloud,
-                         contentDescription = stringResource(R.string.topbar_cd_cloud_streaming)
-                    )
-                }
-                FilledIconButton(
-                    colors = IconButtonDefaults.filledIconButtonColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                        contentColor = MaterialTheme.colorScheme.onSurface
-                    ),
-                    onClick = onMoreOptionsClick
-                ) {
-                    Icon(
-                        painter = painterResource(R.drawable.round_newspaper_24),
-                        contentDescription = stringResource(R.string.topbar_cd_changelog)
-                    )
-                }
-            }
-        },
+        navigationIcon = {},
+        actions = {},
         colors = topAppBarColors(
             containerColor = Color.Transparent
         )

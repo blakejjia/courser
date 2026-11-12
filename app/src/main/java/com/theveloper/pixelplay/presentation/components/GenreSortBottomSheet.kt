@@ -16,7 +16,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Album
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Person
-import androidx.compose.material.icons.rounded.Shuffle
+import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.SortByAlpha
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -82,12 +82,12 @@ fun GenreSortBottomSheet(
                 )
             }
 
-            // Big expresssive buttons for actions
+            // Big expressive buttons for actions
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                // Shuffle Button (Prominent)
+                // Play All Button (Prominent)
                 Button(
                     onClick = onShuffle,
                     modifier = Modifier.weight(1f).heightIn(min = 56.dp),
@@ -97,10 +97,10 @@ fun GenreSortBottomSheet(
                     ),
                     shape = AbsoluteSmoothCornerShape(16.dp, 60)
                 ) {
-                    Icon(Icons.Rounded.Shuffle, contentDescription = null)
+                    Icon(Icons.Rounded.PlayArrow, contentDescription = null)
                     Spacer(modifier = Modifier.width(8.dp))
                     TightWrapText(
-                        text = stringResource(R.string.genre_sort_action_shuffle),
+                        text = stringResource(R.string.common_play_all),
                         modifier = Modifier.padding(end = 4.dp),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,

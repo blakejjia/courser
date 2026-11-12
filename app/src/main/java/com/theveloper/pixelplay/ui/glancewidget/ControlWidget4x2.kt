@@ -57,7 +57,6 @@ class ControlWidget4x2 : GlanceAppWidget() {
         val title = playerInfo.songTitle.ifEmpty { "Courser" }
         val artist = playerInfo.artistName.ifEmpty { "Tap to open" }
         val isPlaying = playerInfo.isPlaying
-        val isShuffleEnabled = playerInfo.isShuffleEnabled
         val repeatMode = playerInfo.repeatMode
         val albumArtBitmapData = playerInfo.albumArtBitmapData
         val albumArtUri = playerInfo.albumArtUri
@@ -133,16 +132,6 @@ class ControlWidget4x2 : GlanceAppWidget() {
                     val buttonModifier = GlanceModifier
                         .defaultWeight()
                         .height(48.dp)
-
-                    // Shuffle Button
-                    ShuffleButton(
-                        modifier = buttonModifier,
-                        backgroundColor = if (isShuffleEnabled) colors.onSurface else colors.prevNextBackground,
-                        iconColor = if (isShuffleEnabled) colors.surface else colors.prevNextIcon,
-                        cornerRadius = controlButtonCornerRadius
-                    )
-
-                    Spacer(GlanceModifier.width(6.dp))
 
                     // Previous Button
                     PreviousButton(

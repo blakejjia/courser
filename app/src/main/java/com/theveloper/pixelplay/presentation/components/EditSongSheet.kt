@@ -72,7 +72,6 @@ import racra.compose.smooth_corner_rect_library.AbsoluteSmoothCornerShape
 import dev.shreyaspatil.capturable.capturable
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.material.icons.rounded.Restore
-import androidx.compose.material.icons.rounded.Shuffle
 import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.focus.focusModifier

@@ -594,22 +594,23 @@ class UserPreferencesRepository @Inject constructor(
     val allowedDirectoriesFlow: Flow<Set<String>> =
         pref { it[PreferencesKeys.ALLOWED_DIRECTORIES] ?: emptySet() }.distinctUntilChanged()
 
-    val blockedDirectoriesFlow: Flow<Set<String>> =
-        pref { it[PreferencesKeys.BLOCKED_DIRECTORIES] ?: emptySet() }.distinctUntilChanged()
+    @Deprecated("Courser uses a strict whitelist model. Blocked directories are no longer used.")
+    val blockedDirectoriesFlow: Flow<Set<String>> = kotlinx.coroutines.flow.flowOf(emptySet())
 
     suspend fun updateAllowedDirectories(allowedPaths: Set<String>) {
         dataStore.edit { preferences ->
             preferences[PreferencesKeys.ALLOWED_DIRECTORIES] = allowedPaths
+            preferences.remove(PreferencesKeys.BLOCKED_DIRECTORIES)
             preferences[PreferencesKeys.LAST_SYNC_TIMESTAMP] = 0L
             preferences[PreferencesKeys.DIRECTORY_RULES_VERSION] =
                 incrementWrapped(preferences[PreferencesKeys.DIRECTORY_RULES_VERSION])
         }
     }
 
-    suspend fun updateDirectorySelections(allowedPaths: Set<String>, blockedPaths: Set<String>) {
+    suspend fun updateDirectorySelections(allowedPaths: Set<String>, blockedPaths: Set<String> = emptySet()) {
         dataStore.edit { preferences ->
             preferences[PreferencesKeys.ALLOWED_DIRECTORIES] = allowedPaths
-            preferences[PreferencesKeys.BLOCKED_DIRECTORIES] = blockedPaths
+            preferences.remove(PreferencesKeys.BLOCKED_DIRECTORIES)
             preferences[PreferencesKeys.LAST_SYNC_TIMESTAMP] = 0L
             preferences[PreferencesKeys.DIRECTORY_RULES_VERSION] =
                 incrementWrapped(preferences[PreferencesKeys.DIRECTORY_RULES_VERSION])

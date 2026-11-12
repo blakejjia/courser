@@ -75,6 +75,7 @@ data class SettingsUiState(
     val hiFiModeEnabled: Boolean = false,
     val hiFiModeDeviceSupported: Boolean = true,
     val crossfadeDuration: Int = 2000,
+    val playbackSpeed: Float = 1.0f,
     val persistentShuffleEnabled: Boolean = false,
     val folderBackGestureNavigation: Boolean = true,
     val lyricsSourcePreference: LyricsSourcePreference = LyricsSourcePreference.EMBEDDED_FIRST,
@@ -743,6 +744,12 @@ class SettingsViewModel @Inject constructor(
         }
 
         viewModelScope.launch {
+            userPreferencesRepository.playbackSpeedFlow.collect { speed ->
+                _uiState.update { it.copy(playbackSpeed = speed) }
+            }
+        }
+
+        viewModelScope.launch {
             fileExplorerStateHolder.isLoading.collect { loading ->
                 _uiState.update { it.copy(isLoadingDirectories = loading) }
             }
@@ -1003,6 +1010,12 @@ class SettingsViewModel @Inject constructor(
     fun setCrossfadeDuration(duration: Int) {
         viewModelScope.launch {
             userPreferencesRepository.setCrossfadeDuration(duration)
+        }
+    }
+
+    fun setPlaybackSpeed(speed: Float) {
+        viewModelScope.launch {
+            userPreferencesRepository.setPlaybackSpeed(speed)
         }
     }
 

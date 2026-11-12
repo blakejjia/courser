@@ -7,47 +7,40 @@ import org.junit.jupiter.api.Test
 class DirectoryRuleResolverTest {
 
     @Test
-    fun excludeThenIncludePath_pathBecomesVisibleAgain() {
-        val targetPath = "/storage/emulated/0/Music"
-
-        val excluded = DirectoryRuleResolver(allowed = emptySet(), blocked = setOf(targetPath))
-        assertTrue(excluded.isBlocked(targetPath))
-
-        val includedAgain = DirectoryRuleResolver(allowed = emptySet(), blocked = emptySet())
-        assertFalse(includedAgain.isBlocked(targetPath))
-    }
-
-    @Test
-    fun includeThenExcludePath_pathBecomesHidden() {
-        val targetPath = "/storage/emulated/0/Music"
-
-        val included = DirectoryRuleResolver(allowed = emptySet(), blocked = emptySet())
-        assertFalse(included.isBlocked(targetPath))
-
-        val excluded = DirectoryRuleResolver(allowed = emptySet(), blocked = setOf(targetPath))
-        assertTrue(excluded.isBlocked(targetPath))
-    }
-
-    @Test
-    fun nestedAllow_insideBlockedParent_isRespected() {
-        val resolver = DirectoryRuleResolver(
-            allowed = setOf("/storage/emulated/0/Music/Favorites"),
-            blocked = setOf("/storage/emulated/0/Music")
-        )
-
+    fun emptyAllowedDirectories_blocksAllPaths() {
+        val resolver = DirectoryRuleResolver(allowed = emptySet())
         assertTrue(resolver.isBlocked("/storage/emulated/0/Music"))
-        assertTrue(resolver.isBlocked("/storage/emulated/0/Music/Albums"))
-        assertFalse(resolver.isBlocked("/storage/emulated/0/Music/Favorites"))
-        assertFalse(resolver.isBlocked("/storage/emulated/0/Music/Favorites/Chill"))
+        assertTrue(resolver.isBlocked("/storage/emulated/0/Courses/Kotlin"))
+        assertFalse(resolver.isAllowed("/storage/emulated/0/Music"))
     }
 
     @Test
-    fun siblingPath_outsideBlockedTree_staysVisible() {
-        val resolver = DirectoryRuleResolver(
-            allowed = emptySet(),
-            blocked = setOf("/storage/emulated/0/Music")
-        )
+    fun allowedCourseDirectory_allowsCourseAndSubfolders() {
+        val resolver = DirectoryRuleResolver(allowed = setOf("/storage/emulated/0/Courses/Kotlin"))
 
-        assertFalse(resolver.isBlocked("/storage/emulated/0/Podcasts"))
+        // Exact match
+        assertTrue(resolver.isAllowed("/storage/emulated/0/Courses/Kotlin"))
+        assertFalse(resolver.isBlocked("/storage/emulated/0/Courses/Kotlin"))
+
+        // Subfolder match
+        assertTrue(resolver.isAllowed("/storage/emulated/0/Courses/Kotlin/Chapter1"))
+        assertFalse(resolver.isBlocked("/storage/emulated/0/Courses/Kotlin/Chapter1"))
+
+        // Unselected sibling path is blocked
+        assertFalse(resolver.isAllowed("/storage/emulated/0/Courses/Spanish"))
+        assertTrue(resolver.isBlocked("/storage/emulated/0/Courses/Spanish"))
+
+        // Unselected parent directory is not allowed
+        assertFalse(resolver.isAllowed("/storage/emulated/0/Courses"))
+        assertTrue(resolver.isBlocked("/storage/emulated/0/Courses"))
+    }
+
+    @Test
+    fun trailingSlash_isHandledCleanly() {
+        val resolver = DirectoryRuleResolver(allowed = setOf("/storage/emulated/0/Courses/Kotlin/"))
+
+        assertTrue(resolver.isAllowed("/storage/emulated/0/Courses/Kotlin"))
+        assertTrue(resolver.isAllowed("/storage/emulated/0/Courses/Kotlin/Lesson1"))
+        assertFalse(resolver.isBlocked("/storage/emulated/0/Courses/Kotlin/Lesson1"))
     }
 }

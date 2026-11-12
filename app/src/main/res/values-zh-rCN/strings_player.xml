@@ -1,6 +1,10 @@
 ﻿<?xml version="1.0" encoding="utf-8" ?>
 <resources>
     <!-- Player UI & Playback Controls -->
+    <string name="player_playback_speed">播放速度</string>
+    <string name="player_playback_speed_global_desc">应用于所有课程音频的全局倍速</string>
+    <string name="player_playback_speed_normal">正常 (1.0x)</string>
+    <string name="player_playback_speed_reset">重置</string>
     <string name="player_cd_collapse">收起播放器</string>
     <string name="player_now_playing">正在播放</string>
     <string name="player_cd_cloud_stream">云端串流</string>

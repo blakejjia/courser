@@ -35,7 +35,7 @@ import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
 import androidx.compose.material.icons.automirrored.rounded.Sort
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.MyLocation
-import androidx.compose.material.icons.rounded.Shuffle
+import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.FilterList
 import androidx.compose.material.icons.rounded.Cloud
 import androidx.compose.material.icons.rounded.Dataset
@@ -170,16 +170,16 @@ fun LibraryActionRow(
                         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp),
                         modifier = Modifier.height(genHeight)
                     ) {
-                        val icon = if (isPlaylistTab) Icons.AutoMirrored.Rounded.PlaylistAdd else Icons.Rounded.Shuffle
+                        val icon = if (isPlaylistTab) Icons.AutoMirrored.Rounded.PlaylistAdd else Icons.Rounded.PlayArrow
                         val text = if (isPlaylistTab) {
                             stringResource(R.string.library_action_new)
                         } else {
-                            stringResource(R.string.common_shuffle)
+                            stringResource(R.string.common_play_all)
                         }
                         val contentDesc = if (isPlaylistTab) {
                             stringResource(R.string.library_cd_create_new_playlist)
                         } else {
-                            stringResource(R.string.common_shuffle_play)
+                            stringResource(R.string.common_play_all)
                         }
 
                         Row(

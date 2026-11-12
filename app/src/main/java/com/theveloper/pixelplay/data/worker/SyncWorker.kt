@@ -149,10 +149,9 @@ constructor(
                     val directoryRulesChanged =
                         directoryRulesVersion != lastAppliedDirectoryRulesVersion
 
-                    // Feature: Directory Filtering
+                    // Feature: Directory Filtering (strict whitelist)
                     val allowedDirs = userPreferencesRepository.allowedDirectoriesFlow.first()
-                    val blockedDirs = userPreferencesRepository.blockedDirectoriesFlow.first()
-                    val directoryResolver = DirectoryRuleResolver(allowedDirs, blockedDirs)
+                    val directoryResolver = DirectoryRuleResolver(allowed = allowedDirs)
                     
                     var lastSyncTimestamp = userPreferencesRepository.getLastSyncTimestamp()
 

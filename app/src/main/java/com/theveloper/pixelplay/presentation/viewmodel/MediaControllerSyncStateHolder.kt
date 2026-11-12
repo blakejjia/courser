@@ -489,12 +489,14 @@ class MediaControllerSyncStateHolder @Inject constructor(
     /** One-time snapshot of the controller's current state when it first attaches. */
     private fun applyInitialControllerState(playerCtrl: MediaController) {
         cb.setTrackVolume(playerCtrl.volume)
+        val initialSpeed = playerCtrl.playbackParameters.speed
         playbackStateHolder.updateStablePlayerState {
             it.copy(
                 isShuffleEnabled = it.isShuffleEnabled,
                 repeatMode = playerCtrl.repeatMode,
                 isPlaying = playerCtrl.isPlaying,
-                playWhenReady = playerCtrl.playWhenReady
+                playWhenReady = playerCtrl.playWhenReady,
+                playbackSpeed = if (initialSpeed > 0f) initialSpeed else it.playbackSpeed
             )
         }
         preparePlaybackAudioMetadataForMedia(playerCtrl.currentMediaItem?.mediaId)
@@ -590,6 +592,15 @@ class MediaControllerSyncStateHolder @Inject constructor(
                     playerCtrl.playbackState != Player.STATE_ENDED
                 ) {
                     playbackStateHolder.startProgressUpdates()
+                }
+            }
+
+            override fun onPlaybackParametersChanged(playbackParameters: androidx.media3.common.PlaybackParameters) {
+                val speed = playbackParameters.speed
+                if (speed > 0f) {
+                    playbackStateHolder.updateStablePlayerState {
+                        it.copy(playbackSpeed = speed)
+                    }
                 }
             }
 
