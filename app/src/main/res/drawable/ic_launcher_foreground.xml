@@ -1,30 +1,115 @@
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:aapt="http://schemas.android.com/aapt"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <path android:pathData="M31,63.928c0,0 6.4,-11 12.1,-13.1c7.2,-2.6 26,-1.4 26,-1.4l38.1,38.1L107,108.928l-32,-1L31,63.928z">
-        <aapt:attr name="android:fillColor">
-            <gradient
-                android:endX="85.84757"
-                android:endY="92.4963"
-                android:startX="42.9492"
-                android:startY="49.59793"
-                android:type="linear">
-                <item
-                    android:color="#44000000"
-                    android:offset="0.0" />
-                <item
-                    android:color="#00000000"
-                    android:offset="1.0" />
-            </gradient>
-        </aapt:attr>
-    </path>
+
+    <!-- Stem -->
+    <path
+        android:strokeColor="#4E7D2E"
+        android:strokeWidth="2.4"
+        android:strokeLineCap="round"
+        android:pathData="M 61.5,45.0 Q 64.0,41.0 66.5,39.0" />
+
+    <!-- Big Leaf Main Body -->
+    <path
+        android:fillColor="#558B2F"
+        android:pathData="M 65.0,40.0 C 65.0,33.0 71.0,29.0 74.5,29.5 C 75.0,33.5 73.0,39.5 66.0,41.0 Z" />
+
+    <!-- Big Leaf Shaded Tone -->
+    <path
+        android:fillColor="#33691E"
+        android:fillAlpha="0.3"
+        android:pathData="M 65.0,40.0 C 68.0,37.0 72.0,33.0 74.5,29.5 C 71.0,33.5 67.0,38.5 65.0,40.0 Z" />
+
+    <!-- Small Accent Leaf -->
+    <path
+        android:fillColor="#7CB342"
+        android:pathData="M 66.5,41.5 C 71.0,40.0 76.0,41.5 77.0,44.0 C 74.0,46.5 69.0,45.5 66.0,42.5 Z" />
+
+    <!-- Lemon Outer Rind Shadow -->
+    <path
+        android:fillColor="#E5A100"
+        android:fillAlpha="0.25"
+        android:pathData="M 53,35.8 A 21,21 0 1,1 53,77.8 A 21,21 0 1,1 53,35.8 Z" />
+
+    <!-- Lemon Outer Rind -->
+    <path
+        android:fillColor="#FBC02D"
+        android:pathData="M 53,35 A 21,21 0 1,1 53,77 A 21,21 0 1,1 53,35 Z" />
+
+    <!-- Lemon Pith (White Ring) -->
     <path
         android:fillColor="#FFFFFF"
-        android:fillType="nonZero"
-        android:pathData="M65.3,45.828l3.8,-6.6c0.2,-0.4 0.1,-0.9 -0.3,-1.1c-0.4,-0.2 -0.9,-0.1 -1.1,0.3l-3.9,6.7c-6.3,-2.8 -13.4,-2.8 -19.7,0l-3.9,-6.7c-0.2,-0.4 -0.7,-0.5 -1.1,-0.3C38.8,38.328 38.7,38.828 38.9,39.228l3.8,6.6C36.2,49.428 31.7,56.028 31,63.928h46C76.3,56.028 71.8,49.428 65.3,45.828zM43.4,57.328c-0.8,0 -1.5,-0.5 -1.8,-1.2c-0.3,-0.7 -0.1,-1.5 0.4,-2.1c0.5,-0.5 1.4,-0.7 2.1,-0.4c0.7,0.3 1.2,1 1.2,1.8C45.3,56.528 44.5,57.328 43.4,57.328L43.4,57.328zM64.6,57.328c-0.8,0 -1.5,-0.5 -1.8,-1.2s-0.1,-1.5 0.4,-2.1c0.5,-0.5 1.4,-0.7 2.1,-0.4c0.7,0.3 1.2,1 1.2,1.8C66.5,56.528 65.6,57.328 64.6,57.328L64.6,57.328z"
-        android:strokeWidth="1"
-        android:strokeColor="#00000000" />
+        android:pathData="M 53,37.8 A 18.2,18.2 0 1,1 53,74.2 A 18.2,18.2 0 1,1 53,37.8 Z" />
+
+    <!-- 8 Lemon Pulp Wedges -->
+    <path
+        android:fillColor="#FDD835"
+        android:strokeColor="#FDD835"
+        android:strokeWidth="1.4"
+        android:strokeLineJoin="round"
+        android:pathData="M 61.58,56.64 L 69.75,57.25 A 16.80,16.80 0 0,1 65.73,66.97 L 59.52,61.61 A 8.60,8.60 0 0,0 61.58,56.64 Z" />
+    <path
+        android:fillColor="#FDD835"
+        android:strokeColor="#FDD835"
+        android:strokeWidth="1.4"
+        android:strokeLineJoin="round"
+        android:pathData="M 58.61,62.52 L 63.97,68.73 A 16.80,16.80 0 0,1 54.25,72.75 L 53.64,64.58 A 8.60,8.60 0 0,0 58.61,62.52 Z" />
+    <path
+        android:fillColor="#FDD835"
+        android:strokeColor="#FDD835"
+        android:strokeWidth="1.4"
+        android:strokeLineJoin="round"
+        android:pathData="M 52.36,64.58 L 51.75,72.75 A 16.80,16.80 0 0,1 42.03,68.73 L 47.39,62.52 A 8.60,8.60 0 0,0 52.36,64.58 Z" />
+    <path
+        android:fillColor="#FDD835"
+        android:strokeColor="#FDD835"
+        android:strokeWidth="1.4"
+        android:strokeLineJoin="round"
+        android:pathData="M 46.48,61.61 L 40.27,66.97 A 16.80,16.80 0 0,1 36.25,57.25 L 44.42,56.64 A 8.60,8.60 0 0,0 46.48,61.61 Z" />
+    <path
+        android:fillColor="#FDD835"
+        android:strokeColor="#FDD835"
+        android:strokeWidth="1.4"
+        android:strokeLineJoin="round"
+        android:pathData="M 44.42,55.36 L 36.25,54.75 A 16.80,16.80 0 0,1 40.27,45.03 L 46.48,50.39 A 8.60,8.60 0 0,0 44.42,55.36 Z" />
+    <path
+        android:fillColor="#FDD835"
+        android:strokeColor="#FDD835"
+        android:strokeWidth="1.4"
+        android:strokeLineJoin="round"
+        android:pathData="M 47.39,49.48 L 42.03,43.27 A 16.80,16.80 0 0,1 51.75,39.25 L 52.36,47.42 A 8.60,8.60 0 0,0 47.39,49.48 Z" />
+    <path
+        android:fillColor="#FDD835"
+        android:strokeColor="#FDD835"
+        android:strokeWidth="1.4"
+        android:strokeLineJoin="round"
+        android:pathData="M 53.64,47.42 L 54.25,39.25 A 16.80,16.80 0 0,1 63.97,43.27 L 58.61,49.48 A 8.60,8.60 0 0,0 53.64,47.42 Z" />
+    <path
+        android:fillColor="#FDD835"
+        android:strokeColor="#FDD835"
+        android:strokeWidth="1.4"
+        android:strokeLineJoin="round"
+        android:pathData="M 59.52,50.39 L 65.73,45.03 A 16.80,16.80 0 0,1 69.75,54.75 L 61.58,55.36 A 8.60,8.60 0 0,0 59.52,50.39 Z" />
+
+    <!-- Center Play Badge Shadow -->
+    <path
+        android:fillColor="#D8BE50"
+        android:fillAlpha="0.3"
+        android:pathData="M 53,49.7 A 6.8,6.8 0 1,1 53,63.3 A 6.8,6.8 0 1,1 53,49.7 Z" />
+
+    <!-- Center Play Badge Disc -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M 53,49.4 A 6.6,6.6 0 1,1 53,62.6 A 6.6,6.6 0 1,1 53,49.4 Z" />
+
+    <!-- Play Button Triangle -->
+    <path
+        android:fillColor="#E65100"
+        android:strokeColor="#E65100"
+        android:strokeWidth="1.6"
+        android:strokeLineJoin="round"
+        android:pathData="M 52.0,53.2 L 52.0,58.8 L 56.8,56.0 Z" />
+
 </vector>
