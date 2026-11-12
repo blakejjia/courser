@@ -144,6 +144,7 @@ class UserPreferencesRepository @Inject constructor(
         val CUSTOM_GENRES = stringSetPreferencesKey("custom_genres")
         val CUSTOM_GENRE_ICONS = stringPreferencesKey("custom_genre_icons")
         val REPEAT_MODE = intPreferencesKey("repeat_mode")
+        val PLAYBACK_SPEED = floatPreferencesKey("playback_speed")
         val IS_SHUFFLE_ON = booleanPreferencesKey("is_shuffle_on")
         val PERSISTENT_SHUFFLE_ENABLED = booleanPreferencesKey("persistent_shuffle_enabled")
         val DISABLE_CAST_AUTOPLAY = booleanPreferencesKey("disable_cast_autoplay")
@@ -250,6 +251,7 @@ class UserPreferencesRepository @Inject constructor(
         // Daily learning goal
         val DAILY_GOAL_COURSE_IDS = stringSetPreferencesKey("daily_goal_course_ids")
         val DAILY_GOAL_TARGET_COUNT = intPreferencesKey("daily_goal_target_count")
+        val DAILY_GOAL_COURSE_TARGETS_JSON = stringPreferencesKey("daily_goal_course_targets_json")
     }
 
     // ─── Private helpers ─────────────────────────────────────────────────────
@@ -317,6 +319,15 @@ class UserPreferencesRepository @Inject constructor(
     suspend fun setRepeatMode(@Player.RepeatMode mode: Int) {
         dataStore.edit { it[PreferencesKeys.REPEAT_MODE] = mode }
     }
+
+    val playbackSpeedFlow: Flow<Float> =
+        pref { (it[PreferencesKeys.PLAYBACK_SPEED] ?: 1.0f).coerceIn(0.25f, 3.0f) }
+
+    suspend fun setPlaybackSpeed(speed: Float) {
+        dataStore.edit { it[PreferencesKeys.PLAYBACK_SPEED] = speed.coerceIn(0.25f, 3.0f) }
+    }
+
+    suspend fun getPlaybackSpeedOnce(): Float = playbackSpeedFlow.first()
 
     val isShuffleOnFlow: Flow<Boolean> =
         pref { it[PreferencesKeys.IS_SHUFFLE_ON] ?: false }
@@ -783,6 +794,31 @@ suspend fun markDirectoryRulesVersionApplied(version: Int) {
         dataStore.data.map { preferences ->
             preferences[PreferencesKeys.DAILY_GOAL_TARGET_COUNT] ?: 1
         }.distinctUntilChanged()
+
+    val dailyGoalCourseTargetsFlow: Flow<Map<String, Int>> =
+        pref { decodeJsonPref(it, PreferencesKeys.DAILY_GOAL_COURSE_TARGETS_JSON, emptyMap()) }
+
+    suspend fun setCourseDailyTarget(courseId: String, targetCount: Int) {
+        dataStore.edit { preferences ->
+            val current = decodeJsonPref(preferences, PreferencesKeys.DAILY_GOAL_COURSE_TARGETS_JSON, emptyMap<String, Int>()).toMutableMap()
+            if (targetCount > 0) {
+                current[courseId] = targetCount
+            } else {
+                current.remove(courseId)
+            }
+            preferences[PreferencesKeys.DAILY_GOAL_COURSE_TARGETS_JSON] = Json.encodeToString(current)
+            preferences[PreferencesKeys.DAILY_GOAL_COURSE_IDS] = current.keys
+        }
+    }
+
+    suspend fun removeCourseFromDailyGoal(courseId: String) {
+        dataStore.edit { preferences ->
+            val current = decodeJsonPref(preferences, PreferencesKeys.DAILY_GOAL_COURSE_TARGETS_JSON, emptyMap<String, Int>()).toMutableMap()
+            current.remove(courseId)
+            preferences[PreferencesKeys.DAILY_GOAL_COURSE_TARGETS_JSON] = Json.encodeToString(current)
+            preferences[PreferencesKeys.DAILY_GOAL_COURSE_IDS] = current.keys
+        }
+    }
 
     suspend fun setDailyGoalCourseIds(courseIds: Set<String>) {
         dataStore.edit { preferences ->

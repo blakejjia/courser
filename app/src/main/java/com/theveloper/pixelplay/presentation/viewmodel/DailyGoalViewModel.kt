@@ -13,11 +13,16 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+data class PlannedCourse(
+    val playlist: Playlist,
+    val targetCount: Int
+)
+
 data class DailyGoalUiState(
     val allCourses: List<Playlist> = emptyList(),
-    val selectedCourseIds: Set<String> = emptySet(),
-    val targetCount: Int = 1,
-    val todaysCourses: List<Playlist> = emptyList(),
+    val courseTargets: Map<String, Int> = emptyMap(), // courseId -> daily target count
+    val plannedCourses: List<PlannedCourse> = emptyList(),
+    val sortedCoursesForAdd: List<Playlist> = emptyList(), // not-in-plan at front, then in-plan
     val isLoading: Boolean = true
 )
 
@@ -29,23 +34,24 @@ class DailyGoalViewModel @Inject constructor(
 
     val uiState: StateFlow<DailyGoalUiState> = combine(
         playlistPreferencesRepository.userPlaylistsFlow,
-        userPreferencesRepository.dailyGoalCourseIdsFlow,
-        userPreferencesRepository.dailyGoalTargetCountFlow
-    ) { allPlaylists, selectedIds, targetCount ->
-        val candidates = if (selectedIds.isNotEmpty()) {
-            allPlaylists.filter { it.id in selectedIds }
-        } else {
-            allPlaylists
+        userPreferencesRepository.dailyGoalCourseTargetsFlow
+    ) { allPlaylists, targets ->
+        // Planned courses (only courses explicitly added with a target)
+        val planned = targets.mapNotNull { (courseId, count) ->
+            allPlaylists.find { it.id == courseId }?.let { playlist ->
+                PlannedCourse(playlist = playlist, targetCount = count)
+            }
         }
 
-        val effectiveCount = targetCount.coerceAtLeast(1)
-        val scheduled = candidates.take(effectiveCount)
+        // Available courses sorted: not-in-plan first, then in-plan
+        val (inPlan, notInPlan) = allPlaylists.partition { it.id in targets.keys }
+        val sortedForAdd = notInPlan + inPlan
 
         DailyGoalUiState(
             allCourses = allPlaylists,
-            selectedCourseIds = selectedIds,
-            targetCount = effectiveCount,
-            todaysCourses = scheduled,
+            courseTargets = targets,
+            plannedCourses = planned,
+            sortedCoursesForAdd = sortedForAdd,
             isLoading = false
         )
     }.stateIn(
@@ -54,34 +60,15 @@ class DailyGoalViewModel @Inject constructor(
         initialValue = DailyGoalUiState()
     )
 
-    fun toggleCourseSelection(courseId: String) {
+    fun setCourseTarget(courseId: String, targetCount: Int) {
         viewModelScope.launch {
-            val current = uiState.value.selectedCourseIds
-            val updated = if (courseId in current) {
-                current - courseId
-            } else {
-                current + courseId
-            }
-            userPreferencesRepository.setDailyGoalCourseIds(updated)
+            userPreferencesRepository.setCourseDailyTarget(courseId, targetCount.coerceAtLeast(1))
         }
     }
 
-    fun selectAllCourses() {
+    fun removeCourseFromGoal(courseId: String) {
         viewModelScope.launch {
-            val allIds = uiState.value.allCourses.map { it.id }.toSet()
-            userPreferencesRepository.setDailyGoalCourseIds(allIds)
-        }
-    }
-
-    fun clearCourseSelection() {
-        viewModelScope.launch {
-            userPreferencesRepository.setDailyGoalCourseIds(emptySet())
-        }
-    }
-
-    fun setTargetCount(count: Int) {
-        viewModelScope.launch {
-            userPreferencesRepository.setDailyGoalTargetCount(count.coerceAtLeast(1))
+            userPreferencesRepository.removeCourseFromDailyGoal(courseId)
         }
     }
 }

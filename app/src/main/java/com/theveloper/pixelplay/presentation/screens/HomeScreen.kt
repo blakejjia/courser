@@ -87,6 +87,7 @@ import com.theveloper.pixelplay.presentation.navidrome.dashboard.NavidromeDashbo
 import com.theveloper.pixelplay.presentation.navigation.Screen
 import com.theveloper.pixelplay.presentation.navigation.navigateSafely
 import com.theveloper.pixelplay.presentation.viewmodel.DailyGoalViewModel
+import com.theveloper.pixelplay.presentation.viewmodel.PlannedCourse
 import com.theveloper.pixelplay.presentation.viewmodel.PlayerViewModel
 import com.theveloper.pixelplay.presentation.viewmodel.PlaylistViewModel
 import com.theveloper.pixelplay.ui.theme.GoogleSansRounded
@@ -114,7 +115,7 @@ fun HomeScreen(
     val playlistUiState by playlistViewModel.uiState.collectAsStateWithLifecycle()
     val dailyGoalUiState by dailyGoalViewModel.uiState.collectAsStateWithLifecycle()
     val allCourses = playlistUiState.playlists
-    val todaysCourses = dailyGoalUiState.todaysCourses
+    val plannedCourses = dailyGoalUiState.plannedCourses
 
     val listState = rememberSaveable(saver = androidx.compose.foundation.lazy.LazyListState.Saver) {
         androidx.compose.foundation.lazy.LazyListState()
@@ -185,7 +186,7 @@ fun HomeScreen(
                             color = MaterialTheme.colorScheme.onBackground
                         )
                         Text(
-                            text = "${todaysCourses.size} of ${dailyGoalUiState.targetCount} planned courses",
+                            text = "${plannedCourses.size} planned ${if (plannedCourses.size == 1) "course" else "courses"}",
                             style = MaterialTheme.typography.bodySmall,
                             fontFamily = GoogleSansRounded,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -213,7 +214,7 @@ fun HomeScreen(
             }
 
             // Today's Learn Course Carousel
-            if (todaysCourses.isEmpty()) {
+            if (plannedCourses.isEmpty()) {
                 item(key = "todays_learn_empty") {
                     OutlinedCard(
                         modifier = Modifier
@@ -284,7 +285,7 @@ fun HomeScreen(
                             } else {
                                 FilledTonalButton(
                                     onClick = {
-                                        navController.navigateSafely(Screen.DailyGoalSettings.route)
+                                        navController.navigateSafely(Screen.TodaysLearn.route)
                                     },
                                     shape = MaterialTheme.shapes.small
                                 ) {
@@ -311,14 +312,14 @@ fun HomeScreen(
                         contentPadding = PaddingValues(horizontal = 20.dp),
                         horizontalArrangement = Arrangement.spacedBy(14.dp)
                     ) {
-                        items(todaysCourses, key = { "today_${it.id}" }) { course ->
+                        items(plannedCourses, key = { "today_${it.playlist.id}" }) { planned ->
                             TodayCourseCard(
-                                course = course,
+                                plannedCourse = planned,
                                 onClick = {
-                                    navController.navigateSafely(Screen.PlaylistDetail.createRoute(course.id))
+                                    navController.navigateSafely(Screen.PlaylistDetail.createRoute(planned.playlist.id))
                                 },
                                 onPlay = {
-                                    navController.navigateSafely(Screen.PlaylistDetail.createRoute(course.id))
+                                    navController.navigateSafely(Screen.PlaylistDetail.createRoute(planned.playlist.id))
                                 }
                             )
                         }
@@ -430,11 +431,14 @@ fun HomeScreen(
  */
 @Composable
 private fun TodayCourseCard(
-    course: Playlist,
+    plannedCourse: PlannedCourse,
     onClick: () -> Unit,
     onPlay: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val course = plannedCourse.playlist
+    val targetCount = plannedCourse.targetCount
+
     ElevatedCard(
         onClick = onClick,
         modifier = modifier
@@ -489,21 +493,35 @@ private fun TodayCourseCard(
                     }
                 }
 
+                Surface(
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.secondaryContainer
+                ) {
+                    Text(
+                        text = "$targetCount/day",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                    )
+                }
+            }
+
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(
+                    text = course.name,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
                 Text(
                     text = "${course.songIds.size} lessons",
-                    style = MaterialTheme.typography.labelSmall,
+                    style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-
-            Text(
-                text = course.name,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-                color = MaterialTheme.colorScheme.onSurface
-            )
 
             Row(
                 modifier = Modifier.fillMaxWidth(),

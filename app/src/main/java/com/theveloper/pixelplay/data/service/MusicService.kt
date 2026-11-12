@@ -27,6 +27,7 @@ import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.PlaybackException
+import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
 import androidx.media3.common.Timeline
 import androidx.media3.common.util.UnstableApi
@@ -519,6 +520,16 @@ class MusicService : MediaLibraryService() {
         serviceScope.launch {
             userPreferencesRepository.pauseOnVolumeZeroFlow.collect { enabled ->
                 pauseOnVolumeZeroEnabled = enabled
+            }
+        }
+
+        serviceScope.launch {
+            userPreferencesRepository.playbackSpeedFlow.collect { speed ->
+                val safeSpeed = speed.coerceIn(0.25f, 3.0f)
+                val player = mediaSession?.player ?: engine.masterPlayer
+                if (player.playbackParameters.speed != safeSpeed) {
+                    player.playbackParameters = PlaybackParameters(safeSpeed)
+                }
             }
         }
 
@@ -2818,7 +2829,7 @@ class MusicService : MediaLibraryService() {
         // SLOT_BACK/SLOT_FORWARD buttons are present, Media3 strips the legacy
         // ACTION_SKIP_TO_PREVIOUS/NEXT flags from PlaybackStateCompat, which causes some
         // OEM compact system players (including ColorOS Control Center) to gray out skip.
-        return listOf(likeButton, closeButton, shuffleButton, repeatButton)
+        return listOf(likeButton, closeButton, repeatButton)
     }
 
     // ------------------------

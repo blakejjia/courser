@@ -1,7 +1,5 @@
 package com.theveloper.pixelplay.presentation.screens
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,46 +14,48 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.AutoStories
-import androidx.compose.material.icons.rounded.CheckCircle
-import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material.icons.rounded.Edit
+import androidx.compose.material.icons.rounded.Remove
 import androidx.compose.material.icons.rounded.School
-import androidx.compose.material.icons.rounded.Settings
-import androidx.compose.material.icons.rounded.Tune
-import androidx.compose.material3.Badge
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -67,14 +67,15 @@ import com.theveloper.pixelplay.presentation.components.MiniPlayerHeight
 import com.theveloper.pixelplay.presentation.navigation.Screen
 import com.theveloper.pixelplay.presentation.navigation.navigateSafely
 import com.theveloper.pixelplay.presentation.viewmodel.DailyGoalViewModel
+import com.theveloper.pixelplay.presentation.viewmodel.PlannedCourse
 import com.theveloper.pixelplay.presentation.viewmodel.PlayerViewModel
 
 /**
- * Dedicated Today's Learn screen designed strictly following Material 3 guidelines.
- * Displays scheduled courses for today with quick access to daily goal settings.
+ * Today's Learn Management Screen.
+ * Configures the daily learning plan with an "Add +" button and course cards with Edit actions.
  */
 @androidx.annotation.OptIn(UnstableApi::class)
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TodaysLearnScreen(
     navController: NavController,
@@ -83,8 +84,11 @@ fun TodaysLearnScreen(
     onBackClick: () -> Unit = { navController.popBackStack() }
 ) {
     val uiState by dailyGoalViewModel.uiState.collectAsStateWithLifecycle()
-    val todaysCourses = uiState.todaysCourses
+    val plannedCourses = uiState.plannedCourses
     val navBarBottomInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+
+    // Dialog state for editing a course in the plan
+    var courseToEdit by remember { mutableStateOf<PlannedCourse?>(null) }
 
     Scaffold(
         topBar = {
@@ -99,13 +103,13 @@ fun TodaysLearnScreen(
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold
                         )
-                        if (todaysCourses.isNotEmpty()) {
+                        if (plannedCourses.isNotEmpty()) {
                             Surface(
                                 shape = CircleShape,
                                 color = MaterialTheme.colorScheme.primaryContainer
                             ) {
                                 Text(
-                                    text = "${todaysCourses.size}",
+                                    text = "${plannedCourses.size}",
                                     style = MaterialTheme.typography.labelSmall,
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.onPrimaryContainer,
@@ -125,13 +129,11 @@ fun TodaysLearnScreen(
                 },
                 actions = {
                     IconButton(
-                        onClick = {
-                            navController.navigateSafely(Screen.DailyGoalSettings.route)
-                        }
+                        onClick = { navController.navigateSafely(Screen.DailyGoalSettings.route) }
                     ) {
                         Icon(
-                            imageVector = Icons.Rounded.Tune,
-                            contentDescription = "Configure Today's Goal"
+                            imageVector = Icons.Rounded.Add,
+                            contentDescription = "Add course to plan"
                         )
                     }
                 },
@@ -154,175 +156,132 @@ fun TodaysLearnScreen(
             ),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // ── Material 3 Goal Summary Card ──
-            item(key = "goal_summary_card") {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = MaterialTheme.shapes.large,
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
-                    )
+            // ── Top Prominent "Add +" Long Button ──
+            item(key = "add_course_button") {
+                FilledTonalButton(
+                    onClick = {
+                        navController.navigateSafely(Screen.DailyGoalSettings.route)
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(52.dp),
+                    shape = MaterialTheme.shapes.medium
                 ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(20.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(12.dp)
-                            ) {
-                                Surface(
-                                    shape = CircleShape,
-                                    color = MaterialTheme.colorScheme.primaryContainer,
-                                    modifier = Modifier.size(44.dp)
-                                ) {
-                                    Box(contentAlignment = Alignment.Center) {
-                                        Icon(
-                                            imageVector = Icons.Rounded.School,
-                                            contentDescription = null,
-                                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                                            modifier = Modifier.size(24.dp)
-                                        )
-                                    }
-                                }
-
-                                Column {
-                                    Text(
-                                        text = "Daily Target",
-                                        style = MaterialTheme.typography.titleMedium,
-                                        fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.onSurface
-                                    )
-                                    Text(
-                                        text = "${todaysCourses.size} of ${uiState.targetCount} planned courses",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-                            }
-
-                            FilledTonalButton(
-                                onClick = {
-                                    navController.navigateSafely(Screen.DailyGoalSettings.route)
-                                },
-                                shape = MaterialTheme.shapes.small
-                            ) {
-                                Text(
-                                    text = "Goal Settings",
-                                    style = MaterialTheme.typography.labelMedium
-                                )
-                            }
-                        }
-
-                        Text(
-                            text = if (uiState.selectedCourseIds.isEmpty()) {
-                                "All courses are currently included in your daily rotation. Customize specific courses in Goal Settings."
-                            } else {
-                                "Focusing on ${uiState.selectedCourseIds.size} selected course(s) with a daily target of ${uiState.targetCount} course(s)."
-                            },
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
+                    Icon(
+                        imageVector = Icons.Rounded.Add,
+                        contentDescription = null,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Add +",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
                 }
             }
 
-            // ── Section Title ──
-            item(key = "today_courses_header") {
-                Text(
-                    text = "Scheduled For Today",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp)
-                )
-            }
-
-            // ── Course Items ──
-            if (todaysCourses.isEmpty()) {
-                item(key = "empty_todays_courses") {
+            // ── Plan Content or Empty State ──
+            if (plannedCourses.isEmpty()) {
+                item(key = "empty_goal_state") {
                     OutlinedCard(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 16.dp),
                         shape = MaterialTheme.shapes.large
                     ) {
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(32.dp),
+                                .padding(vertical = 48.dp, horizontal = 24.dp),
                             horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                            verticalArrangement = Arrangement.spacedBy(16.dp)
                         ) {
                             Surface(
                                 shape = CircleShape,
                                 color = MaterialTheme.colorScheme.secondaryContainer,
-                                modifier = Modifier.size(56.dp)
+                                modifier = Modifier.size(64.dp)
                             ) {
                                 Box(contentAlignment = Alignment.Center) {
                                     Icon(
-                                        imageVector = Icons.Rounded.AutoStories,
+                                        imageVector = Icons.Rounded.School,
                                         contentDescription = null,
                                         tint = MaterialTheme.colorScheme.onSecondaryContainer,
-                                        modifier = Modifier.size(28.dp)
+                                        modifier = Modifier.size(32.dp)
                                     )
                                 }
                             }
 
                             Text(
-                                text = "No courses in your library yet",
-                                style = MaterialTheme.typography.titleMedium,
+                                text = "Empty goal, add your first one!",
+                                style = MaterialTheme.typography.titleLarge,
                                 fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface
+                                color = MaterialTheme.colorScheme.onSurface,
+                                textAlign = TextAlign.Center
                             )
 
                             Text(
-                                text = "Select a course folder from Google Drive or local storage to start your learning journey.",
+                                text = "Tap the 'Add +' button above to select courses and set your daily learning goal.",
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(horizontal = 16.dp)
+                                textAlign = TextAlign.Center
                             )
-
-                            FilledTonalButton(
-                                onClick = {
-                                    navController.navigateSafely(Screen.GDriveDashboard.route)
-                                }
-                            ) {
-                                Text("Add Course Folders")
-                            }
                         }
                     }
                 }
             } else {
-                items(todaysCourses, key = { "today_learn_${it.id}" }) { course ->
-                    TodaysCourseCard(
-                        course = course,
-                        onClick = {
-                            navController.navigateSafely(Screen.PlaylistDetail.createRoute(course.id))
+                item(key = "goal_section_label") {
+                    Text(
+                        text = "Courses in Daily Plan",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+                    )
+                }
+
+                items(plannedCourses, key = { "planned_${it.playlist.id}" }) { planned ->
+                    PlannedCourseSettingCard(
+                        plannedCourse = planned,
+                        onEdit = {
+                            courseToEdit = planned
                         }
                     )
                 }
             }
         }
     }
+
+    // ── Edit Course Dialog ──
+    courseToEdit?.let { current ->
+        EditCourseGoalDialog(
+            plannedCourse = current,
+            onDismiss = { courseToEdit = null },
+            onConfirm = { newTarget ->
+                dailyGoalViewModel.setCourseTarget(current.playlist.id, newTarget)
+                courseToEdit = null
+            },
+            onDelete = {
+                dailyGoalViewModel.removeCourseFromGoal(current.playlist.id)
+                courseToEdit = null
+            }
+        )
+    }
 }
 
 /**
- * Material 3 compliant Course card for Today's Learn.
+ * Course Card in Today's Learn settings list.
+ * Features an "Edit" action button instead of a play button.
  */
 @Composable
-fun TodaysCourseCard(
-    course: Playlist,
-    onClick: () -> Unit,
+fun PlannedCourseSettingCard(
+    plannedCourse: PlannedCourse,
+    onEdit: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val course = plannedCourse.playlist
+
     ElevatedCard(
-        onClick = onClick,
         modifier = modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.large,
         colors = CardDefaults.elevatedCardColors(
@@ -339,14 +298,14 @@ fun TodaysCourseCard(
             Surface(
                 shape = MaterialTheme.shapes.medium,
                 color = MaterialTheme.colorScheme.primaryContainer,
-                modifier = Modifier.size(56.dp)
+                modifier = Modifier.size(52.dp)
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
                         imageVector = Icons.Rounded.AutoStories,
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                        modifier = Modifier.size(28.dp)
+                        modifier = Modifier.size(26.dp)
                     )
                 }
             }
@@ -365,21 +324,141 @@ fun TodaysCourseCard(
                 )
 
                 Text(
-                    text = "${course.songIds.size} ${if (course.songIds.size == 1) "lesson" else "lessons"} • ${course.source}",
+                    text = "${course.songIds.size} lessons • ${plannedCourse.targetCount} per day",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.Medium
                 )
             }
 
-            FilledTonalIconButton(
-                onClick = onClick,
-                shape = CircleShape
+            // Edit Action Button (No Play button here)
+            OutlinedButton(
+                onClick = onEdit,
+                shape = MaterialTheme.shapes.small,
+                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
             ) {
                 Icon(
-                    imageVector = Icons.Rounded.PlayArrow,
-                    contentDescription = "Start course"
+                    imageVector = Icons.Rounded.Edit,
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp)
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = "Edit",
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.SemiBold
                 )
             }
         }
     }
+}
+
+/**
+ * Edit Dialog allowing user to update the daily target number or delete the course from plan.
+ */
+@Composable
+fun EditCourseGoalDialog(
+    plannedCourse: PlannedCourse,
+    onDismiss: () -> Unit,
+    onConfirm: (Int) -> Unit,
+    onDelete: () -> Unit
+) {
+    var target by remember { mutableIntStateOf(plannedCourse.targetCount) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                text = plannedCourse.playlist.name,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+        },
+        text = {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Text(
+                    text = "How many courses per day of this?",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    FilledIconButton(
+                        onClick = { if (target > 1) target-- },
+                        enabled = target > 1,
+                        shape = CircleShape,
+                        colors = IconButtonDefaults.filledIconButtonColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                            contentColor = MaterialTheme.colorScheme.onSurface
+                        )
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Remove,
+                            contentDescription = "Decrease"
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.width(20.dp))
+
+                    Text(
+                        text = "$target",
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+
+                    Spacer(modifier = Modifier.width(20.dp))
+
+                    FilledIconButton(
+                        onClick = { target++ },
+                        shape = CircleShape,
+                        colors = IconButtonDefaults.filledIconButtonColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                            contentColor = MaterialTheme.colorScheme.onSurface
+                        )
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Add,
+                            contentDescription = "Increase"
+                        )
+                    }
+                }
+            }
+        },
+        dismissButton = {
+            TextButton(
+                onClick = onDelete,
+                colors = ButtonDefaults.textButtonColors(
+                    contentColor = MaterialTheme.colorScheme.error
+                )
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.Delete,
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp)
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text("Delete")
+            }
+        },
+        confirmButton = {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                TextButton(onClick = onDismiss) {
+                    Text("Cancel")
+                }
+                FilledTonalButton(onClick = { onConfirm(target) }) {
+                    Text("确认")
+                }
+            }
+        }
+    )
 }

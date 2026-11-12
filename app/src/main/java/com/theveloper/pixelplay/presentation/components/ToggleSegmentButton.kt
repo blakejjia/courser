@@ -149,6 +149,7 @@ fun ToggleSegmentButton(
     onClick: () -> Unit,
     text: String,
     imageVector: ImageVector,
+    contentDesc: String? = null,
     maxLines: Int = Int.MAX_VALUE,
     overflow: TextOverflow = TextOverflow.Clip,
     textAlign: TextAlign = TextAlign.Center
@@ -169,7 +170,7 @@ fun ToggleSegmentButton(
         ) {
             Icon(
                 imageVector = imageVector,
-                contentDescription = null,
+                contentDescription = contentDesc,
                 tint = if (active) activeContentColor else inactiveContentColor,
                 modifier = Modifier.size(18.dp)
             )
