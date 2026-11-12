@@ -333,6 +333,7 @@ dependencies {
     implementation(libs.credentials)
     implementation(libs.credentials.play.services.auth)
     implementation(libs.googleid)
+    implementation(libs.play.services.auth)
     implementation(libs.androidx.security.crypto)
     implementation(libs.google.play.services.cast.framework)
     implementation(libs.tdlib)

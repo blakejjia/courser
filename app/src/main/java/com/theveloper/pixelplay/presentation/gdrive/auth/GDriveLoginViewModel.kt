@@ -75,10 +75,18 @@ class GDriveLoginViewModel @Inject constructor(
     /**
      * Login directly with an access token (for developer / manual entry).
      */
-    fun loginWithAccessToken(accessToken: String) {
+    fun loginWithAccessToken(
+        accessToken: String,
+        email: String? = null,
+        displayName: String? = null
+    ) {
         _state.value = GDriveLoginState.Loading
         viewModelScope.launch {
-            val result = repository.loginWithAccessToken(accessToken = accessToken)
+            val result = repository.loginWithAccessToken(
+                accessToken = accessToken,
+                email = email,
+                displayName = displayName
+            )
             result.fold(
                 onSuccess = { userIdentifier ->
                     _state.value = GDriveLoginState.LoggedIn(userIdentifier)
@@ -90,6 +98,10 @@ class GDriveLoginViewModel @Inject constructor(
                 }
             )
         }
+    }
+
+    fun setError(message: String) {
+        _state.value = GDriveLoginState.Error(message)
     }
 
     private val breadcrumb = mutableListOf(FolderItem("root", "My Drive"))

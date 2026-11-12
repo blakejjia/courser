@@ -1,10 +1,14 @@
 package com.theveloper.pixelplay.presentation.gdrive.auth
 
+import android.accounts.Account
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.IntentSenderRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -35,6 +39,9 @@ import androidx.credentials.CredentialManager
 import androidx.credentials.GetCredentialRequest
 import androidx.credentials.exceptions.GetCredentialException
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import com.google.android.gms.auth.api.identity.AuthorizationRequest
+import com.google.android.gms.auth.api.identity.Identity
+import com.google.android.gms.common.api.Scope
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import com.theveloper.pixelplay.data.gdrive.GDriveConstants
@@ -46,6 +53,7 @@ import racra.compose.smooth_corner_rect_library.AbsoluteSmoothCornerShape
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.res.stringResource
 import com.theveloper.pixelplay.R
+import timber.log.Timber
 
 @AndroidEntryPoint
 class GDriveLoginActivity : ComponentActivity() {
@@ -76,6 +84,47 @@ fun GDriveLoginScreen(
         smoothnessAsPercentTR = 60, smoothnessAsPercentTL = 60,
         smoothnessAsPercentBR = 60, smoothnessAsPercentBL = 60
     )
+
+    var pendingEmail by remember { mutableStateOf<String?>(null) }
+    var pendingDisplayName by remember { mutableStateOf<String?>(null) }
+    var pendingIdToken by remember { mutableStateOf<String?>(null) }
+    var pendingAvatar by remember { mutableStateOf<String?>(null) }
+
+    val authLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartIntentSenderForResult()
+    ) { activityResult ->
+        if (activityResult.resultCode == android.app.Activity.RESULT_OK && activityResult.data != null) {
+            try {
+                val authResult = Identity.getAuthorizationClient(context)
+                    .getAuthorizationResultFromIntent(activityResult.data)
+                val accessToken = authResult.accessToken
+                val serverAuthCode = authResult.serverAuthCode
+                if (!serverAuthCode.isNullOrBlank()) {
+                    viewModel.processCredential(
+                        idToken = pendingIdToken ?: "",
+                        serverAuthCode = serverAuthCode,
+                        email = pendingEmail,
+                        displayName = pendingDisplayName,
+                        profilePictureUri = pendingAvatar
+                    )
+                } else if (!accessToken.isNullOrBlank()) {
+                    viewModel.loginWithAccessToken(
+                        accessToken = accessToken,
+                        email = pendingEmail,
+                        displayName = pendingDisplayName
+                    )
+                } else {
+                    viewModel.setError("Failed to retrieve Google Drive authorization")
+                }
+            } catch (e: Exception) {
+                Timber.e(e, "Error extracting authorization result")
+                viewModel.setError(e.message ?: "Authorization failed")
+            }
+        } else {
+            Timber.w("Authorization cancelled or failed: resultCode=${activityResult.resultCode}")
+            viewModel.setError("Google Drive authorization cancelled")
+        }
+    }
 
     // Handle state transitions
     LaunchedEffect(loginState) {
@@ -142,7 +191,17 @@ fun GDriveLoginScreen(
                         errorMessage = (state as? GDriveLoginState.Error)?.message,
                         onSignIn = {
                             scope.launch {
-                                signInWithGoogle(context, viewModel)
+                                signInWithGoogle(
+                                    context = context,
+                                    viewModel = viewModel,
+                                    authLauncher = authLauncher,
+                                    onPendingAccount = { idToken, email, displayName, avatar ->
+                                        pendingIdToken = idToken
+                                        pendingEmail = email
+                                        pendingDisplayName = displayName
+                                        pendingAvatar = avatar
+                                    }
+                                )
                             }
                         }
                     )
@@ -528,12 +587,14 @@ private fun FolderCard(
 
 private suspend fun signInWithGoogle(
     context: android.content.Context,
-    viewModel: GDriveLoginViewModel
+    viewModel: GDriveLoginViewModel,
+    authLauncher: androidx.activity.result.ActivityResultLauncher<IntentSenderRequest>,
+    onPendingAccount: (idToken: String?, email: String?, displayName: String?, avatar: String?) -> Unit
 ) {
     if (!GDriveConstants.isConfigured()) {
         val configMsg = "Google Client ID is not configured. Add GDRIVE_WEB_CLIENT_ID to local.properties or GDriveConstants.kt."
         Toast.makeText(context, configMsg, Toast.LENGTH_LONG).show()
-        viewModel.processCredential("", null)
+        viewModel.setError(configMsg)
         return
     }
 
@@ -559,21 +620,70 @@ private suspend fun signInWithGoogle(
         val credential = result.credential
         val googleIdTokenCredential = GoogleIdTokenCredential.createFrom(credential.data)
         val idToken = googleIdTokenCredential.idToken
-        // serverAuthCode is available in the bundle data when offline access / server client ID is configured
-        val serverAuthCode = credential.data.getString("com.google.android.libraries.identity.googleid.BUNDLE_KEY_SERVER_AUTH_CODE")
+        val email = googleIdTokenCredential.id
+        val displayName = googleIdTokenCredential.displayName
+        val avatar = googleIdTokenCredential.profilePictureUri?.toString()
 
-        viewModel.processCredential(
-            idToken = idToken,
-            serverAuthCode = serverAuthCode,
-            email = googleIdTokenCredential.id,
-            displayName = googleIdTokenCredential.displayName,
-            profilePictureUri = googleIdTokenCredential.profilePictureUri?.toString()
-        )
+        onPendingAccount(idToken, email, displayName, avatar)
+
+        // Request Google Drive OAuth scope using Google Identity AuthorizationClient
+        val requestedScopes = listOf(Scope(GDriveConstants.SCOPE_DRIVE_READONLY))
+        val authRequestBuilder = AuthorizationRequest.builder()
+            .setRequestedScopes(requestedScopes)
+
+        if (email.isNotBlank()) {
+            authRequestBuilder.setAccount(Account(email, "com.google"))
+        }
+
+        try {
+            authRequestBuilder.requestOfflineAccess(GDriveConstants.WEB_CLIENT_ID)
+        } catch (e: Exception) {
+            Timber.w(e, "requestOfflineAccess builder warning")
+        }
+
+        Identity.getAuthorizationClient(context)
+            .authorize(authRequestBuilder.build())
+            .addOnSuccessListener { authResult ->
+                if (authResult.hasResolution()) {
+                    val pendingIntent = authResult.pendingIntent
+                    if (pendingIntent != null) {
+                        authLauncher.launch(
+                            IntentSenderRequest.Builder(pendingIntent.intentSender).build()
+                        )
+                    } else {
+                        viewModel.setError("Authorization resolution missing")
+                    }
+                } else {
+                    val accessToken = authResult.accessToken
+                    val serverAuthCode = authResult.serverAuthCode
+                    if (!serverAuthCode.isNullOrBlank()) {
+                        viewModel.processCredential(
+                            idToken = idToken,
+                            serverAuthCode = serverAuthCode,
+                            email = email,
+                            displayName = displayName,
+                            profilePictureUri = avatar
+                        )
+                    } else if (!accessToken.isNullOrBlank()) {
+                        viewModel.loginWithAccessToken(
+                            accessToken = accessToken,
+                            email = email,
+                            displayName = displayName
+                        )
+                    } else {
+                        viewModel.setError("Drive access token not returned")
+                    }
+                }
+            }
+            .addOnFailureListener { e ->
+                Timber.e(e, "Identity authorize failed")
+                viewModel.setError("Google Drive authorization failed: ${e.message}")
+            }
     } catch (e: GetCredentialException) {
-        timber.log.Timber.e(e, "Google Sign-In credential exception")
-        viewModel.processCredential("", null)
+        Timber.e(e, "Google Sign-In credential exception")
+        viewModel.setError(e.message ?: "Google Sign-In failed")
     } catch (e: Exception) {
-        timber.log.Timber.e(e, "Google Sign-In failed")
-        viewModel.processCredential("", null)
+        Timber.e(e, "Google Sign-In failed")
+        viewModel.setError(e.message ?: "Google Sign-In failed")
     }
 }
