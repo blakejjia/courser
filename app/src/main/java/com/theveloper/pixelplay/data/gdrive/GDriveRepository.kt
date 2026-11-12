@@ -10,7 +10,9 @@ import com.theveloper.pixelplay.data.database.ArtistEntity
 import com.theveloper.pixelplay.data.database.GDriveDao
 import com.theveloper.pixelplay.data.database.GDriveFolderEntity
 import com.theveloper.pixelplay.data.database.GDriveSongEntity
+import com.theveloper.pixelplay.data.database.LocalPlaylistDao
 import com.theveloper.pixelplay.data.database.MusicDao
+import com.theveloper.pixelplay.data.database.PlaylistEntity
 import com.theveloper.pixelplay.data.database.SongArtistCrossRef
 import com.theveloper.pixelplay.data.database.SongEntity
 import com.theveloper.pixelplay.data.database.SourceType
@@ -28,6 +30,7 @@ import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import timber.log.Timber
 import kotlin.math.absoluteValue
+import java.util.ArrayDeque
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -37,6 +40,7 @@ class GDriveRepository @Inject constructor(
     private val api: GDriveApiService,
     private val dao: GDriveDao,
     private val musicDao: MusicDao,
+    private val localPlaylistDao: LocalPlaylistDao,
     @ApplicationContext private val context: Context
 ) {
     data class BulkSyncResult(
@@ -242,6 +246,10 @@ class GDriveRepository @Inject constructor(
     suspend fun logout() {
         api.clearAccessToken()
         prefs.edit().clear().apply()
+        val folders = dao.getAllFoldersList()
+        folders.forEach { folder ->
+            localPlaylistDao.deletePlaylist("gdrive_playlist_${folder.id}")
+        }
         musicDao.clearAllGDriveSongs()
         dao.clearAllSongs()
         dao.clearAllFolders()
@@ -318,6 +326,7 @@ class GDriveRepository @Inject constructor(
     suspend fun removeFolder(folderId: String) {
         dao.deleteSongsByFolder(folderId)
         dao.deleteFolder(folderId)
+        localPlaylistDao.deletePlaylist("gdrive_playlist_$folderId")
         syncUnifiedLibrarySongsFromGDrive()
     }
 
@@ -327,22 +336,67 @@ class GDriveRepository @Inject constructor(
         return withContext(Dispatchers.IO) {
             try {
                 ensureValidToken()
-                val allEntities = mutableListOf<GDriveSongEntity>()
-                var pageToken: String? = null
+                val currentFolder = dao.getAllFoldersList().find { it.id == folderId }
+                val rootFolderName = currentFolder?.name ?: "Drive Folder"
 
-                do {
-                    val raw = api.listAudioFiles(folderId, pageToken)
-                    val root = JSONObject(raw)
-                    val files = root.optJSONArray("files")
+                // Breadth-first search for audio files across this folder and all nested subfolders
+                data class FolderWalkItem(val id: String, val pathPrefix: String)
+                val folderQueue = ArrayDeque<FolderWalkItem>()
+                val visitedFolderIds = mutableSetOf<String>()
 
-                    if (files != null) {
-                        for (i in 0 until files.length()) {
-                            val file = files.optJSONObject(i) ?: continue
-                            allEntities.add(parseFileToEntity(file, folderId))
+                folderQueue.add(FolderWalkItem(folderId, ""))
+                visitedFolderIds.add(folderId)
+
+                val allEntitiesWithPaths = mutableListOf<Pair<String, GDriveSongEntity>>()
+
+                while (folderQueue.isNotEmpty()) {
+                    val (currentId, currentPrefix) = folderQueue.removeFirst()
+
+                    // 1. Fetch audio files in current folder
+                    var audioPageToken: String? = null
+                    do {
+                        val raw = api.listAudioFiles(currentId, audioPageToken)
+                        val root = JSONObject(raw)
+                        val files = root.optJSONArray("files")
+
+                        if (files != null) {
+                            for (i in 0 until files.length()) {
+                                val file = files.optJSONObject(i) ?: continue
+                                val fileName = file.optString("name", "Unknown")
+                                val relativePath = if (currentPrefix.isEmpty()) fileName else "$currentPrefix$fileName"
+                                val entity = parseFileToEntity(file, folderId, rootFolderName)
+                                allEntitiesWithPaths.add(relativePath to entity)
+                            }
                         }
-                    }
-                    pageToken = root.optString("nextPageToken").takeIf { it.isNotBlank() }
-                } while (pageToken != null)
+                        audioPageToken = root.optString("nextPageToken").takeIf { it.isNotBlank() }
+                    } while (audioPageToken != null)
+
+                    // 2. Fetch subfolders in current folder
+                    var folderPageToken: String? = null
+                    do {
+                        val rawFolders = api.listFolders(currentId, folderPageToken)
+                        val rootFolders = JSONObject(rawFolders)
+                        val subfolders = rootFolders.optJSONArray("files")
+
+                        if (subfolders != null) {
+                            for (j in 0 until subfolders.length()) {
+                                val sub = subfolders.optJSONObject(j) ?: continue
+                                val subId = sub.optString("id")
+                                val subName = sub.optString("name")
+                                if (subId.isNotBlank() && visitedFolderIds.add(subId)) {
+                                    val nextPrefix = if (currentPrefix.isEmpty()) "$subName/" else "$currentPrefix$subName/"
+                                    folderQueue.add(FolderWalkItem(subId, nextPrefix))
+                                }
+                            }
+                        }
+                        folderPageToken = rootFolders.optString("nextPageToken").takeIf { it.isNotBlank() }
+                    } while (folderPageToken != null)
+                }
+
+                // Natural sort by relative path so files in subfolders follow logical course/chapter order
+                val allEntities = allEntitiesWithPaths
+                    .sortedWith { a, b -> naturalCompare(a.first, b.first) }
+                    .map { it.second }
 
                 // Differential sync reconciliation:
                 // 1. Fetch existing songs for this folder
@@ -373,15 +427,17 @@ class GDriveRepository @Inject constructor(
                 dao.insertSongs(reconciledEntities)
 
                 // 4. Update folder metadata (song count and last sync time)
-                val currentFolder = dao.getAllFoldersList().find { it.id == folderId }
                 dao.insertFolder(
                     GDriveFolderEntity(
                         id = folderId,
-                        name = currentFolder?.name ?: "Drive Folder",
+                        name = rootFolderName,
                         songCount = reconciledEntities.size,
                         lastSyncTime = System.currentTimeMillis()
                     )
                 )
+
+                // 5. Create / Update the Course Playlist for this folder containing all songs in order
+                syncPlaylistForFolder(folderId, rootFolderName, reconciledEntities)
 
                 syncUnifiedLibrarySongsFromGDrive()
 
@@ -446,10 +502,13 @@ class GDriveRepository @Inject constructor(
         val albums = LinkedHashMap<Long, AlbumEntity>()
         val crossRefs = mutableListOf<SongArtistCrossRef>()
 
+        val folderMap = dao.getAllFoldersList().associateBy { it.id }
+
         gdriveSongs.forEach { gdriveSong ->
             val songId = toUnifiedSongId(gdriveSong.driveFileId)
+            val folderName = folderMap[gdriveSong.folderId]?.name ?: gdriveSong.album.ifBlank { "Google Drive" }
             val artistNames = parseArtistNames(gdriveSong.artist)
-            val primaryArtistName = artistNames.firstOrNull() ?: "Unknown Artist"
+            val primaryArtistName = artistNames.firstOrNull() ?: folderName
             val primaryArtistId = toUnifiedArtistId(primaryArtistName)
 
             artistNames.forEachIndexed { index, artistName ->
@@ -472,8 +531,8 @@ class GDriveRepository @Inject constructor(
                 )
             }
 
-            val albumId = toUnifiedAlbumId(gdriveSong.album)
-            val albumName = gdriveSong.album.ifBlank { "Unknown Album" }
+            val albumId = toUnifiedAlbumId(folderName)
+            val albumName = folderName
             albums.putIfAbsent(
                 albumId,
                 AlbumEntity(
@@ -488,6 +547,8 @@ class GDriveRepository @Inject constructor(
                 )
             )
 
+            val parentDir = "$GDRIVE_PARENT_DIRECTORY/$folderName"
+
             songs.add(
                 SongEntity(
                     id = songId,
@@ -501,8 +562,8 @@ class GDriveRepository @Inject constructor(
                     albumArtUriString = gdriveSong.albumArtUrl,
                     duration = gdriveSong.duration,
                     genre = GDRIVE_GENRE,
-                    filePath = "",
-                    parentDirectoryPath = GDRIVE_PARENT_DIRECTORY,
+                    filePath = "gdrive://${gdriveSong.driveFileId}",
+                    parentDirectoryPath = parentDir,
                     isFavorite = false,
                     lyrics = null,
                     trackNumber = 0,
@@ -535,9 +596,56 @@ class GDriveRepository @Inject constructor(
         )
     }
 
+    private suspend fun syncPlaylistForFolder(
+        folderId: String,
+        folderName: String,
+        songs: List<GDriveSongEntity>
+    ) {
+        val playlistId = "gdrive_playlist_$folderId"
+        val existing = localPlaylistDao.getPlaylistById(playlistId)
+        val now = System.currentTimeMillis()
+        val entity = existing?.copy(
+            name = folderName,
+            lastModified = now
+        ) ?: PlaylistEntity(
+            id = playlistId,
+            name = folderName,
+            createdAt = now,
+            lastModified = now,
+            source = "GDRIVE"
+        )
+        localPlaylistDao.upsertPlaylist(entity)
+        val unifiedSongIds = songs.map { toUnifiedSongId(it.driveFileId).toString() }
+        localPlaylistDao.replacePlaylistSongs(playlistId, unifiedSongIds)
+    }
+
+    private fun naturalCompare(s1: String, s2: String): Int {
+        val regex = "(?<=\\D)(?=\\d)|(?<=\\d)(?=\\D)".toRegex()
+        val parts1 = s1.split(regex)
+        val parts2 = s2.split(regex)
+        val minLength = minOf(parts1.size, parts2.size)
+        for (i in 0 until minLength) {
+            val p1 = parts1[i]
+            val p2 = parts2[i]
+            val n1 = p1.toLongOrNull()
+            val n2 = p2.toLongOrNull()
+            val cmp = if (n1 != null && n2 != null) {
+                n1.compareTo(n2)
+            } else {
+                p1.compareTo(p2, ignoreCase = true)
+            }
+            if (cmp != 0) return cmp
+        }
+        return parts1.size.compareTo(parts2.size)
+    }
+
     // --- Parsing Helpers ---
 
-    private fun parseFileToEntity(file: JSONObject, folderId: String): GDriveSongEntity {
+    private fun parseFileToEntity(
+        file: JSONObject,
+        folderId: String,
+        rootFolderName: String = "Google Drive"
+    ): GDriveSongEntity {
         val fileId = file.optString("id")
         val fileName = file.optString("name", "Unknown")
         val mimeType = file.optString("mimeType", "audio/mpeg")
@@ -551,7 +659,7 @@ class GDriveRepository @Inject constructor(
         val (artist, title) = if (parts.size == 2) {
             parts[0].trim() to parts[1].trim()
         } else {
-            "Unknown Artist" to nameWithoutExt.trim()
+            rootFolderName to nameWithoutExt.trim()
         }
 
         val dateModified = try {
@@ -568,7 +676,7 @@ class GDriveRepository @Inject constructor(
             folderId = folderId,
             title = title,
             artist = artist,
-            album = "Google Drive",
+            album = rootFolderName,
             albumId = -1L,
             duration = 0L, // Duration not available from Drive API metadata
             albumArtUrl = thumbnailLink,
