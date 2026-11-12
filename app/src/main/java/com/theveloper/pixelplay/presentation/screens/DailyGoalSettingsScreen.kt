@@ -65,6 +65,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.media3.common.util.UnstableApi
 import androidx.navigation.NavController
 import com.theveloper.pixelplay.data.model.Playlist
+import com.theveloper.pixelplay.presentation.components.CourserLazyColumn
 import com.theveloper.pixelplay.presentation.components.MiniPlayerHeight
 import com.theveloper.pixelplay.presentation.viewmodel.DailyGoalViewModel
 import com.theveloper.pixelplay.presentation.viewmodel.PlayerViewModel
@@ -116,15 +117,16 @@ fun DailyGoalSettingsScreen(
         },
         containerColor = MaterialTheme.colorScheme.surface
     ) { innerPadding ->
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding),
+        CourserLazyColumn(
+            playerViewModel = playerViewModel,
+            hasBottomNavBar = false,
+            includeSystemNavBarInset = true,
+            extraBottomPadding = 24.dp,
+            modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(
                 start = 16.dp,
                 end = 16.dp,
-                top = 8.dp,
-                bottom = navBarBottomInset + MiniPlayerHeight + 24.dp
+                top = innerPadding.calculateTopPadding() + 8.dp
             ),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {

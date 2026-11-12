@@ -248,7 +248,6 @@ fun GenreDetailScreen(
             }
     }
     val genreDisplayName = themeGenre?.name ?: uiState.genre?.name ?: initialDisplayName
-    val genreShuffleLabel = stringResource(R.string.genre_shuffle_label, genreDisplayName)
     val genreFastScrollLabelProvider = remember(uiState.flattenedItems, uiState.sortOption) {
         { index: Int ->
             genreFastScrollLabel(
@@ -492,7 +491,7 @@ fun GenreDetailScreen(
                     },
                     onShuffle = {
                         if (uiState.songs.isNotEmpty()) {
-                            playerViewModel.showAndPlaySong(uiState.sortedSongs.random(), uiState.sortedSongs, genreShuffleLabel)
+                            playerViewModel.showAndPlaySong(uiState.sortedSongs.first(), uiState.sortedSongs, genreDisplayName)
                             showSortSheet = false
                         }
                     },

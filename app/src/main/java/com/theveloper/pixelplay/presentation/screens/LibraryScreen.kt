@@ -11,10 +11,12 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -22,13 +24,17 @@ import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Cloud
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.DockedSearchBar
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SearchBarDefaults
 import androidx.compose.material3.Text
@@ -46,6 +52,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import android.app.Activity
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
@@ -59,8 +66,15 @@ import com.theveloper.pixelplay.R
 import com.theveloper.pixelplay.data.model.Playlist
 import com.theveloper.pixelplay.presentation.components.PlaylistContainer
 import com.theveloper.pixelplay.presentation.components.PlaylistMultiSelectionBottomSheet
+import com.theveloper.pixelplay.presentation.components.StreamingProviderSheet
+import com.theveloper.pixelplay.presentation.components.resolveNavBarOccupiedHeight
 import com.theveloper.pixelplay.presentation.components.subcomps.SelectionActionRow
 import com.theveloper.pixelplay.presentation.components.subcomps.SelectionCountPill
+import com.theveloper.pixelplay.presentation.gdrive.dashboard.GDriveDashboardViewModel
+import com.theveloper.pixelplay.presentation.jellyfin.dashboard.JellyfinDashboardViewModel
+import com.theveloper.pixelplay.presentation.navidrome.dashboard.NavidromeDashboardViewModel
+import com.theveloper.pixelplay.presentation.navigation.Screen
+import com.theveloper.pixelplay.presentation.navigation.navigateSafely
 import com.theveloper.pixelplay.presentation.viewmodel.PlayerViewModel
 import com.theveloper.pixelplay.presentation.viewmodel.PlaylistViewModel
 
@@ -76,11 +90,15 @@ val PlayerSheetCollapsedCornerRadius = 32.dp
 fun LibraryScreen(
     navController: NavController,
     playerViewModel: PlayerViewModel,
-    playlistViewModel: PlaylistViewModel = hiltViewModel()
+    playlistViewModel: PlaylistViewModel = hiltViewModel(),
+    gdriveViewModel: GDriveDashboardViewModel = hiltViewModel(),
+    navidromeViewModel: NavidromeDashboardViewModel = hiltViewModel(),
+    jellyfinViewModel: JellyfinDashboardViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
     val playlistUiState by playlistViewModel.uiState.collectAsStateWithLifecycle()
     var searchQuery by rememberSaveable { mutableStateOf("") }
+    var showStreamingProviderSheet by remember { mutableStateOf(false) }
     val keyboardController = LocalSoftwareKeyboardController.current
     val searchInputFocusRequester = remember { FocusRequester() }
     val haptic = LocalHapticFeedback.current
@@ -88,18 +106,44 @@ fun LibraryScreen(
     val playlistSelectionState = playerViewModel.playlistSelectionStateHolder
     val selectedPlaylistIds by playlistSelectionState.selectedPlaylistIds.collectAsStateWithLifecycle()
     val isSelectionMode by playlistSelectionState.isSelectionMode.collectAsStateWithLifecycle()
+    val playbackHistory by playerViewModel.playbackHistory.collectAsStateWithLifecycle()
 
     val allPlaylists = playlistUiState.playlists
-    val filteredPlaylists = remember(searchQuery, allPlaylists) {
+
+    // Rank courses by most recent played to least recent played
+    val rankedPlaylists = remember(allPlaylists, playbackHistory) {
+        val latestSongPlayMap = HashMap<String, Long>()
+        for (entry in playbackHistory) {
+            val existing = latestSongPlayMap[entry.songId] ?: 0L
+            if (entry.timestamp > existing) {
+                latestSongPlayMap[entry.songId] = entry.timestamp
+            }
+        }
+
+        allPlaylists.sortedWith(
+            compareByDescending<Playlist> { playlist ->
+                var maxTimestamp = 0L
+                for (id in playlist.songIds) {
+                    val ts = latestSongPlayMap[id] ?: 0L
+                    if (ts > maxTimestamp) maxTimestamp = ts
+                }
+                maxTimestamp
+            }.thenByDescending { playlist ->
+                playlist.lastModified.coerceAtLeast(playlist.createdAt)
+            }
+        )
+    }
+
+    val filteredPlaylists = remember(searchQuery, rankedPlaylists) {
         if (searchQuery.isBlank()) {
-            allPlaylists
+            rankedPlaylists
         } else {
-            allPlaylists.filter { it.name.contains(searchQuery.trim(), ignoreCase = true) }
+            rankedPlaylists.filter { it.name.contains(searchQuery.trim(), ignoreCase = true) }
         }
     }
 
-    val selectedPlaylistsList = remember(selectedPlaylistIds, allPlaylists) {
-        allPlaylists.filter { it.id in selectedPlaylistIds }
+    val selectedPlaylistsList = remember(selectedPlaylistIds, rankedPlaylists) {
+        rankedPlaylists.filter { it.id in selectedPlaylistIds }
     }
 
     var showPlaylistMultiSelectionSheet by remember { mutableStateOf(false) }
@@ -116,7 +160,9 @@ fun LibraryScreen(
     }
 
     val statusBarTopInset = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
-    val navBarBottomInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+    val navBarCompactMode by playerViewModel.navBarCompactMode.collectAsStateWithLifecycle()
+    val systemNavBarInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+    val navBarOccupiedHeight = resolveNavBarOccupiedHeight(systemNavBarInset, navBarCompactMode)
 
     Box(
         modifier = Modifier
@@ -126,11 +172,11 @@ fun LibraryScreen(
         Column(
             modifier = Modifier.fillMaxSize()
         ) {
-            // Search Bar header (without top settings button)
+            // Search Bar header with Cloud Streaming action
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(start = 20.dp, top = statusBarTopInset + 12.dp, end = 20.dp, bottom = 8.dp),
+                    .padding(start = 20.dp, top = statusBarTopInset + 12.dp, end = 20.dp, bottom = 16.dp),
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -194,7 +240,7 @@ fun LibraryScreen(
                     expanded = false,
                     onExpandedChange = {},
                     modifier = Modifier
-                        .fillMaxWidth()
+                        .weight(1f)
                         .clip(RoundedCornerShape(28.dp)),
                     colors = SearchBarDefaults.colors(
                         containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.25f),
@@ -203,7 +249,30 @@ fun LibraryScreen(
                     ),
                     content = {}
                 )
+
+                // Add Course Button to select folder as course (Local Storage or Google Drive)
+                FilledIconButton(
+                    onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        navController.navigateSafely(Screen.CourseFolderSelection.route)
+                    },
+                    modifier = Modifier.size(52.dp),
+                    shape = CircleShape,
+                    colors = IconButtonDefaults.filledIconButtonColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f),
+                        contentColor = MaterialTheme.colorScheme.primary
+                    )
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Add,
+                        contentDescription = "Add Course Folders",
+                        modifier = Modifier.size(26.dp)
+                    )
+                }
             }
+
+            // Comfortable breathing room between search header and listing items
+            Spacer(modifier = Modifier.height(8.dp))
 
             // Selection action bar when multi-selecting courses
             AnimatedVisibility(
@@ -234,7 +303,7 @@ fun LibraryScreen(
                     currentSortOption = playlistUiState.currentPlaylistSortOption,
                     isRefreshing = false,
                     onRefresh = {},
-                    bottomBarHeight = navBarBottomInset,
+                    bottomBarHeight = navBarOccupiedHeight,
                     navController = navController,
                     playerViewModel = playerViewModel,
                     isSelectionMode = isSelectionMode,
@@ -289,6 +358,28 @@ fun LibraryScreen(
                     context as? Activity
                 )
                 showPlaylistMultiSelectionSheet = false
+            }
+        )
+    }
+
+    if (showStreamingProviderSheet) {
+        val isNavidromeLoggedIn by navidromeViewModel.isLoggedIn.collectAsStateWithLifecycle()
+        val isJellyfinLoggedIn by jellyfinViewModel.isLoggedIn.collectAsStateWithLifecycle()
+        val isGDriveLoggedIn by gdriveViewModel.isLoggedIn.collectAsStateWithLifecycle()
+
+        StreamingProviderSheet(
+            onDismissRequest = { showStreamingProviderSheet = false },
+            isNavidromeLoggedIn = isNavidromeLoggedIn,
+            onNavigateToNavidromeDashboard = {
+                navController.navigateSafely(Screen.NavidromeDashboard.route)
+            },
+            isJellyfinLoggedIn = isJellyfinLoggedIn,
+            onNavigateToJellyfinDashboard = {
+                navController.navigateSafely(Screen.JellyfinDashboard.route)
+            },
+            isGDriveLoggedIn = isGDriveLoggedIn,
+            onNavigateToGDriveDashboard = {
+                navController.navigateSafely(Screen.GDriveDashboard.route)
             }
         )
     }

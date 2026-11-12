@@ -29,7 +29,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.rounded.Shuffle
+import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ContainedLoadingIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -371,8 +371,7 @@ fun AlbumDetailScreen(
                             onBackPressed = { navController.popBackStack() },
                             onPlayClick = {
                                 if (songs.isNotEmpty()) {
-                                    val randomSong = songs.random()
-                                    playerViewModel.showAndPlaySong(randomSong, songs)
+                                    playerViewModel.showAndPlaySong(songs.first(), songs)
                                 }
                             }
                         )
@@ -391,8 +390,7 @@ fun AlbumDetailScreen(
                             onBackPressed = { navController.popBackStack() },
                             onPlayClick = {
                                 if (songs.isNotEmpty()) {
-                                    val randomSong = songs.random()
-                                    playerViewModel.showAndPlaySong(randomSong, songs)
+                                    playerViewModel.showAndPlaySong(songs.first(), songs)
                                 }
                             }
                         )
@@ -534,7 +532,7 @@ private fun SharedAlbumTopBarProbe(
         lerpColor(expandedStatusBarFallback, surfaceColor, solidAlpha)
     }
     val titleVerticalBias = lerp(1f, -1f, collapseFraction)
-    val shuffleAlignment = BiasAlignment(horizontalBias = 1f, verticalBias = titleVerticalBias)
+    val playAlignment = BiasAlignment(horizontalBias = 1f, verticalBias = titleVerticalBias)
 
     PixelPlayStatusBarStyle(color = fallbackStatusBarColor)
 
@@ -603,7 +601,7 @@ private fun SharedAlbumTopBarProbe(
             onClick = onPlayClick,
             shape = RoundedStarShape(sides = 8, curve = 0.05, rotation = 0f),
             modifier = Modifier
-                .align(shuffleAlignment)
+                .align(playAlignment)
                 .statusBarsPadding()
                 .padding(end = 16.dp)
                 .graphicsLayer {
@@ -612,7 +610,7 @@ private fun SharedAlbumTopBarProbe(
                     alpha = expandedContentAlpha
                 }
         ) {
-            Icon(Icons.Rounded.Shuffle, contentDescription = stringResource(R.string.common_shuffle_play_album))
+            Icon(Icons.Rounded.PlayArrow, contentDescription = stringResource(R.string.common_play_album))
         }
     }
 }
@@ -786,7 +784,7 @@ private fun CollapsingAlbumTopBar(
                             alpha = fabScale
                         }
                 ) {
-                    Icon(Icons.Rounded.Shuffle, contentDescription = stringResource(R.string.common_shuffle_play_album))
+                    Icon(Icons.Rounded.PlayArrow, contentDescription = stringResource(R.string.common_play_album))
                 }
             }
         }

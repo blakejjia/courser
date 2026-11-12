@@ -50,7 +50,6 @@ import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.DragIndicator
 import androidx.compose.material.icons.rounded.PlayArrow
-import androidx.compose.material.icons.rounded.Shuffle
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -163,7 +162,6 @@ fun PlaylistDetailScreen(
     val sortSongsLabel = stringResource(R.string.playlist_sort_songs_title)
     val moreOptionsLabel = stringResource(R.string.playlist_more_options_title)
     val playItLabel = stringResource(R.string.playlist_action_play_it)
-    val shuffleLabel = stringResource(R.string.common_shuffle)
     val addSongsCd = stringResource(R.string.playlist_cd_add_songs)
     val addLabel = stringResource(R.string.playlist_action_add_songs)
     val removeLabel = stringResource(R.string.playlist_action_remove_songs)
@@ -370,21 +368,20 @@ fun PlaylistDetailScreen(
                                     localReorderableSongs.first(),
                                     currentPlaylist.name
                                 )
-                                if (playerStableState.isShuffleEnabled) playerViewModel.toggleShuffle()
                             }
                         },
                         modifier = Modifier
-                            .weight(1f)
+                            .fillMaxWidth()
                             .height(76.dp),
                         enabled = localReorderableSongs.isNotEmpty(),
                         shape = AbsoluteSmoothCornerShape(
                             cornerRadiusTL = 60.dp,
                             smoothnessAsPercentTR = 60,
-                            cornerRadiusTR = 14.dp,
+                            cornerRadiusTR = 60.dp,
                             smoothnessAsPercentTL = 60,
                             cornerRadiusBL = 60.dp,
                             smoothnessAsPercentBR = 60,
-                            cornerRadiusBR = 14.dp,
+                            cornerRadiusBR = 60.dp,
                             smoothnessAsPercentBL = 60
                         ),
                         contentPadding = PaddingValues(horizontal = 10.dp),
@@ -396,53 +393,12 @@ fun PlaylistDetailScreen(
                         )
                         Spacer(Modifier.size(ButtonDefaults.IconSpacing))
                         TightWrapText(
-                                text = playItLabel,
-                                modifier = Modifier.padding(end = 4.dp),
-                                overflow = TextOverflow.Ellipsis,
-                                maxLines = 2,
-                                lineHeight = 20.sp
-                            )
-                    }
-                    FilledTonalButton(
-                        onClick = {
-                            if (localReorderableSongs.isNotEmpty()) {
-                                playerViewModel.playSongsShuffled(
-                                    songsToPlay = localReorderableSongs,
-                                    queueName = currentPlaylist.name,
-                                    playlistId = currentPlaylist.id,
-                                    startAtZero = true,
-                                )
-                            }
-                        },
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(76.dp),
-                        enabled = localReorderableSongs.isNotEmpty(),
-                        shape = AbsoluteSmoothCornerShape(
-                            cornerRadiusTL = 14.dp,
-                            smoothnessAsPercentTR = 60,
-                            cornerRadiusTR = 60.dp,
-                            smoothnessAsPercentTL = 60,
-                            cornerRadiusBL = 14.dp,
-                            smoothnessAsPercentBR = 60,
-                            cornerRadiusBR = 60.dp,
-                            smoothnessAsPercentBL = 60
-                        ),
-                        contentPadding = PaddingValues(horizontal = 10.dp),
-                    ) {
-                        Icon(
-                            Icons.Rounded.Shuffle,
-                            contentDescription = shuffleLabel,
-                            modifier = Modifier.size(ButtonDefaults.IconSize)
+                            text = playItLabel,
+                            modifier = Modifier.padding(end = 4.dp),
+                            overflow = TextOverflow.Ellipsis,
+                            maxLines = 2,
+                            lineHeight = 20.sp
                         )
-                        Spacer(Modifier.size(ButtonDefaults.IconSpacing))
-                        TightWrapText(
-                                text = shuffleLabel,
-                                modifier = Modifier.padding(end = 4.dp),
-                                overflow = TextOverflow.Ellipsis,
-                                maxLines = 2,
-                                lineHeight = 20.sp
-                            )
                     }
                 }
 

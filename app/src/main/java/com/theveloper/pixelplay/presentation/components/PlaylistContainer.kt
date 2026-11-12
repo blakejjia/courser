@@ -111,6 +111,8 @@ fun PlaylistContainer(
     playlistSelectionStateHolder: PlaylistSelectionStateHolder? = null
 ) {
 
+    val hasCurrentSong = currentSong != null && currentSong != Song.emptySong()
+
     Column(modifier = Modifier.fillMaxSize()) {
         if (playlistUiState.isLoading && filteredPlaylists.isEmpty()) {
             Box(
@@ -126,7 +128,7 @@ fun PlaylistContainer(
                     .padding(
                         start = 28.dp,
                         end = 28.dp,
-                        bottom = bottomBarHeight + MiniPlayerHeight + 24.dp
+                        bottom = bottomBarHeight + (if (hasCurrentSong) MiniPlayerHeight else 0.dp) + 24.dp
                     ),
                 contentAlignment = Alignment.Center
             ) {
@@ -293,7 +295,10 @@ fun PlaylistItems(
                 ),
             state = listState,
             verticalArrangement = Arrangement.spacedBy(8.dp),
-            contentPadding = PaddingValues(bottom = bottomBarHeight + MiniPlayerHeight + 30.dp)
+            contentPadding = PaddingValues(
+                top = 8.dp,
+                bottom = bottomBarHeight + (if (hasCurrentSong) MiniPlayerHeight else 0.dp) + 32.dp
+            )
         ) {
             items(filteredPlaylists, key = { it.id }) { playlist ->
                 val rememberedOnClick = remember(playlist.id) {

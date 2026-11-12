@@ -24,7 +24,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.PlayArrow
-import androidx.compose.material.icons.rounded.Shuffle
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -107,11 +106,9 @@ fun DailyMixScreen(
     Trace.beginSection("DailyMixScreen.Composition")
     val dailyMixTitle = stringResource(R.string.daily_mix_title)
     val playItLabel = stringResource(R.string.daily_mix_action_play_it)
-    val shuffleLabel = stringResource(R.string.common_shuffle)
     val dailyMixSongs: ImmutableList<Song> by playerViewModel.dailyMixSongs.collectAsStateWithLifecycle()
     val currentSongId by remember { playerViewModel.stablePlayerState.map { it.currentSong?.id }.distinctUntilChanged() }.collectAsStateWithLifecycle(initialValue = null)
     val isPlaying by remember { playerViewModel.stablePlayerState.map { it.isPlaying }.distinctUntilChanged() }.collectAsStateWithLifecycle(initialValue = false)
-    val isShuffleEnabled by remember { playerViewModel.stablePlayerState.map { it.isShuffleEnabled }.distinctUntilChanged() }.collectAsStateWithLifecycle(initialValue = false)
     val navBarCompactMode by playerViewModel.navBarCompactMode.collectAsStateWithLifecycle()
     val systemNavBarInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
     val bottomBarHeightDp = resolveNavBarOccupiedHeight(systemNavBarInset, navBarCompactMode)
@@ -287,19 +284,13 @@ fun DailyMixScreen(
                             onClick = {
                                 if (dailyMixSongs.isNotEmpty()) {
                                     playerViewModel.playSongs(dailyMixSongs, dailyMixSongs.first(), dailyMixTitle)
-                                    if (isShuffleEnabled) playerViewModel.toggleShuffle() // Desactivar shuffle si estaba activo
                                 }
                             },
                             modifier = Modifier
-                                .weight(1f)
+                                .fillMaxWidth()
                                 .height(76.dp),
                             enabled = dailyMixSongs.isNotEmpty(),
-                            shape = RoundedCornerShape(
-                                topStart = 60.dp,
-                                topEnd = 14.dp,
-                                bottomStart = 60.dp,
-                                bottomEnd = 14.dp
-                            ),
+                            shape = RoundedCornerShape(60.dp),
                             contentPadding = PaddingValues(horizontal = 10.dp),
                         ) {
                             Icon(Icons.Rounded.PlayArrow, contentDescription = stringResource(R.string.common_play), modifier = Modifier.size(
@@ -307,39 +298,6 @@ fun DailyMixScreen(
                             Spacer(Modifier.size(ButtonDefaults.IconSpacing))
                             TightWrapText(
                                 text = playItLabel,
-                                modifier = Modifier.padding(end = 4.dp),
-                                overflow = TextOverflow.Ellipsis,
-                                maxLines = 2,
-                                lineHeight = 20.sp
-                            )
-                        }
-                        FilledTonalButton(
-                            onClick = {
-                                if (dailyMixSongs.isNotEmpty()) {
-                                    playerViewModel.playSongsShuffled(
-                                        songsToPlay = dailyMixSongs,
-                                        queueName = dailyMixTitle,
-                                        startAtZero = true,
-                                    )
-                                }
-                            },
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(76.dp),
-                            enabled = dailyMixSongs.isNotEmpty(),
-                            shape = RoundedCornerShape(
-                                topStart = 14.dp,
-                                topEnd = 60.dp,
-                                bottomStart = 14.dp,
-                                bottomEnd = 60.dp
-                            ),
-                            contentPadding = PaddingValues(horizontal = 10.dp),
-                        ) {
-                            Icon(Icons.Rounded.Shuffle, contentDescription = shuffleLabel, modifier = Modifier.size(
-                                ButtonDefaults.IconSize))
-                            Spacer(Modifier.size(ButtonDefaults.IconSpacing))
-                            TightWrapText(
-                                text = shuffleLabel,
                                 modifier = Modifier.padding(end = 4.dp),
                                 overflow = TextOverflow.Ellipsis,
                                 maxLines = 2,

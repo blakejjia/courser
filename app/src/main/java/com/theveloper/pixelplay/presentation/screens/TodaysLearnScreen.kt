@@ -1,5 +1,6 @@
 package com.theveloper.pixelplay.presentation.screens
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,6 +19,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Add
@@ -63,6 +65,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.media3.common.util.UnstableApi
 import androidx.navigation.NavController
 import com.theveloper.pixelplay.data.model.Playlist
+import com.theveloper.pixelplay.presentation.components.CourserLazyColumn
 import com.theveloper.pixelplay.presentation.components.MiniPlayerHeight
 import com.theveloper.pixelplay.presentation.navigation.Screen
 import com.theveloper.pixelplay.presentation.navigation.navigateSafely
@@ -94,46 +97,17 @@ fun TodaysLearnScreen(
         topBar = {
             CenterAlignedTopAppBar(
                 title = {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Text(
-                            text = "Today's Learn",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold
-                        )
-                        if (plannedCourses.isNotEmpty()) {
-                            Surface(
-                                shape = CircleShape,
-                                color = MaterialTheme.colorScheme.primaryContainer
-                            ) {
-                                Text(
-                                    text = "${plannedCourses.size}",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onPrimaryContainer,
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
-                                )
-                            }
-                        }
-                    }
+                    Text(
+                        text = "Today's Learn",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold
+                    )
                 },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
                             contentDescription = "Navigate back"
-                        )
-                    }
-                },
-                actions = {
-                    IconButton(
-                        onClick = { navController.navigateSafely(Screen.DailyGoalSettings.route) }
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.Add,
-                            contentDescription = "Add course to plan"
                         )
                     }
                 },
@@ -144,19 +118,20 @@ fun TodaysLearnScreen(
         },
         containerColor = MaterialTheme.colorScheme.surface
     ) { innerPadding ->
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding),
+        CourserLazyColumn(
+            playerViewModel = playerViewModel,
+            hasBottomNavBar = false,
+            includeSystemNavBarInset = true,
+            extraBottomPadding = 24.dp,
+            modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(
                 start = 16.dp,
                 end = 16.dp,
-                top = 8.dp,
-                bottom = navBarBottomInset + MiniPlayerHeight + 24.dp
+                top = innerPadding.calculateTopPadding() + 8.dp
             ),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // ── Top Prominent "Add +" Long Button ──
+            // ── Top Prominent "Add" Long Button ──
             item(key = "add_course_button") {
                 FilledTonalButton(
                     onClick = {
@@ -174,7 +149,7 @@ fun TodaysLearnScreen(
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "Add +",
+                        text = "Add",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold
                     )
@@ -221,7 +196,7 @@ fun TodaysLearnScreen(
                             )
 
                             Text(
-                                text = "Tap the 'Add +' button above to select courses and set your daily learning goal.",
+                                text = "Tap the 'Add' button above to select courses and set your daily learning goal.",
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 textAlign = TextAlign.Center
@@ -231,13 +206,32 @@ fun TodaysLearnScreen(
                 }
             } else {
                 item(key = "goal_section_label") {
-                    Text(
-                        text = "Courses in Daily Plan",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
-                    )
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 4.dp, vertical = 2.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = "Courses in Daily Plan",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Surface(
+                            shape = CircleShape,
+                            color = MaterialTheme.colorScheme.primaryContainer
+                        ) {
+                            Text(
+                                text = "${plannedCourses.size}",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 3.dp)
+                            )
+                        }
+                    }
                 }
 
                 items(plannedCourses, key = { "planned_${it.playlist.id}" }) { planned ->
@@ -270,8 +264,8 @@ fun TodaysLearnScreen(
 }
 
 /**
- * Course Card in Today's Learn settings list.
- * Features an "Edit" action button instead of a play button.
+ * Course Item in Today's Learn settings list.
+ * Features a clean, compact course list item layout with an Edit action button.
  */
 @Composable
 fun PlannedCourseSettingCard(
@@ -281,72 +275,63 @@ fun PlannedCourseSettingCard(
 ) {
     val course = plannedCourse.playlist
 
-    ElevatedCard(
-        modifier = modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.large,
-        colors = CardDefaults.elevatedCardColors(
+    Card(
+        modifier = modifier
+            .fillMaxWidth()
+            .clickable(onClick = onEdit),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainerLow
         )
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(16.dp)
+                .padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
             Surface(
-                shape = MaterialTheme.shapes.medium,
+                shape = RoundedCornerShape(10.dp),
                 color = MaterialTheme.colorScheme.primaryContainer,
-                modifier = Modifier.size(52.dp)
+                modifier = Modifier.size(46.dp)
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
                         imageVector = Icons.Rounded.AutoStories,
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                        modifier = Modifier.size(26.dp)
+                        modifier = Modifier.size(24.dp)
                     )
                 }
             }
 
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
+            Spacer(modifier = Modifier.width(14.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = course.name,
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
+                    fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-
                 Text(
-                    text = "${course.songIds.size} lessons • ${plannedCourse.targetCount} per day",
+                    text = "${course.songIds.size} lessons • ${plannedCourse.targetCount} / day",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.primary,
-                    fontWeight = FontWeight.Medium
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
 
-            // Edit Action Button (No Play button here)
-            OutlinedButton(
+            IconButton(
                 onClick = onEdit,
-                shape = MaterialTheme.shapes.small,
-                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
+                modifier = Modifier.size(36.dp)
             ) {
                 Icon(
                     imageVector = Icons.Rounded.Edit,
-                    contentDescription = null,
-                    modifier = Modifier.size(16.dp)
-                )
-                Spacer(modifier = Modifier.width(6.dp))
-                Text(
-                    text = "Edit",
-                    style = MaterialTheme.typography.labelMedium,
-                    fontWeight = FontWeight.SemiBold
+                    contentDescription = "Edit goal",
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(18.dp)
                 )
             }
         }

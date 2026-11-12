@@ -76,6 +76,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import com.theveloper.pixelplay.R
 import com.theveloper.pixelplay.presentation.components.CollapsibleCommonTopBar
+import com.theveloper.pixelplay.presentation.components.CourserLazyColumn
 import com.theveloper.pixelplay.presentation.components.ExpressiveTopBarContent
 import com.theveloper.pixelplay.presentation.components.MiniPlayerHeight
 import com.theveloper.pixelplay.presentation.components.resolveNavBarOccupiedHeight
@@ -212,13 +213,15 @@ fun SettingsScreen(
                     }
     ) {
         val currentTopBarHeightDp = with(density) { topBarHeight.value.toDp() }
-        LazyColumn(
+        CourserLazyColumn(
+                playerViewModel = playerViewModel,
+                hasBottomNavBar = true,
+                extraBottomPadding = 24.dp,
                 state = lazyListState,
                 contentPadding = PaddingValues(
                     top = currentTopBarHeightDp + 8.dp,
                     start = 16.dp,
-                    end = 16.dp,
-                    bottom = listBottomPadding
+                    end = 16.dp
                 ),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier.fillMaxSize()

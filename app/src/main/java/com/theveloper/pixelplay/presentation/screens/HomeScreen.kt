@@ -4,6 +4,7 @@ package com.theveloper.pixelplay.presentation.screens
 
 import android.content.Intent
 import androidx.activity.compose.ReportDrawnWhen
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -26,6 +27,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowForward
+import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.AutoStories
 import androidx.compose.material.icons.rounded.CloudQueue
@@ -77,6 +79,7 @@ import com.theveloper.pixelplay.data.model.Playlist
 import com.theveloper.pixelplay.presentation.components.BetaInfoBottomSheet
 import com.theveloper.pixelplay.presentation.components.ChangelogBottomSheet
 import com.theveloper.pixelplay.presentation.components.HomeGradientTopBar
+import com.theveloper.pixelplay.presentation.components.CourserLazyColumn
 import com.theveloper.pixelplay.presentation.components.MiniPlayerHeight
 import com.theveloper.pixelplay.presentation.components.PlaylistItem
 import com.theveloper.pixelplay.presentation.components.StreamingProviderSheet
@@ -145,23 +148,20 @@ fun HomeScreen(
         modifier = Modifier.fillMaxSize(),
         topBar = {
             HomeGradientTopBar(
-                onNavigationIconClick = {},
-                onMoreOptionsClick = { showChangelogBottomSheet = true },
-                onBetaClick = { showBetaInfoBottomSheet = true },
-                onTelegramClick = { showStreamingProviderSheet = true },
-                onMenuClick = {},
                 isScrolled = isScrolledPastThreshold.value
             )
         }
     ) { innerPadding ->
-        LazyColumn(
+        CourserLazyColumn(
+            playerViewModel = playerViewModel,
+            hasBottomNavBar = true,
+            extraBottomPadding = 36.dp,
             state = listState,
             modifier = Modifier
                 .fillMaxSize()
                 .background(MaterialTheme.colorScheme.background),
             contentPadding = PaddingValues(
-                top = innerPadding.calculateTopPadding(),
-                bottom = paddingValuesParent.calculateBottomPadding() + MiniPlayerHeight + 36.dp
+                top = innerPadding.calculateTopPadding()
             ),
             verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
@@ -266,18 +266,18 @@ fun HomeScreen(
                             if (allCourses.isEmpty()) {
                                 FilledTonalButton(
                                     onClick = {
-                                        context.startActivity(Intent(context, GDriveLoginActivity::class.java))
+                                        navController.navigateSafely(Screen.CourseFolderSelection.route)
                                     },
                                     shape = MaterialTheme.shapes.small
                                 ) {
                                     Icon(
-                                        imageVector = Icons.Rounded.CloudQueue,
+                                        imageVector = Icons.Rounded.Add,
                                         contentDescription = null,
                                         modifier = Modifier.size(18.dp)
                                     )
                                     Spacer(Modifier.width(8.dp))
                                     Text(
-                                        text = "Connect Google Drive",
+                                        text = "Add Course Folders",
                                         fontFamily = GoogleSansRounded,
                                         fontWeight = FontWeight.SemiBold
                                     )
@@ -306,79 +306,16 @@ fun HomeScreen(
                     }
                 }
             } else {
-                item(key = "todays_learn_carousel") {
-                    LazyRow(
-                        modifier = Modifier.fillMaxWidth(),
-                        contentPadding = PaddingValues(horizontal = 20.dp),
-                        horizontalArrangement = Arrangement.spacedBy(14.dp)
-                    ) {
-                        items(plannedCourses, key = { "today_${it.playlist.id}" }) { planned ->
-                            TodayCourseCard(
-                                plannedCourse = planned,
-                                onClick = {
-                                    navController.navigateSafely(Screen.PlaylistDetail.createRoute(planned.playlist.id))
-                                },
-                                onPlay = {
-                                    navController.navigateSafely(Screen.PlaylistDetail.createRoute(planned.playlist.id))
-                                }
-                            )
-                        }
-                    }
-                }
-            }
-
-            // ────────────────────────────────────────────────────────────────
-            // 2. ALL COURSES SECTION
-            // ────────────────────────────────────────────────────────────────
-            item(key = "all_courses_header") {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 20.dp, vertical = 4.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "All Courses",
-                        style = MaterialTheme.typography.titleLarge.copy(
-                            fontFamily = GoogleSansRounded,
-                            fontWeight = FontWeight.Bold
-                        ),
-                        color = MaterialTheme.colorScheme.onBackground
-                    )
-
-                    Surface(
-                        shape = CircleShape,
-                        color = MaterialTheme.colorScheme.surfaceContainerHigh
-                    ) {
-                        Text(
-                            text = "${allCourses.size} ${if (allCourses.size == 1) "course" else "courses"}",
-                            style = MaterialTheme.typography.labelSmall,
-                            fontFamily = GoogleSansRounded,
-                            fontWeight = FontWeight.SemiBold,
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-            }
-
-            if (allCourses.isNotEmpty()) {
-                items(allCourses, key = { "all_${it.id}" }) { course ->
+                items(plannedCourses, key = { "today_${it.playlist.id}" }) { planned ->
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 20.dp)
                     ) {
-                        PlaylistItem(
-                            playlist = course,
-                            playerViewModel = playerViewModel,
-                            isAddingToPlaylist = false,
+                        TodayCourseListItem(
+                            plannedCourse = planned,
                             onClick = {
-                                navController.navigateSafely(Screen.PlaylistDetail.createRoute(course.id))
-                            },
-                            onLongPress = {
-                                navController.navigateSafely(Screen.PlaylistDetail.createRoute(course.id))
+                                navController.navigateSafely(Screen.PlaylistDetail.createRoute(planned.playlist.id))
                             }
                         )
                     }
@@ -427,118 +364,86 @@ fun HomeScreen(
 }
 
 /**
- * Material 3 compliant course card for Today's Learn carousel.
+ * Material 3 compliant course list item for Today's Learn plan.
  */
 @Composable
-private fun TodayCourseCard(
+private fun TodayCourseListItem(
     plannedCourse: PlannedCourse,
     onClick: () -> Unit,
-    onPlay: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val course = plannedCourse.playlist
     val targetCount = plannedCourse.targetCount
 
-    ElevatedCard(
-        onClick = onClick,
+    Card(
         modifier = modifier
-            .width(260.dp)
-            .height(156.dp),
-        shape = MaterialTheme.shapes.large,
-        colors = CardDefaults.elevatedCardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
         )
     ) {
-        Column(
+        Row(
             modifier = Modifier
-                .fillMaxSize()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.SpaceBetween
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+            Surface(
+                shape = RoundedCornerShape(10.dp),
+                color = MaterialTheme.colorScheme.primaryContainer,
+                modifier = Modifier.size(46.dp)
             ) {
-                Surface(
-                    shape = MaterialTheme.shapes.small,
-                    color = MaterialTheme.colorScheme.primaryContainer
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        if (course.source == "GDRIVE") {
-                            Icon(
-                                painter = painterResource(R.drawable.rounded_drive_export_24),
-                                contentDescription = "Google Drive",
-                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                                modifier = Modifier.size(14.dp)
-                            )
-                        } else {
-                            Icon(
-                                imageVector = Icons.Rounded.School,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                                modifier = Modifier.size(14.dp)
-                            )
-                        }
-                        Text(
-                            text = if (course.source == "GDRIVE") "Google Drive" else "Course",
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                Box(contentAlignment = Alignment.Center) {
+                    if (course.source == "GDRIVE") {
+                        Icon(
+                            painter = painterResource(R.drawable.rounded_drive_export_24),
+                            contentDescription = "Google Drive",
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                            modifier = Modifier.size(22.dp)
+                        )
+                    } else {
+                        Icon(
+                            imageVector = Icons.Rounded.School,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                            modifier = Modifier.size(24.dp)
                         )
                     }
                 }
-
-                Surface(
-                    shape = CircleShape,
-                    color = MaterialTheme.colorScheme.secondaryContainer
-                ) {
-                    Text(
-                        text = "$targetCount/day",
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSecondaryContainer,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
-                    )
-                }
             }
 
-            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Spacer(modifier = Modifier.width(14.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = course.name,
-                    style = MaterialTheme.typography.titleMedium,
+                    style = MaterialTheme.typography.titleMedium.copy(fontFamily = GoogleSansRounded),
                     fontWeight = FontWeight.Bold,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    color = MaterialTheme.colorScheme.onSurface
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
                 Text(
-                    text = "${course.songIds.size} lessons",
+                    text = "${course.songIds.size} lessons • $targetCount/day",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End,
-                verticalAlignment = Alignment.CenterVertically
+            Surface(
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
             ) {
-                FilledTonalIconButton(
-                    onClick = onPlay,
-                    shape = CircleShape,
-                    modifier = Modifier.size(36.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.PlayArrow,
-                        contentDescription = "Play Course",
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
+                Icon(
+                    imageVector = Icons.Rounded.PlayArrow,
+                    contentDescription = "Start course",
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier
+                        .padding(8.dp)
+                        .size(20.dp)
+                )
             }
         }
     }

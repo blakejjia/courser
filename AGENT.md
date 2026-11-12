@@ -289,3 +289,10 @@ TELEGRAM_API_HASH=b18441a1ff607e10a989891a5462e627
 
 6. **Compose Recomposition Hygiene**:
    - Always verify new models are treated as stable. Add custom UI models to `app/compose_stability.conf` if they contain external or non-primitive types to prevent unnecessary screen redraws during audio playback.
+
+7. **Unified List Component for Mini-Player & Bottom Bar Insets (`CourserLazyColumn`)**:
+   - Whenever creating or refactoring a scrollable page/list (`LazyColumn`), **DO NOT** use a bare `LazyColumn` or manually hardcode bottom padding for the mini-player and navigation bar.
+   - **ALWAYS** use `CourserLazyColumn` (from `com.theveloper.pixelplay.presentation.components.CourserLazyColumn`), or `rememberPlayerAwareBottomPadding`:
+     - For top-level screens that show the bottom navigation bar (Home, Library, Settings), pass `hasBottomNavBar = true`.
+     - For sub-screens that hide the bottom navigation bar (Daily Goal Settings, Today's Learn, Playlist Details, Category Details), pass `hasBottomNavBar = false`.
+     - This automatically coordinates `resolveNavBarOccupiedHeight`, `MiniPlayerHeight` (64.dp when playing audio), system navigation bar insets, and smooth animations so the bottom-most list items are never blocked by the floating mini-player or navigation bar.

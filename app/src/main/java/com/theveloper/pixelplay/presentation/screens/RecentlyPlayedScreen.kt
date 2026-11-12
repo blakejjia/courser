@@ -29,7 +29,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.PlayArrow
-import androidx.compose.material.icons.rounded.Shuffle
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -109,7 +108,6 @@ fun RecentlyPlayedScreen(
 
     val context = LocalContext.current
     val queueRecentlyPlayed = stringResource(R.string.recently_played_queue_name)
-    val shuffleLabel = stringResource(R.string.common_shuffle)
     val playbackHistory by playerViewModel.playbackHistory.collectAsStateWithLifecycle()
     val currentSongId by remember(playerViewModel.stablePlayerState) {
         playerViewModel.stablePlayerState.map { it.currentSong?.id }.distinctUntilChanged()
@@ -220,14 +218,6 @@ fun RecentlyPlayedScreen(
                                 val firstSong = queueSongs.firstOrNull() ?: return@RecentlyPlayedActions
                                 playerViewModel.playSongs(queueSongs, firstSong, queueRecentlyPlayed)
                             },
-                            onShuffle = {
-                                playerViewModel.playSongsShuffled(
-                                    songsToPlay = queueSongs,
-                                    queueName = queueRecentlyPlayed,
-                                    startAtZero = true,
-                                )
-                            },
-                            shuffleLabel = shuffleLabel,
                             modifier = Modifier.padding(horizontal = 16.dp)
                         )
                     }
@@ -480,27 +470,18 @@ private fun rememberRecentlyPlayedTitleStyle(): TextStyle {
 @Composable
 private fun RecentlyPlayedActions(
     onPlay: () -> Unit,
-    onShuffle: () -> Unit,
-    shuffleLabel: String,
     modifier: Modifier = Modifier
 ) {
     Row(
         modifier = modifier
             .fillMaxWidth()
             .height(52.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+        horizontalArrangement = Arrangement.Center
     ) {
         Button(
             onClick = onPlay,
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxSize(),
-            shape = RoundedCornerShape(
-                topStart = 52.dp,
-                topEnd = 14.dp,
-                bottomStart = 52.dp,
-                bottomEnd = 14.dp
-            ),
+            modifier = Modifier.fillMaxSize(),
+            shape = RoundedCornerShape(52.dp),
             contentPadding = PaddingValues(horizontal = 10.dp),
         ) {
             Icon(
@@ -511,34 +492,6 @@ private fun RecentlyPlayedActions(
             Spacer(Modifier.width(ButtonDefaults.IconSpacing))
             TightWrapText(
                 text = stringResource(R.string.recently_played_action_play_latest),
-                modifier = Modifier.padding(end = 4.dp),
-                overflow = TextOverflow.Ellipsis,
-                maxLines = 2,
-                lineHeight = 20.sp
-            )
-        }
-
-        FilledTonalButton(
-            onClick = onShuffle,
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxSize(),
-            shape = RoundedCornerShape(
-                topStart = 14.dp,
-                topEnd = 52.dp,
-                bottomStart = 14.dp,
-                bottomEnd = 52.dp
-            ),
-            contentPadding = PaddingValues(horizontal = 10.dp),
-        ) {
-            Icon(
-                imageVector = Icons.Rounded.Shuffle,
-                contentDescription = null,
-                modifier = Modifier.size(ButtonDefaults.IconSize)
-            )
-            Spacer(Modifier.width(ButtonDefaults.IconSpacing))
-            TightWrapText(
-                text = shuffleLabel,
                 modifier = Modifier.padding(end = 4.dp),
                 overflow = TextOverflow.Ellipsis,
                 maxLines = 2,

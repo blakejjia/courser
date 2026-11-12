@@ -644,7 +644,9 @@ class MainActivity : ComponentActivity() {
                 Screen.DeviceCapabilities.route,
                 Screen.EasterEgg.route,
                 Screen.WordDelimiterConfig.route,
-                Screen.CourseFolderSelection.route
+                Screen.CourseFolderSelection.route,
+                Screen.DailyGoalSettings.route,
+                Screen.TodaysLearn.route
             )
         }
         val shouldHideNavigationBar by remember(currentRoute, isSearchBarActive) {

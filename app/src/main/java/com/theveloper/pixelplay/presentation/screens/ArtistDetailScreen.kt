@@ -33,7 +33,6 @@ import androidx.compose.material.icons.rounded.Headphones
 import androidx.compose.material.icons.rounded.Mic
 import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.PlayArrow
-import androidx.compose.material.icons.rounded.Shuffle
 import androidx.compose.material.icons.rounded.SurroundSound
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -417,10 +416,10 @@ fun ArtistDetailScreen(
                             onBackPressed = { navController.popBackStack() },
                             onPlayClick = {
                                 if (songs.isNotEmpty()) {
-                                    playerViewModel.playSongsShuffled(
+                                    playerViewModel.playSongs(
                                         songs,
-                                        artist.name,
-                                        startAtZero = true
+                                        songs.first(),
+                                        artist.name
                                     )
                                 }
                             },
@@ -439,10 +438,10 @@ fun ArtistDetailScreen(
                             onBackPressed = { navController.popBackStack() },
                             onPlayClick = {
                                 if (songs.isNotEmpty()) {
-                                    playerViewModel.playSongsShuffled(
+                                    playerViewModel.playSongs(
                                         songs,
-                                        artist.name,
-                                        startAtZero = true
+                                        songs.first(),
+                                        artist.name
                                     )
                                 }
                             },
@@ -767,7 +766,7 @@ private fun SharedArtistTopBarProbe(
         lerpColor(expandedStatusBarFallback, surfaceColor, solidAlpha)
     }
     val titleVerticalBias = lerp(1f, -1f, collapseFraction)
-    val shuffleAlignment = BiasAlignment(horizontalBias = 1f, verticalBias = titleVerticalBias)
+    val playAlignment = BiasAlignment(horizontalBias = 1f, verticalBias = titleVerticalBias)
 
     PixelPlayStatusBarStyle(color = fallbackStatusBarColor)
 
@@ -889,7 +888,7 @@ private fun SharedArtistTopBarProbe(
             onClick = onPlayClick,
             shape = RoundedStarShape(sides = 8, curve = 0.05, rotation = 0f),
             modifier = Modifier
-                .align(shuffleAlignment)
+                .align(playAlignment)
                 .statusBarsPadding()
                 .padding(end = 16.dp)
                 .graphicsLayer {
@@ -898,7 +897,7 @@ private fun SharedArtistTopBarProbe(
                     alpha = expandedContentAlpha
                 }
         ) {
-            Icon(Icons.Rounded.Shuffle, contentDescription = stringResource(R.string.artist_cd_shuffle_play))
+            Icon(Icons.Rounded.PlayArrow, contentDescription = stringResource(R.string.common_play))
         }
     }
 }
@@ -1119,7 +1118,7 @@ private fun CustomCollapsingTopBar(
                             alpha = fabScale
                         }
                 ) {
-                    Icon(Icons.Rounded.Shuffle, contentDescription = stringResource(R.string.common_shuffle_play_album))
+                    Icon(Icons.Rounded.PlayArrow, contentDescription = stringResource(R.string.common_play))
                 }
             }
         }
