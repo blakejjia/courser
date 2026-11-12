@@ -25,20 +25,26 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.ArrowForward
 import androidx.compose.material.icons.rounded.AutoAwesome
+import androidx.compose.material.icons.rounded.AutoStories
 import androidx.compose.material.icons.rounded.CloudQueue
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.School
+import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -80,6 +86,7 @@ import com.theveloper.pixelplay.presentation.jellyfin.dashboard.JellyfinDashboar
 import com.theveloper.pixelplay.presentation.navidrome.dashboard.NavidromeDashboardViewModel
 import com.theveloper.pixelplay.presentation.navigation.Screen
 import com.theveloper.pixelplay.presentation.navigation.navigateSafely
+import com.theveloper.pixelplay.presentation.viewmodel.DailyGoalViewModel
 import com.theveloper.pixelplay.presentation.viewmodel.PlayerViewModel
 import com.theveloper.pixelplay.presentation.viewmodel.PlaylistViewModel
 import com.theveloper.pixelplay.ui.theme.GoogleSansRounded
@@ -100,11 +107,14 @@ fun HomeScreen(
     gdriveViewModel: GDriveDashboardViewModel = hiltViewModel(),
     navidromeViewModel: NavidromeDashboardViewModel = hiltViewModel(),
     jellyfinViewModel: JellyfinDashboardViewModel = hiltViewModel(),
+    dailyGoalViewModel: DailyGoalViewModel = hiltViewModel(),
     onOpenSidebar: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val playlistUiState by playlistViewModel.uiState.collectAsStateWithLifecycle()
+    val dailyGoalUiState by dailyGoalViewModel.uiState.collectAsStateWithLifecycle()
     val allCourses = playlistUiState.playlists
+    val todaysCourses = dailyGoalUiState.todaysCourses
 
     val listState = rememberSaveable(saver = androidx.compose.foundation.lazy.LazyListState.Saver) {
         androidx.compose.foundation.lazy.LazyListState()
@@ -158,126 +168,138 @@ fun HomeScreen(
             // 1. TODAY'S LEARN SECTION
             // ────────────────────────────────────────────────────────────────
             item(key = "todays_learn_header") {
-                Column(
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 20.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
+                    Column {
                         Text(
                             text = "Today's Learn",
-                            style = MaterialTheme.typography.headlineMedium.copy(
+                            style = MaterialTheme.typography.titleLarge.copy(
                                 fontFamily = GoogleSansRounded,
                                 fontWeight = FontWeight.Bold
                             ),
                             color = MaterialTheme.colorScheme.onBackground
                         )
-
-                        // Coming soon annotation badge
-                        Surface(
-                            shape = CircleShape,
-                            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f),
-                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(4.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Rounded.AutoAwesome,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(14.dp)
-                                )
-                                Text(
-                                    text = "Custom Journey (Coming Soon)",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    fontWeight = FontWeight.SemiBold
-                                )
-                            }
-                        }
+                        Text(
+                            text = "${todaysCourses.size} of ${dailyGoalUiState.targetCount} planned courses",
+                            style = MaterialTheme.typography.bodySmall,
+                            fontFamily = GoogleSansRounded,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
 
-                    Text(
-                        text = "All enrolled courses scheduled for today. In future updates, you'll be able to customize your daily learning targets, review schedule, and dictionary links.",
-                        style = MaterialTheme.typography.bodySmall,
-                        fontFamily = GoogleSansRounded,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    FilledTonalButton(
+                        onClick = { navController.navigateSafely(Screen.TodaysLearn.route) },
+                        shape = MaterialTheme.shapes.small,
+                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
+                    ) {
+                        Text(
+                            text = "View All",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Spacer(Modifier.width(4.dp))
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Rounded.ArrowForward,
+                            contentDescription = "View all today's courses",
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
                 }
             }
 
             // Today's Learn Course Carousel
-            if (allCourses.isEmpty()) {
+            if (todaysCourses.isEmpty()) {
                 item(key = "todays_learn_empty") {
-                    Card(
+                    OutlinedCard(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 20.dp),
-                        shape = cardShape,
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
-                        )
+                        shape = MaterialTheme.shapes.large
                     ) {
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(24.dp),
                             horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(14.dp)
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(56.dp)
-                                    .clip(CircleShape)
-                                    .background(MaterialTheme.colorScheme.secondaryContainer),
-                                contentAlignment = Alignment.Center
+                            Surface(
+                                shape = CircleShape,
+                                color = MaterialTheme.colorScheme.secondaryContainer,
+                                modifier = Modifier.size(56.dp)
                             ) {
-                                Icon(
-                                    imageVector = Icons.Rounded.School,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.secondary,
-                                    modifier = Modifier.size(30.dp)
-                                )
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.School,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                                        modifier = Modifier.size(28.dp)
+                                    )
+                                }
                             }
 
                             Text(
-                                text = "No courses enrolled yet",
+                                text = if (allCourses.isEmpty()) "No courses enrolled yet" else "No courses scheduled for today",
                                 style = MaterialTheme.typography.titleMedium,
                                 fontFamily = GoogleSansRounded,
                                 fontWeight = FontWeight.Bold
                             )
 
                             Text(
-                                text = "Select a course folder from Google Drive or local storage. Each folder is automatically organized into a full course.",
+                                text = if (allCourses.isEmpty()) {
+                                    "Select a course folder from Google Drive or local storage. Each folder is automatically organized into a full course."
+                                } else {
+                                    "Customize your daily learning goals to pick which courses to study each day."
+                                },
                                 style = MaterialTheme.typography.bodyMedium,
                                 fontFamily = GoogleSansRounded,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 textAlign = androidx.compose.ui.text.style.TextAlign.Center
                             )
 
-                            FilledTonalButton(
-                                onClick = {
-                                    context.startActivity(Intent(context, GDriveLoginActivity::class.java))
-                                },
-                                shape = RoundedCornerShape(16.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Rounded.CloudQueue,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                                Spacer(Modifier.width(8.dp))
-                                Text(
-                                    text = "Connect Google Drive",
-                                    fontFamily = GoogleSansRounded,
-                                    fontWeight = FontWeight.SemiBold
-                                )
+                            if (allCourses.isEmpty()) {
+                                FilledTonalButton(
+                                    onClick = {
+                                        context.startActivity(Intent(context, GDriveLoginActivity::class.java))
+                                    },
+                                    shape = MaterialTheme.shapes.small
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.CloudQueue,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Spacer(Modifier.width(8.dp))
+                                    Text(
+                                        text = "Connect Google Drive",
+                                        fontFamily = GoogleSansRounded,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                }
+                            } else {
+                                FilledTonalButton(
+                                    onClick = {
+                                        navController.navigateSafely(Screen.DailyGoalSettings.route)
+                                    },
+                                    shape = MaterialTheme.shapes.small
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.Tune,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Spacer(Modifier.width(8.dp))
+                                    Text(
+                                        text = "Set Today's Goal",
+                                        fontFamily = GoogleSansRounded,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                }
                             }
                         }
                     }
@@ -289,10 +311,9 @@ fun HomeScreen(
                         contentPadding = PaddingValues(horizontal = 20.dp),
                         horizontalArrangement = Arrangement.spacedBy(14.dp)
                     ) {
-                        items(allCourses, key = { "today_${it.id}" }) { course ->
+                        items(todaysCourses, key = { "today_${it.id}" }) { course ->
                             TodayCourseCard(
                                 course = course,
-                                cardShape = cardShape,
                                 onClick = {
                                     navController.navigateSafely(Screen.PlaylistDetail.createRoute(course.id))
                                 },
@@ -405,128 +426,100 @@ fun HomeScreen(
 }
 
 /**
- * Featured course card for Today's Learn carousel.
+ * Material 3 compliant course card for Today's Learn carousel.
  */
 @Composable
 private fun TodayCourseCard(
     course: Playlist,
-    cardShape: AbsoluteSmoothCornerShape,
     onClick: () -> Unit,
-    onPlay: () -> Unit
+    onPlay: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
-    Card(
-        modifier = Modifier
+    ElevatedCard(
+        onClick = onClick,
+        modifier = modifier
             .width(260.dp)
-            .height(170.dp)
-            .clickable(onClick = onClick),
-        shape = cardShape,
-        colors = CardDefaults.cardColors(
+            .height(156.dp),
+        shape = MaterialTheme.shapes.large,
+        colors = CardDefaults.elevatedCardColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
         )
     ) {
-        Box(
-            modifier = Modifier.fillMaxSize()
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.SpaceBetween
         ) {
-            // Subtle gradient accent background
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(
-                        Brush.verticalGradient(
-                            colors = listOf(
-                                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f),
-                                Color.Transparent
-                            )
-                        )
-                    )
-            )
-
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(18.dp),
-                verticalArrangement = Arrangement.SpaceBetween
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                // Top: Course badge & lesson count
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                Surface(
+                    shape = MaterialTheme.shapes.small,
+                    color = MaterialTheme.colorScheme.primaryContainer
                 ) {
-                    Surface(
-                        shape = CircleShape,
-                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+                    Row(
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            if (course.source == "GDRIVE") {
-                                Icon(
-                                    painter = painterResource(R.drawable.rounded_drive_export_24),
-                                    contentDescription = "Google Drive",
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(14.dp)
-                                )
-                            } else {
-                                Icon(
-                                    imageVector = Icons.Rounded.School,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(14.dp)
-                                )
-                            }
-                            Text(
-                                text = if (course.source == "GDRIVE") "Google Drive" else "Course",
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.primary
+                        if (course.source == "GDRIVE") {
+                            Icon(
+                                painter = painterResource(R.drawable.rounded_drive_export_24),
+                                contentDescription = "Google Drive",
+                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                modifier = Modifier.size(14.dp)
+                            )
+                        } else {
+                            Icon(
+                                imageVector = Icons.Rounded.School,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                modifier = Modifier.size(14.dp)
                             )
                         }
+                        Text(
+                            text = if (course.source == "GDRIVE") "Google Drive" else "Course",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
                     }
-
-                    Text(
-                        text = "${course.songIds.size} lessons",
-                        style = MaterialTheme.typography.labelSmall,
-                        fontFamily = GoogleSansRounded,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
                 }
 
-                // Middle: Course Name
                 Text(
-                    text = course.name,
-                    style = MaterialTheme.typography.titleMedium.copy(
-                        fontFamily = GoogleSansRounded,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 18.sp
-                    ),
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    color = MaterialTheme.colorScheme.onSurface
+                    text = "${course.songIds.size} lessons",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+            }
 
-                // Bottom: Play Action
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End,
-                    verticalAlignment = Alignment.CenterVertically
+            Text(
+                text = course.name,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                FilledTonalIconButton(
+                    onClick = onPlay,
+                    shape = CircleShape,
+                    modifier = Modifier.size(36.dp)
                 ) {
-                    FilledIconButton(
-                        onClick = onPlay,
-                        modifier = Modifier.size(38.dp),
-                        colors = IconButtonDefaults.filledIconButtonColors(
-                            containerColor = MaterialTheme.colorScheme.primary,
-                            contentColor = MaterialTheme.colorScheme.onPrimary
-                        )
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.PlayArrow,
-                            contentDescription = "Play Course",
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
+                    Icon(
+                        imageVector = Icons.Rounded.PlayArrow,
+                        contentDescription = "Play Course",
+                        modifier = Modifier.size(20.dp)
+                    )
                 }
             }
         }

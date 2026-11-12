@@ -246,6 +246,10 @@ class UserPreferencesRepository @Inject constructor(
         val REPLAYGAIN_USE_ALBUM_GAIN = booleanPreferencesKey("replaygain_use_album_gain")
         val PAUSE_ON_VOLUME_ZERO = booleanPreferencesKey("pause_on_volume_zero")
         val SHOW_SCROLLBAR = booleanPreferencesKey("show_scrollbar")
+
+        // Daily learning goal
+        val DAILY_GOAL_COURSE_IDS = stringSetPreferencesKey("daily_goal_course_ids")
+        val DAILY_GOAL_TARGET_COUNT = intPreferencesKey("daily_goal_target_count")
     }
 
     // ─── Private helpers ─────────────────────────────────────────────────────
@@ -767,6 +771,28 @@ suspend fun markDirectoryRulesVersionApplied(version: Int) {
     suspend fun setShowScrollbar(enabled: Boolean) {
         dataStore.edit { preferences ->
             preferences[PreferencesKeys.SHOW_SCROLLBAR] = enabled
+        }
+    }
+
+    val dailyGoalCourseIdsFlow: Flow<Set<String>> =
+        dataStore.data.map { preferences ->
+            preferences[PreferencesKeys.DAILY_GOAL_COURSE_IDS] ?: emptySet()
+        }.distinctUntilChanged()
+
+    val dailyGoalTargetCountFlow: Flow<Int> =
+        dataStore.data.map { preferences ->
+            preferences[PreferencesKeys.DAILY_GOAL_TARGET_COUNT] ?: 1
+        }.distinctUntilChanged()
+
+    suspend fun setDailyGoalCourseIds(courseIds: Set<String>) {
+        dataStore.edit { preferences ->
+            preferences[PreferencesKeys.DAILY_GOAL_COURSE_IDS] = courseIds
+        }
+    }
+
+    suspend fun setDailyGoalTargetCount(count: Int) {
+        dataStore.edit { preferences ->
+            preferences[PreferencesKeys.DAILY_GOAL_TARGET_COUNT] = count.coerceAtLeast(1)
         }
     }
 

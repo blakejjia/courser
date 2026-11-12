@@ -44,6 +44,8 @@ import com.theveloper.pixelplay.presentation.screens.ExperimentalSettingsScreen
 import com.theveloper.pixelplay.presentation.screens.GenreDetailScreen
 import com.theveloper.pixelplay.presentation.screens.HomeScreen
 import com.theveloper.pixelplay.presentation.screens.LibraryScreen
+import com.theveloper.pixelplay.presentation.screens.TodaysLearnScreen
+import com.theveloper.pixelplay.presentation.screens.DailyGoalSettingsScreen
 import com.theveloper.pixelplay.presentation.screens.MashupScreen
 import com.theveloper.pixelplay.presentation.screens.NavBarCornerRadiusScreen
 import com.theveloper.pixelplay.presentation.screens.PaletteStyleSettingsScreen
@@ -261,6 +263,28 @@ fun AppNavigation(
                         onOpenGDriveDashboard = {
                             navController.navigateSafely(Screen.GDriveDashboard.route)
                         }
+                    )
+                }
+            }
+            composable(
+                Screen.TodaysLearn.route,
+            ) {
+                ScreenWrapper(navController = navController, playerViewModel = playerViewModel, animatedVisibilityScope = this) {
+                    TodaysLearnScreen(
+                        navController = navController,
+                        playerViewModel = playerViewModel,
+                        onBackClick = { navController.popBackStack() }
+                    )
+                }
+            }
+            composable(
+                Screen.DailyGoalSettings.route,
+            ) {
+                ScreenWrapper(navController = navController, playerViewModel = playerViewModel, animatedVisibilityScope = this) {
+                    DailyGoalSettingsScreen(
+                        navController = navController,
+                        playerViewModel = playerViewModel,
+                        onBackClick = { navController.popBackStack() }
                     )
                 }
             }

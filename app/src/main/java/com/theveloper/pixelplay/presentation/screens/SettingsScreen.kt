@@ -38,6 +38,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AccountCircle
 import androidx.compose.material.icons.rounded.ChevronRight
+import androidx.compose.material.icons.rounded.School
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
@@ -218,7 +219,7 @@ fun SettingsScreen(
                         it != SettingsCategory.DEVICE_CAPABILITIES
                     }
 
-                    val totalItems = mainCategories.size + 3 // Device + Accounts + About
+                    val totalItems = mainCategories.size + 4 // Daily Goal + Device + Accounts + About
                     fun shapeFor(index: Int) =
                         when {
                             totalItems == 1 -> RoundedCornerShape(24.dp)
@@ -228,6 +229,19 @@ fun SettingsScreen(
                         }
 
                     var itemIndex = 0
+
+                    ExpressiveNavigationItem(
+                        title = "Today's Learning Goal",
+                        subtitle = "Select daily courses and target amount for each day",
+                        icon = Icons.Rounded.School,
+                        colors = getDailyGoalColors(isDark),
+                        onClick = { navController.navigateSafely(Screen.DailyGoalSettings.route) },
+                        shape = shapeFor(itemIndex)
+                    )
+                    if (itemIndex < totalItems - 1) {
+                        Spacer(modifier = Modifier.height(2.dp))
+                    }
+                    itemIndex++
 
                     mainCategories.forEach { category ->
                         val colors = getCategoryColors(category, isDark)
@@ -473,6 +487,14 @@ fun ExpressiveSettingsGroup(content: @Composable () -> Unit) {
             .background(Color.Transparent)
     ) {
         content()
+    }
+}
+
+private fun getDailyGoalColors(isDark: Boolean): Pair<Color, Color> {
+    return if (isDark) {
+        Color(0xFF1E3A2F) to Color(0xFFA2F4D0)
+    } else {
+        Color(0xFFD4F5E6) to Color(0xFF0F5234)
     }
 }
 
