@@ -591,13 +591,12 @@ private fun AboutHeroCard(
                 ) {
                     Surface(
                         shape = CircleShape,
-                        color = MaterialTheme.colorScheme.primaryContainer,
+                        color = Color.Transparent,
                     ) {
-                        Icon(
-                            painter = painterResource(R.drawable.pixelplay_base_monochrome),
+                        Image(
+                            painter = painterResource(R.mipmap.ic_launcher),
                             contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                            modifier = Modifier.padding(10.dp).size(28.dp),
+                            modifier = Modifier.size(52.dp),
                         )
                     }
 
