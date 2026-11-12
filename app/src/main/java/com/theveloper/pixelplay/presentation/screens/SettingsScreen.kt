@@ -7,6 +7,7 @@ import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDp
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.rememberTransition
 import androidx.compose.animation.core.spring
@@ -77,6 +78,7 @@ import com.theveloper.pixelplay.R
 import com.theveloper.pixelplay.presentation.components.CollapsibleCommonTopBar
 import com.theveloper.pixelplay.presentation.components.ExpressiveTopBarContent
 import com.theveloper.pixelplay.presentation.components.MiniPlayerHeight
+import com.theveloper.pixelplay.presentation.components.resolveNavBarOccupiedHeight
 import com.theveloper.pixelplay.presentation.model.SettingsCategory
 import com.theveloper.pixelplay.presentation.navigation.Screen
 import com.theveloper.pixelplay.presentation.viewmodel.PlayerViewModel
@@ -132,6 +134,16 @@ fun SettingsScreen(
     val uiState by settingsViewModel.uiState.collectAsStateWithLifecycle()
     val launchTab = uiState.launchTab
     val useSmoothCorners by settingsViewModel.useSmoothCorners.collectAsStateWithLifecycle()
+
+    val stablePlayerState by playerViewModel.stablePlayerState.collectAsStateWithLifecycle()
+    val isMiniPlayerVisible = stablePlayerState.currentSong != null
+    val navBarCompactMode by playerViewModel.navBarCompactMode.collectAsStateWithLifecycle()
+    val systemNavBarInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+    val navBarOccupiedHeight = resolveNavBarOccupiedHeight(systemNavBarInset, navBarCompactMode)
+    val listBottomPadding by animateDpAsState(
+        targetValue = navBarOccupiedHeight + (if (isMiniPlayerVisible) MiniPlayerHeight else 0.dp) + 24.dp,
+        label = "settingsBottomPadding"
+    )
 
     var showCornerRadiusOverlay by remember { mutableStateOf(false) }
 
@@ -206,7 +218,7 @@ fun SettingsScreen(
                     top = currentTopBarHeightDp + 8.dp,
                     start = 16.dp,
                     end = 16.dp,
-                    bottom = MiniPlayerHeight + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 8.dp
+                    bottom = listBottomPadding
                 ),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier.fillMaxSize()
@@ -214,12 +226,17 @@ fun SettingsScreen(
             item {
                 val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
                 ExpressiveSettingsGroup {
-                    val mainCategories = SettingsCategory.entries.filter {
-                        it != SettingsCategory.ABOUT && 
-                        it != SettingsCategory.DEVICE_CAPABILITIES
-                    }
+                    val excludedCategories = setOf(
+                        SettingsCategory.ABOUT,
+                        SettingsCategory.DEVICE_CAPABILITIES,
+                        SettingsCategory.EQUALIZER,
+                        SettingsCategory.BACKUP_RESTORE,
+                        SettingsCategory.LIBRARY,
+                        SettingsCategory.PLAYBACK
+                    )
+                    val mainCategories = SettingsCategory.entries.filterNot { it in excludedCategories }
 
-                    val totalItems = mainCategories.size + 4 // Daily Goal + Device + Accounts + About
+                    val totalItems = mainCategories.size + 3 // Daily Goal + Accounts + About
                     fun shapeFor(index: Int) =
                         when {
                             totalItems == 1 -> RoundedCornerShape(24.dp)
@@ -250,11 +267,7 @@ fun SettingsScreen(
                             category = category,
                             customColors = colors,
                             onClick = {
-                                if (category == SettingsCategory.EQUALIZER) {
-                                    navController.navigateSafely(Screen.Equalizer.route)
-                                } else {
-                                    navController.navigateSafely(Screen.SettingsCategory.createRoute(category.id))
-                                }
+                                navController.navigateSafely(Screen.SettingsCategory.createRoute(category.id))
                             },
                             shape = shapeFor(itemIndex)
                         )
@@ -263,17 +276,6 @@ fun SettingsScreen(
                         }
                         itemIndex++
                     }
-
-                    ExpressiveCategoryItem(
-                        category = SettingsCategory.DEVICE_CAPABILITIES,
-                        customColors = getCategoryColors(SettingsCategory.DEVICE_CAPABILITIES, isDark),
-                        onClick = { navController.navigateSafely(Screen.DeviceCapabilities.route) },
-                        shape = shapeFor(itemIndex)
-                    )
-                    if (itemIndex < totalItems - 1) {
-                        Spacer(modifier = Modifier.height(2.dp))
-                    }
-                    itemIndex++
 
                     ExpressiveNavigationItem(
                         title = stringResource(R.string.settings_category_accounts_title),

@@ -180,10 +180,7 @@ fun AccountsScreen(
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             item {
-                AccountsHeroSection(
-                    connectedCount = uiState.connectedAccounts.size,
-                    disconnectedCount = uiState.disconnectedServices.size
-                )
+                AccountsHeroSection()
             }
 
             if (uiState.connectedAccounts.isNotEmpty()) {
@@ -256,14 +253,9 @@ fun AccountsScreen(
 }
 
 @Composable
-private fun AccountsHeroSection(
-    connectedCount: Int,
-    disconnectedCount: Int
-) {
+private fun AccountsHeroSection() {
     val connectedHeroTitle = stringResource(R.string.accounts_connected_title)
     val connectedHeroBody = stringResource(R.string.accounts_connected_subtitle)
-    val statActive = stringResource(R.string.accounts_stat_active)
-    val statAvailable = stringResource(R.string.accounts_stat_available)
     val sectionShape = AbsoluteSmoothCornerShape(30.dp, 60)
     Card(
         shape = sectionShape,
@@ -285,51 +277,6 @@ private fun AccountsHeroSection(
                 text = connectedHeroBody,
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                HeroStatTile(
-                    title = statActive,
-                    value = connectedCount.toString(),
-                    modifier = Modifier.weight(1f)
-                )
-                HeroStatTile(
-                    title = statAvailable,
-                    value = (connectedCount + disconnectedCount).toString(),
-                    modifier = Modifier.weight(1f)
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun HeroStatTile(
-    title: String,
-    value: String,
-    modifier: Modifier = Modifier
-) {
-    Surface(
-        shape = AbsoluteSmoothCornerShape(18.dp, 60),
-        color = MaterialTheme.colorScheme.surfaceContainerLow,
-        modifier = modifier
-    ) {
-        Column(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
-            verticalArrangement = Arrangement.spacedBy(2.dp)
-        ) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Text(
-                text = value,
-                style = MaterialTheme.typography.headlineSmall,
-                color = MaterialTheme.colorScheme.onSurface,
-                fontWeight = FontWeight.Bold
             )
         }
     }

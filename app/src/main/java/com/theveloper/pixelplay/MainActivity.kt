@@ -643,7 +643,8 @@ class MainActivity : ComponentActivity() {
                 Screen.RecentlyPlayed.route,
                 Screen.DeviceCapabilities.route,
                 Screen.EasterEgg.route,
-                Screen.WordDelimiterConfig.route
+                Screen.WordDelimiterConfig.route,
+                Screen.CourseFolderSelection.route
             )
         }
         val shouldHideNavigationBar by remember(currentRoute, isSearchBarActive) {
@@ -785,7 +786,6 @@ class MainActivity : ComponentActivity() {
                         DrawerDestination.Home -> navController.navigateSafely(Screen.Home.route) {
                             popUpTo(Screen.Home.route) { inclusive = true }
                         }
-                        DrawerDestination.Equalizer -> navController.navigateSafely(Screen.Equalizer.route)
                         DrawerDestination.Settings -> navController.navigateSafely(Screen.Settings.route)
                         DrawerDestination.Telegram -> {
                             val intent = Intent(this@MainActivity, com.theveloper.pixelplay.presentation.telegram.auth.TelegramLoginActivity::class.java)

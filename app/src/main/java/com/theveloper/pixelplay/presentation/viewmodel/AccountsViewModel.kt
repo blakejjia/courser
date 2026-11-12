@@ -82,97 +82,35 @@ class AccountsViewModel @Inject constructor(
     }
 
     val uiState: StateFlow<AccountsUiState> = combine(
-        combine(
-            listOf(
-                telegramStateFlow,
-                gDriveStateFlow,
-                navidromeStateFlow,
-                jellyfinStateFlow
-            )
-        ) { it.toList() },
+        gDriveStateFlow,
         loggingOutServices
-    ) { states, activeLogouts ->
-        val (telegramConnected, telegramChannelCount) = states[0] as Pair<Boolean, Int>
-        val (gDriveConnected, gDriveFolderCount) = states[1] as Pair<Boolean, Int>
-        val (navidromeConnected, navidromePlaylistCount) = states[2] as Pair<Boolean, Int>
-        val (jellyfinConnected, jellyfinPlaylistCount) = states[3] as Pair<Boolean, Int>
-
-        val connectedAccounts = buildList {
-            if (telegramConnected) {
-                add(
-                    ExternalAccountUiModel(
-                        service = ExternalServiceAccount.TELEGRAM,
-                        title = "Telegram",
-                        accountLabel = "Active Telegram session",
-                        syncedContentLabel = formatCount(
-                            count = telegramChannelCount,
-                            singular = "synced channel",
-                            plural = "synced channels"
-                        ),
-                        isLoggingOut = ExternalServiceAccount.TELEGRAM in activeLogouts
-                    )
-                )
-            }
-            if (gDriveConnected) {
-                add(
-                    ExternalAccountUiModel(
-                        service = ExternalServiceAccount.GOOGLE_DRIVE,
-                        title = "Google Drive",
-                        accountLabel = gDriveRepository.userDisplayName
+    ) { (gDriveConnected, gDriveFolderCount), activeLogouts ->
+        val connectedAccounts = if (gDriveConnected) {
+            listOf(
+                ExternalAccountUiModel(
+                    service = ExternalServiceAccount.GOOGLE_DRIVE,
+                    title = "Google Drive",
+                    accountLabel = gDriveRepository.userDisplayName
+                        ?.takeIf { it.isNotBlank() }
+                        ?: gDriveRepository.userEmail
                             ?.takeIf { it.isNotBlank() }
-                            ?: gDriveRepository.userEmail
-                                ?.takeIf { it.isNotBlank() }
-                            ?: "Google account connected",
-                        syncedContentLabel = formatCount(
-                            count = gDriveFolderCount,
-                            singular = "synced folder",
-                            plural = "synced folders"
-                        ),
-                        isLoggingOut = ExternalServiceAccount.GOOGLE_DRIVE in activeLogouts
-                    )
+                        ?: "Google account connected",
+                    syncedContentLabel = formatCount(
+                        count = gDriveFolderCount,
+                        singular = "synced folder",
+                        plural = "synced folders"
+                    ),
+                    isLoggingOut = ExternalServiceAccount.GOOGLE_DRIVE in activeLogouts
                 )
-            }
-            if (navidromeConnected) {
-                add(
-                    ExternalAccountUiModel(
-                        service = ExternalServiceAccount.NAVIDROME,
-                        title = "Subsonic",
-                        accountLabel = navidromeRepository.username
-                            ?.takeIf { it.isNotBlank() }
-                            ?: "Subsonic account connected",
-                        syncedContentLabel = formatCount(
-                            count = navidromePlaylistCount,
-                            singular = "synced playlist",
-                            plural = "synced playlists"
-                        ),
-                        isLoggingOut = ExternalServiceAccount.NAVIDROME in activeLogouts
-                    )
-                )
-            }
-            if (jellyfinConnected) {
-                add(
-                    ExternalAccountUiModel(
-                        service = ExternalServiceAccount.JELLYFIN,
-                        title = "Jellyfin",
-                        accountLabel = jellyfinRepository.username
-                            ?.takeIf { it.isNotBlank() }
-                            ?: "Jellyfin account connected",
-                        syncedContentLabel = formatCount(
-                            count = jellyfinPlaylistCount,
-                            singular = "synced playlist",
-                            plural = "synced playlists"
-                        ),
-                        isLoggingOut = ExternalServiceAccount.JELLYFIN in activeLogouts
-                    )
-                )
-            }
+            )
+        } else {
+            emptyList()
         }
 
-        val disconnectedServices = buildList {
-            if (!telegramConnected) add(ExternalServiceAccount.TELEGRAM)
-            if (!gDriveConnected) add(ExternalServiceAccount.GOOGLE_DRIVE)
-            if (!navidromeConnected) add(ExternalServiceAccount.NAVIDROME)
-            if (!jellyfinConnected) add(ExternalServiceAccount.JELLYFIN)
+        val disconnectedServices = if (!gDriveConnected) {
+            listOf(ExternalServiceAccount.GOOGLE_DRIVE)
+        } else {
+            emptyList()
         }
 
         AccountsUiState(

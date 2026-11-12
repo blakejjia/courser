@@ -129,38 +129,22 @@ class MusicRepositoryImpl @Inject constructor(
     private fun normalizePath(path: String): String =
         runCatching { File(path).canonicalPath }.getOrElse { File(path).absolutePath }
 
-    /** Cached directory filter — recomputed when allowed/blocked dirs preferences change or when the set of song folders changes. */
-    data class CachedDirFilter(val allowedParentDirs: List<String> = emptyList(), val applyFilter: Boolean = false)
+    /** Cached directory filter — recomputed when allowed course directories change or when the set of song folders changes. */
+    data class CachedDirFilter(val allowedParentDirs: List<String> = emptyList(), val applyFilter: Boolean = true)
 
     @OptIn(ExperimentalCoroutinesApi::class)
-    private val cachedDirFilter: StateFlow<CachedDirFilter> = combine(
-        userPreferencesRepository.allowedDirectoriesFlow,
-        userPreferencesRepository.blockedDirectoriesFlow
-    ) { allowed, blocked -> allowed to blocked }
-        .flatMapLatest { (allowed, blocked) ->
-            if (blocked.isEmpty()) {
-                // No blocked dirs => no directory filter is applied. Avoid observing the
-                // songs table at all in this (common) case.
-                flowOf(CachedDirFilter(emptyList(), false))
-            } else {
-                // Recompute whenever the set of song folders changes (e.g. after a sync),
-                // so the filter never freezes at a stale/empty snapshot. Previously this
-                // was computed once, eagerly at construction — before the first sync — which
-                // on some devices left allowedParentDirs empty while applyFilter stayed true,
-                // making queue-building queries (getSongIdsSorted) return nothing and collapse
-                // the playback queue to just the tapped song.
-                musicDao.getDistinctParentDirectoriesFlow()
-                    .distinctUntilChanged()
-                    .map { parentDirs ->
-                        val (dirs, apply) = DirectoryFilterUtils.computeAllowedParentDirs(
-                            allowedDirs = allowed,
-                            blockedDirs = blocked,
-                            getAllParentDirs = { parentDirs },
-                            normalizePath = ::normalizePath
-                        )
-                        CachedDirFilter(dirs, apply)
-                    }
-            }
+    private val cachedDirFilter: StateFlow<CachedDirFilter> = userPreferencesRepository.allowedDirectoriesFlow
+        .flatMapLatest { allowed ->
+            musicDao.getDistinctParentDirectoriesFlow()
+                .distinctUntilChanged()
+                .map { parentDirs ->
+                    val (dirs, apply) = DirectoryFilterUtils.computeAllowedParentDirs(
+                        allowedDirs = allowed,
+                        getAllParentDirs = { parentDirs },
+                        normalizePath = ::normalizePath
+                    )
+                    CachedDirFilter(dirs, apply)
+                }
         }
         .stateIn(repositoryScope, SharingStarted.Eagerly, CachedDirFilter())
 
@@ -186,15 +170,10 @@ class MusicRepositoryImpl @Inject constructor(
 
     @OptIn(ExperimentalCoroutinesApi::class)
     override fun getAudioFiles(): Flow<List<Song>> {
-        return combine(
-            userPreferencesRepository.allowedDirectoriesFlow,
-            userPreferencesRepository.blockedDirectoriesFlow
-        ) { allowedDirs, blockedDirs ->
-            allowedDirs to blockedDirs
-        }.flatMapLatest { (allowedDirs, blockedDirs) ->
+        return userPreferencesRepository.allowedDirectoriesFlow.flatMapLatest { allowedDirs ->
             flow {
                 val (allowedParentDirs, applyDirectoryFilter) =
-                    computeAllowedDirs(allowedDirs, blockedDirs)
+                    computeAllowedDirs(allowedDirs)
                 emit(
                     musicDao.getAllSongs(
                         allowedParentDirs = allowedParentDirs,
@@ -218,15 +197,10 @@ class MusicRepositoryImpl @Inject constructor(
         storageFilter: StorageFilter,
         minTracks: Int
     ): Flow<PagingData<Album>> {
-        return combine(
-            userPreferencesRepository.allowedDirectoriesFlow,
-            userPreferencesRepository.blockedDirectoriesFlow
-        ) { allowedDirs, blockedDirs ->
-            allowedDirs to blockedDirs
-        }.flatMapLatest { (allowedDirs, blockedDirs) ->
+        return userPreferencesRepository.allowedDirectoriesFlow.flatMapLatest { allowedDirs ->
             flow {
                 val (allowedParentDirs, applyDirectoryFilter) =
-                    computeAllowedDirs(allowedDirs, blockedDirs)
+                    computeAllowedDirs(allowedDirs)
                 emit(
                     Pager(
                         config = defaultLibraryPagingConfig,
@@ -252,15 +226,10 @@ class MusicRepositoryImpl @Inject constructor(
         sortOption: SortOption,
         storageFilter: StorageFilter
     ): Flow<PagingData<Artist>> {
-        return combine(
-            userPreferencesRepository.allowedDirectoriesFlow,
-            userPreferencesRepository.blockedDirectoriesFlow
-        ) { allowedDirs, blockedDirs ->
-            allowedDirs to blockedDirs
-        }.flatMapLatest { (allowedDirs, blockedDirs) ->
+        return userPreferencesRepository.allowedDirectoriesFlow.flatMapLatest { allowedDirs ->
             flow {
                 val (allowedParentDirs, applyDirectoryFilter) =
-                    computeAllowedDirs(allowedDirs, blockedDirs)
+                    computeAllowedDirs(allowedDirs)
                 emit(
                     Pager(
                         config = defaultLibraryPagingConfig,
@@ -420,8 +389,12 @@ class MusicRepositoryImpl @Inject constructor(
      * Returns Pair(allowedDirs, applyFilter) for use with Room DAO filtered queries.
      */
     private suspend fun computeAllowedDirs(
+        allowedDirs: Set<String>
+    ): Pair<List<String>, Boolean> = computeAllowedDirs(allowedDirs, emptySet())
+
+    private suspend fun computeAllowedDirs(
         allowedDirs: Set<String>,
-        blockedDirs: Set<String>
+        blockedDirs: Set<String> = emptySet()
     ): Pair<List<String>, Boolean> {
         return DirectoryFilterUtils.computeAllowedParentDirs(
             allowedDirs = allowedDirs,
@@ -439,13 +412,8 @@ class MusicRepositoryImpl @Inject constructor(
 
     @OptIn(ExperimentalCoroutinesApi::class)
     override fun getAlbums(storageFilter: StorageFilter, minTracks: Int): Flow<List<Album>> {
-        return combine(
-            userPreferencesRepository.allowedDirectoriesFlow,
-            userPreferencesRepository.blockedDirectoriesFlow
-        ) { allowedDirs, blockedDirs ->
-            allowedDirs to blockedDirs
-        }.flatMapLatest { (allowedDirs, blockedDirs) ->
-            val (allowedParentDirs, applyFilter) = computeAllowedDirs(allowedDirs, blockedDirs)
+        return userPreferencesRepository.allowedDirectoriesFlow.flatMapLatest { allowedDirs ->
+            val (allowedParentDirs, applyFilter) = computeAllowedDirs(allowedDirs)
             musicDao.getAlbums(allowedParentDirs, applyFilter, storageFilter.toFilterMode(), minTracks)
                 .map { entities -> entities.map { it.toAlbum() } }
                 .distinctUntilChanged()
@@ -458,13 +426,8 @@ class MusicRepositoryImpl @Inject constructor(
 
     @OptIn(ExperimentalCoroutinesApi::class)
     override fun getArtists(storageFilter: StorageFilter): Flow<List<Artist>> {
-        return combine(
-            userPreferencesRepository.allowedDirectoriesFlow,
-            userPreferencesRepository.blockedDirectoriesFlow
-        ) { allowedDirs, blockedDirs ->
-            allowedDirs to blockedDirs
-        }.flatMapLatest { (allowedDirs, blockedDirs) ->
-            val (allowedParentDirs, applyFilter) = computeAllowedDirs(allowedDirs, blockedDirs)
+        return userPreferencesRepository.allowedDirectoriesFlow.flatMapLatest { allowedDirs ->
+            val (allowedParentDirs, applyFilter) = computeAllowedDirs(allowedDirs)
             musicDao.getArtistsWithSongCountsFiltered(
                 allowedParentDirs = allowedParentDirs,
                 applyDirectoryFilter = applyFilter,
@@ -564,15 +527,10 @@ class MusicRepositoryImpl @Inject constructor(
 
     override fun searchSongs(query: String, titleOnly: Boolean): Flow<List<Song>> {
         if (query.isBlank()) return flowOf(emptyList())
-        return combine(
-            userPreferencesRepository.allowedDirectoriesFlow,
-            userPreferencesRepository.blockedDirectoriesFlow
-        ) { allowedDirs, blockedDirs ->
-            allowedDirs to blockedDirs
-        }.flatMapLatest { (allowedDirs, blockedDirs) ->
+        return userPreferencesRepository.allowedDirectoriesFlow.flatMapLatest { allowedDirs ->
             flow {
                 val (allowedParentDirs, applyDirectoryFilter) =
-                    computeAllowedDirs(allowedDirs, blockedDirs)
+                    computeAllowedDirs(allowedDirs)
                 emit(
                     musicDao.searchSongsLimited(
                         query = query,
@@ -672,14 +630,13 @@ class MusicRepositoryImpl @Inject constructor(
     override fun getMusicByGenre(genreId: String): Flow<List<Song>> {
         return combine(
             userPreferencesRepository.mockGenresEnabledFlow,
-            userPreferencesRepository.allowedDirectoriesFlow,
-            userPreferencesRepository.blockedDirectoriesFlow
-        ) { mockEnabled, allowedDirs, blockedDirs ->
-            Triple(mockEnabled, allowedDirs, blockedDirs)
-        }.flatMapLatest { (mockEnabled, allowedDirs, blockedDirs) ->
+            userPreferencesRepository.allowedDirectoriesFlow
+        ) { mockEnabled, allowedDirs ->
+            Pair(mockEnabled, allowedDirs)
+        }.flatMapLatest { (mockEnabled, allowedDirs) ->
             flow {
                 val (allowedParentDirs, applyDirectoryFilter) =
-                    computeAllowedDirs(allowedDirs, blockedDirs)
+                    computeAllowedDirs(allowedDirs)
                 val genreName = if (mockEnabled) "Mock" else genreId
                 emit(
                     if (genreName.equals("unknown", ignoreCase = true)) {
@@ -732,9 +689,8 @@ class MusicRepositoryImpl @Inject constructor(
     // Implementación de las nuevas funciones suspend para carga única
     override suspend fun getAllSongsOnce(): List<Song> = withContext(Dispatchers.IO) {
         val allowedDirs = userPreferencesRepository.allowedDirectoriesFlow.first()
-        val blockedDirs = userPreferencesRepository.blockedDirectoriesFlow.first()
         val (allowedParentDirs, applyDirectoryFilter) =
-            computeAllowedDirs(allowedDirs, blockedDirs)
+            computeAllowedDirs(allowedDirs)
         musicDao.getAllSongs(
             allowedParentDirs = allowedParentDirs,
             applyDirectoryFilter = applyDirectoryFilter
@@ -743,15 +699,10 @@ class MusicRepositoryImpl @Inject constructor(
 
     @OptIn(ExperimentalCoroutinesApi::class)
     override fun getDistinctAlbumArtSongs(): Flow<List<Song>> {
-        return combine(
-            userPreferencesRepository.allowedDirectoriesFlow,
-            userPreferencesRepository.blockedDirectoriesFlow
-        ) { allowedDirs, blockedDirs ->
-            allowedDirs to blockedDirs
-        }.flatMapLatest { (allowedDirs, blockedDirs) ->
+        return userPreferencesRepository.allowedDirectoriesFlow.flatMapLatest { allowedDirs ->
             flow {
                 val (allowedParentDirs, applyDirectoryFilter) =
-                    computeAllowedDirs(allowedDirs, blockedDirs)
+                    computeAllowedDirs(allowedDirs)
                 emit(
                     musicDao.getDistinctAlbumArtSongs(
                         allowedParentDirs = allowedParentDirs,
@@ -766,15 +717,10 @@ class MusicRepositoryImpl @Inject constructor(
 
     @OptIn(ExperimentalCoroutinesApi::class)
     override fun getHomeMixPreviewSongs(limit: Int): Flow<List<Song>> {
-        return combine(
-            userPreferencesRepository.allowedDirectoriesFlow,
-            userPreferencesRepository.blockedDirectoriesFlow
-        ) { allowedDirs, blockedDirs ->
-            allowedDirs to blockedDirs
-        }.flatMapLatest { (allowedDirs, blockedDirs) ->
+        return userPreferencesRepository.allowedDirectoriesFlow.flatMapLatest { allowedDirs ->
             flow {
                 val (allowedParentDirs, applyDirectoryFilter) =
-                    computeAllowedDirs(allowedDirs, blockedDirs)
+                    computeAllowedDirs(allowedDirs)
                 emit(
                     musicDao.getHomeMixPreviewSongs(
                         limit = limit,
@@ -862,15 +808,10 @@ class MusicRepositoryImpl @Inject constructor(
     }
 
     override fun getGenres(): Flow<List<Genre>> {
-        return combine(
-            userPreferencesRepository.allowedDirectoriesFlow,
-            userPreferencesRepository.blockedDirectoriesFlow
-        ) { allowedDirs, blockedDirs ->
-            allowedDirs to blockedDirs
-        }.flatMapLatest { (allowedDirs, blockedDirs) ->
+        return userPreferencesRepository.allowedDirectoriesFlow.flatMapLatest { allowedDirs ->
             flow {
                 val (allowedParentDirs, applyDirectoryFilter) =
-                    computeAllowedDirs(allowedDirs, blockedDirs)
+                    computeAllowedDirs(allowedDirs)
                 emit(
                     combine(
                         musicDao.getUniqueGenres(
@@ -970,21 +911,18 @@ class MusicRepositoryImpl @Inject constructor(
     override fun getMusicFolders(storageFilter: StorageFilter): Flow<List<MusicFolder>> {
         return combine(
             userPreferencesRepository.allowedDirectoriesFlow,
-            userPreferencesRepository.blockedDirectoriesFlow,
             userPreferencesRepository.isFolderFilterActiveFlow,
             userPreferencesRepository.foldersSourceFlow
-        ) { allowedDirs, blockedDirs, isFolderFilterActive, folderSource ->
+        ) { allowedDirs, isFolderFilterActive, folderSource ->
             FolderFlowConfig(
                 allowedDirs = allowedDirs,
-                blockedDirs = blockedDirs,
                 isFolderFilterActive = isFolderFilterActive,
                 folderSource = folderSource
             )
         }.flatMapLatest { config ->
             flow {
                 val (allowedParentDirs, applyDirectoryFilter) = computeAllowedDirs(
-                    allowedDirs = config.allowedDirs,
-                    blockedDirs = config.blockedDirs
+                    allowedDirs = config.allowedDirs
                 )
                 emit(
                     musicDao.getFolderSongs(
@@ -995,7 +933,7 @@ class MusicRepositoryImpl @Inject constructor(
                         folderTreeBuilder.buildFolderTree(
                             folderSongs = folderSongs,
                             allowedDirs = config.allowedDirs,
-                            blockedDirs = config.blockedDirs,
+                            blockedDirs = emptySet(),
                             isFolderFilterActive = config.isFolderFilterActive,
                             folderSource = config.folderSource,
                             context = context
@@ -1008,7 +946,6 @@ class MusicRepositoryImpl @Inject constructor(
 
     private data class FolderFlowConfig(
         val allowedDirs: Set<String>,
-        val blockedDirs: Set<String>,
         val isFolderFilterActive: Boolean,
         val folderSource: FolderSource
     )

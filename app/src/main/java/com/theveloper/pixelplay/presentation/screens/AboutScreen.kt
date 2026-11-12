@@ -129,48 +129,18 @@ private data class Contributor(
 )
 
 private val CoreMaintainer = Contributor(
-    id = "theovilardo",
-    displayName = "Theo Vilardo",
+    id = "blakejjia",
+    displayName = "Blake Jia",
     role = "Creator and maintainer",
     detail = "Building Courser with direct community feedback.",
-    avatarUrl = "https://avatars.githubusercontent.com/u/26845343?v=4",
+    avatarUrl = "https://github.com/blakejjia.png",
     iconRes = R.drawable.round_developer_board_24,
-    githubUrl = "https://github.com/theovilardo",
+    githubUrl = "https://github.com/blakejjia",
 )
 
-private val PinnedCommunityMembers = listOf(
-    Contributor(
-        id = "lostf1sh",
-        displayName = "@lostf1sh",
-        role = "Most active contributor",
-        detail = "Has contributed enormously across core features, architecture and reliability.",
-        badge = "Top Impact",
-        iconRes = R.drawable.rounded_celebration_24,
-        githubUrl = "https://github.com/lostf1sh",
-    ),
-    Contributor(
-        id = "cromaguy",
-        displayName = "@cromaguy",
-        role = "Rhythm developer",
-        detail = "Developer of Rhythm (another music app) and key community supporter.",
-        badge = "Community Ally",
-        iconRes = R.drawable.round_developer_board_24,
-        githubUrl = "https://github.com/cromaguy",
-    ),
-    Contributor(
-        id = "colbycabrera",
-        displayName = "@ColbyCabrera",
-        role = "Early contributor",
-        detail = "Helped shape Courser in the first stages of the app.",
-        badge = "Early Support",
-        iconRes = R.drawable.round_newspaper_24,
-        githubUrl = "https://github.com/ColbyCabrera",
-    ),
-)
+private val PinnedCommunityMembers = emptyList<Contributor>()
 
-private val PinnedAliases = mapOf(
-    "cromaguy" to setOf("chroma"),
-)
+private val PinnedAliases = emptyMap<String, Set<String>>()
 
 private fun normalizeHandle(handle: String): String {
     return handle.trim().removePrefix("@").lowercase()
@@ -399,28 +369,30 @@ fun AboutScreen(
                 )
             }
 
-            item(key = "spotlight_title") {
-                AboutSectionHeader(
-                    title = stringResource(R.string.about_spotlight_title),
-                    subtitle = stringResource(R.string.about_spotlight_subtitle),
-                    modifier = Modifier.padding(top = 24.dp),
-                )
-            }
+            if (spotlightContributors.isNotEmpty()) {
+                item(key = "spotlight_title") {
+                    AboutSectionHeader(
+                        title = stringResource(R.string.about_spotlight_title),
+                        subtitle = stringResource(R.string.about_spotlight_subtitle),
+                        modifier = Modifier.padding(top = 24.dp),
+                    )
+                }
 
-            itemsIndexed(
-                items = spotlightContributors,
-                key = { _, contributor -> "spotlight_${contributor.id}" },
-            ) { index, contributor ->
-                ContributorCard(
-                    contributor = contributor,
-                    shape = expressiveListShape(index = index, count = spotlightContributors.size),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp)
-                        .padding(top = if (index == 0) 0.dp else 3.dp),
-                    showContributionCount = true,
-                    onCardClick = contributor.githubUrl?.let { url -> { openUrl(context, url) } },
-                )
+                itemsIndexed(
+                    items = spotlightContributors,
+                    key = { _, contributor -> "spotlight_${contributor.id}" },
+                ) { index, contributor ->
+                    ContributorCard(
+                        contributor = contributor,
+                        shape = expressiveListShape(index = index, count = spotlightContributors.size),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp)
+                            .padding(top = if (index == 0) 0.dp else 3.dp),
+                        showContributionCount = true,
+                        onCardClick = contributor.githubUrl?.let { url -> { openUrl(context, url) } },
+                    )
+                }
             }
 
             item(key = "licenses_title") {
@@ -663,7 +635,7 @@ private fun AboutHeroCard(
                         subtitle = stringResource(R.string.about_github_subtitle),
                         iconRes = R.drawable.github,
                         contentDescription = stringResource(R.string.about_cd_open_github_repo),
-                        onClick = { openUrl(context, "https://github.com/theovilardo/PixelPlayer") },
+                        onClick = { openUrl(context, "https://github.com/blakejjia/courser") },
                         modifier = Modifier.weight(1f),
                     )
                     SocialChip(

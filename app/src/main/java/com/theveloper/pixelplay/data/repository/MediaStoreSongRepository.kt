@@ -75,7 +75,6 @@ class MediaStoreSongRepository @Inject constructor(
             mediaStoreObserver.mediaStoreChanges.onStart { emit(Unit) },
             favoritesDao.getFavoriteSongIds().distinctUntilChanged(),
             userPreferencesRepository.allowedDirectoriesFlow.distinctUntilChanged(),
-            userPreferencesRepository.blockedDirectoriesFlow.distinctUntilChanged(),
             userPreferencesRepository.artistDelimitersFlow.distinctUntilChanged(),
             userPreferencesRepository.minSongDurationFlow.distinctUntilChanged(),
             userPreferencesRepository.artistWordDelimitersFlow.distinctUntilChanged(),
@@ -83,15 +82,14 @@ class MediaStoreSongRepository @Inject constructor(
         ) { values ->
             val favoriteIds = @Suppress("UNCHECKED_CAST") (values[1] as List<Long>)
             val allowedDirs = @Suppress("UNCHECKED_CAST") (values[2] as Set<String>)
-            val blockedDirs = @Suppress("UNCHECKED_CAST") (values[3] as Set<String>)
-            val artistDelimiters = @Suppress("UNCHECKED_CAST") (values[4] as List<String>)
-            val minDuration = values[5] as Int
-            val wordDelimiters = @Suppress("UNCHECKED_CAST") (values[6] as List<String>)
-            val extractFromTitle = values[7] as Boolean
+            val artistDelimiters = @Suppress("UNCHECKED_CAST") (values[3] as List<String>)
+            val minDuration = values[4] as Int
+            val wordDelimiters = @Suppress("UNCHECKED_CAST") (values[5] as List<String>)
+            val extractFromTitle = values[6] as Boolean
             fetchSongsFromMediaStore(
                 favoriteIds = favoriteIds.toSet(),
                 allowedDirs = allowedDirs.toList(),
-                blockedDirs = blockedDirs.toList(),
+                blockedDirs = emptyList(),
                 artistDelimiters = artistDelimiters,
                 wordDelimiters = wordDelimiters,
                 extractFromTitle = extractFromTitle,
@@ -179,21 +177,17 @@ class MediaStoreSongRepository @Inject constructor(
                 val albumArtistCol = cursor.getColumnIndex(MediaStore.Audio.Media.ALBUM_ARTIST) // Can be -1
 
                 val resolver = DirectoryRuleResolver(
-                    allowedDirs.map(::normalizePath).toSet(),
-                    blockedDirs.map(::normalizePath).toSet()
+                    allowed = allowedDirs.map(::normalizePath).toSet()
                 )
-                val isFilterActive = blockedDirs.isNotEmpty()
 
                 while (cursor.moveToNext()) {
                     val path = cursor.getString(pathCol)
 
-                    // Directory Filtering
-                    if (isFilterActive) {
-                        val lastSlashIndex = path.lastIndexOf('/')
-                        val parentPath = if (lastSlashIndex != -1) path.substring(0, lastSlashIndex) else ""
-                        if (resolver.isBlocked(parentPath)) {
-                            continue
-                        }
+                    // Directory Filtering (strict whitelist)
+                    val lastSlashIndex = path.lastIndexOf('/')
+                    val parentPath = if (lastSlashIndex != -1) path.substring(0, lastSlashIndex) else ""
+                    if (resolver.isBlocked(parentPath)) {
+                        continue
                     }
 
                     val id = cursor.getLong(idCol)
@@ -336,25 +330,24 @@ class MediaStoreSongRepository @Inject constructor(
 
     override suspend fun searchSongs(query: String): List<Song> {
         if (query.isBlank()) return emptyList()
-        val (favoriteIds, allowedDirs, blockedDirs, artistDelimiters, wordDelims, extractFromTitle, minDuration) = coroutineScope {
+        val prefs = coroutineScope {
             val fav = async { getFavoriteIds() }
             val allowed = async { userPreferencesRepository.allowedDirectoriesFlow.first() }
-            val blocked = async { userPreferencesRepository.blockedDirectoriesFlow.first() }
             val delims = async { userPreferencesRepository.artistDelimitersFlow.first() }
             val wordD = async { userPreferencesRepository.artistWordDelimitersFlow.first() }
             val extract = async { userPreferencesRepository.extractArtistsFromTitleFlow.first() }
             val minDur = async { userPreferencesRepository.minSongDurationFlow.first() }
-            SearchPrefs(fav.await(), allowed.await(), blocked.await(), delims.await(), wordD.await(), extract.await(), minDur.await())
+            SearchPrefs(fav.await(), allowed.await(), emptySet(), delims.await(), wordD.await(), extract.await(), minDur.await())
         }
         val queryTerm = "%${query.trim()}%"
         return fetchSongsFromMediaStore(
-            favoriteIds = favoriteIds,
-            allowedDirs = allowedDirs.toList(),
-            blockedDirs = blockedDirs.toList(),
-            artistDelimiters = artistDelimiters,
-            wordDelimiters = wordDelims,
-            extractFromTitle = extractFromTitle,
-            minDurationMs = minDuration,
+            favoriteIds = prefs.favoriteIds,
+            allowedDirs = prefs.allowedDirs.toList(),
+            blockedDirs = emptyList(),
+            artistDelimiters = prefs.artistDelimiters,
+            wordDelimiters = prefs.wordDelims,
+            extractFromTitle = prefs.extractFromTitle,
+            minDurationMs = prefs.minDuration,
             extraSelection = "${MediaStore.Audio.Media.TITLE} LIKE ? COLLATE NOCASE OR ${MediaStore.Audio.Media.ARTIST} LIKE ? COLLATE NOCASE",
             extraSelectionArgs = arrayOf(queryTerm, queryTerm)
         )
@@ -374,16 +367,14 @@ class MediaStoreSongRepository @Inject constructor(
         return combine(
             mediaStoreObserver.mediaStoreChanges.onStart { emit(Unit) },
             userPreferencesRepository.allowedDirectoriesFlow,
-            userPreferencesRepository.blockedDirectoriesFlow,
             userPreferencesRepository.minSongDurationFlow
         ) { values ->
             val allowedDirs = @Suppress("UNCHECKED_CAST") (values[1] as Set<String>)
-            val blockedDirs = @Suppress("UNCHECKED_CAST") (values[2] as Set<String>)
-            val minDuration = values[3] as Int
-            Triple(allowedDirs, blockedDirs, minDuration)
-        }.flatMapLatest { (allowedDirs, blockedDirs, minDuration) ->
+            val minDuration = values[2] as Int
+            Pair(allowedDirs, minDuration)
+        }.flatMapLatest { (allowedDirs, minDuration) ->
             val minDurationMs = minDuration as Int
-            val musicIds = getFilteredSongIds(allowedDirs.toList(), blockedDirs.toList(), minDurationMs)
+            val musicIds = getFilteredSongIds(allowedDirs.toList(), emptyList(), minDurationMs)
             val genreMap = getSongIdToGenreMap(context.contentResolver)
 
             androidx.paging.Pager(
@@ -399,7 +390,7 @@ class MediaStoreSongRepository @Inject constructor(
         }.flowOn(Dispatchers.IO)
     }
 
-    private suspend fun getFilteredSongIds(allowedDirs: List<String>, blockedDirs: List<String>, minDurationMs: Int = 10000): List<Long> = withContext(Dispatchers.IO) {
+    private suspend fun getFilteredSongIds(allowedDirs: List<String>, blockedDirs: List<String> = emptyList(), minDurationMs: Int = 10000): List<Long> = withContext(Dispatchers.IO) {
         val ids = mutableListOf<Long>()
         val projection = arrayOf(MediaStore.Audio.Media._ID, MediaStore.Audio.Media.DATA)
         val (selection, selectionArgs) = buildLocalAudioSelection(minDurationMs)
@@ -416,21 +407,15 @@ class MediaStoreSongRepository @Inject constructor(
                 val pathCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATA)
 
                 val resolver = DirectoryRuleResolver(
-                    allowedDirs.map(::normalizePath).toSet(),
-                    blockedDirs.map(::normalizePath).toSet()
+                    allowedDirs.map(::normalizePath).toSet()
                 )
-                val isFilterActive = blockedDirs.isNotEmpty()
 
                 while (cursor.moveToNext()) {
                     val path = cursor.getString(pathCol)
-                    if (isFilterActive) {
-                        if (isFilterActive) {
-                            val lastSlashIndex = path.lastIndexOf('/')
-                            val parentPath = if (lastSlashIndex != -1) path.substring(0, lastSlashIndex) else ""
-                            if (resolver.isBlocked(parentPath)) {
-                                continue
-                            }
-                        }
+                    val lastSlashIndex = path.lastIndexOf('/')
+                    val parentPath = if (lastSlashIndex != -1) path.substring(0, lastSlashIndex) else ""
+                    if (resolver.isBlocked(parentPath)) {
+                        continue
                     }
                     ids.add(cursor.getLong(idCol))
                 }
@@ -441,16 +426,15 @@ class MediaStoreSongRepository @Inject constructor(
         ids
     }
     /**
-     * Computes allowed parent directories by filtering out blocked directories.
+     * Computes allowed parent directories by filtering against allowed directories.
      * Returns Pair(allowedDirs, applyFilter).
      */
     private suspend fun computeAllowedDirs(
         allowedDirs: Set<String>,
-        blockedDirs: Set<String>
+        blockedDirs: Set<String> = emptySet()
     ): Pair<List<String>, Boolean> {
         return DirectoryFilterUtils.computeAllowedParentDirs(
             allowedDirs = allowedDirs,
-            blockedDirs = blockedDirs,
             getAllParentDirs = { musicDao.getDistinctParentDirectories() },
             normalizePath = ::normalizePath
         )
@@ -464,15 +448,10 @@ class MediaStoreSongRepository @Inject constructor(
 
     @OptIn(ExperimentalCoroutinesApi::class)
     override fun getPaginatedSongs(sortOption: com.theveloper.pixelplay.data.model.SortOption, storageFilter: com.theveloper.pixelplay.data.model.StorageFilter): Flow<PagingData<Song>> {
-        return combine(
-            userPreferencesRepository.allowedDirectoriesFlow,
-            userPreferencesRepository.blockedDirectoriesFlow
-        ) { allowedDirs, blockedDirs ->
-            allowedDirs to blockedDirs
-        }.flatMapLatest { (allowedDirs, blockedDirs) ->
+        return userPreferencesRepository.allowedDirectoriesFlow.flatMapLatest { allowedDirs ->
             kotlinx.coroutines.flow.flow {
                 val (allowedParentDirs, applyDirectoryFilter) =
-                    computeAllowedDirs(allowedDirs, blockedDirs)
+                    computeAllowedDirs(allowedDirs)
                 emit(
                     androidx.paging.Pager(
                         config = defaultPagingConfig,
@@ -497,15 +476,10 @@ class MediaStoreSongRepository @Inject constructor(
         sortOption: com.theveloper.pixelplay.data.model.SortOption,
         storageFilter: com.theveloper.pixelplay.data.model.StorageFilter
     ): Flow<PagingData<Song>> {
-        return combine(
-            userPreferencesRepository.allowedDirectoriesFlow,
-            userPreferencesRepository.blockedDirectoriesFlow
-        ) { allowedDirs, blockedDirs ->
-            allowedDirs to blockedDirs
-        }.flatMapLatest { (allowedDirs, blockedDirs) ->
+        return userPreferencesRepository.allowedDirectoriesFlow.flatMapLatest { allowedDirs ->
             kotlinx.coroutines.flow.flow {
                 val (allowedParentDirs, applyDirectoryFilter) =
-                    computeAllowedDirs(allowedDirs, blockedDirs)
+                    computeAllowedDirs(allowedDirs)
                 emit(
                     androidx.paging.Pager(
                         config = defaultPagingConfig,
@@ -529,9 +503,8 @@ class MediaStoreSongRepository @Inject constructor(
         storageFilter: com.theveloper.pixelplay.data.model.StorageFilter
     ): List<Song> = withContext(Dispatchers.IO) {
         val allowedDirs = userPreferencesRepository.allowedDirectoriesFlow.first()
-        val blockedDirs = userPreferencesRepository.blockedDirectoriesFlow.first()
         val (allowedParentDirs, applyDirectoryFilter) =
-            computeAllowedDirs(allowedDirs, blockedDirs)
+            computeAllowedDirs(allowedDirs)
         musicDao.getFavoriteSongsList(
             allowedParentDirs = allowedParentDirs,
             applyDirectoryFilter = applyDirectoryFilter,
@@ -544,19 +517,14 @@ class MediaStoreSongRepository @Inject constructor(
     override fun getFavoriteSongCountFlow(
         storageFilter: com.theveloper.pixelplay.data.model.StorageFilter
     ): Flow<Int> {
-        return combine(
-            userPreferencesRepository.allowedDirectoriesFlow,
-            userPreferencesRepository.blockedDirectoriesFlow
-        ) { allowedDirs, blockedDirs ->
-            allowedDirs to blockedDirs
-        }.flatMapLatest { (allowedDirs, blockedDirs) ->
+        return userPreferencesRepository.allowedDirectoriesFlow.flatMapLatest { allowedDirs ->
             kotlinx.coroutines.flow.flow {
                 val (allowedParentDirs, applyDirectoryFilter) =
-                    computeAllowedDirs(allowedDirs, blockedDirs)
+                    computeAllowedDirs(allowedDirs)
                 emit(Pair(allowedParentDirs, applyDirectoryFilter))
-            }.flatMapLatest { (allowedDirs, applyFilter) ->
+            }.flatMapLatest { (dirs, applyFilter) ->
                 musicDao.getFavoriteSongCount(
-                    allowedParentDirs = allowedDirs,
+                    allowedParentDirs = dirs,
                     applyDirectoryFilter = applyFilter,
                     filterMode = storageFilter.value
                 )
