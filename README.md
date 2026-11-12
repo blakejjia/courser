@@ -1,4 +1,4 @@
-# PixelPlayer 🎵
+# Courser 🎵
 
 <p align="center">
   <img src="assets/PixelPlayer.svg" alt="App Icon" height="250"/>

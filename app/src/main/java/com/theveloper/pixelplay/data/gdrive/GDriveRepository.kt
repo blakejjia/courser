@@ -290,7 +290,7 @@ class GDriveRepository @Inject constructor(
         return withContext(Dispatchers.IO) {
             try {
                 ensureValidToken()
-                val raw = api.createFolder("PixelPlay Music", parentId)
+                val raw = api.createFolder("Courser Music", parentId)
                 val json = JSONObject(raw)
                 val folder = DriveFolder(
                     id = json.optString("id"),

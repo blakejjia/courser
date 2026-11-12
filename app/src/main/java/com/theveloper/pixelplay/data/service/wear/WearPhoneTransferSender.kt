@@ -75,7 +75,7 @@ class WearPhoneTransferSender @Inject constructor(
             val nodes = capability.nodes
             transferStateStore.retainReachableWatchNodes(nodes.map { it.id }.toSet())
             if (nodes.isEmpty()) {
-                error("No reachable watch with PixelPlay")
+                error("No reachable watch with Courser")
             }
 
             val request = WearTransferRequest(

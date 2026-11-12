@@ -1,9 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.PixelPlay" parent="Theme.Material3.DynamicColors.DayNight">
+    <style name="Theme.Courser" parent="Theme.Material3.DynamicColors.DayNight">
         <item name="windowActionBar">false</item>
         <item name="windowNoTitle">true</item>
     </style>
+
+    <style name="Theme.PixelPlay" parent="Theme.Courser" />
 
     <!-- Splash screen theme can still extend Theme.SplashScreen, but ensure it transitions to the correct base theme -->
     <!-- For dark mode, postSplashScreenTheme should ideally point to a dark version of Theme.PixelPlay if specific overrides are needed -->

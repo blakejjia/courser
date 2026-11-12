@@ -2,8 +2,9 @@ package com.theveloper.pixelplay.shared
 
 /**
  * Shared Wear capability names used to discover reachable devices
- * with specific PixelPlay features.
+ * with specific Courser features.
  */
 object WearCapabilities {
-    const val PIXELPLAY_WEAR_APP = "pixelplay_wear_app"
+    const val COURSER_WEAR_APP = "courser_wear_app"
+    const val PIXELPLAY_WEAR_APP = COURSER_WEAR_APP
 }
