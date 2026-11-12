@@ -119,6 +119,10 @@ android {
         val gdriveWebClientId = localProperties.getProperty("GDRIVE_WEB_CLIENT_ID")?.ifEmpty { null }
             ?: "YOUR_WEB_CLIENT_ID.apps.googleusercontent.com"
         buildConfigField("String", "GDRIVE_WEB_CLIENT_ID", "\"$gdriveWebClientId\"")
+
+        val gdriveWebClientSecret = localProperties.getProperty("GDRIVE_WEB_CLIENT_SECRET")?.ifEmpty { null }
+            ?: ""
+        buildConfigField("String", "GDRIVE_WEB_CLIENT_SECRET", "\"$gdriveWebClientSecret\"")
     }
 
     signingConfigs {

@@ -7,6 +7,7 @@ object GDriveConstants {
     val WEB_CLIENT_ID: String = BuildConfig.GDRIVE_WEB_CLIENT_ID.ifEmpty {
         "YOUR_WEB_CLIENT_ID.apps.googleusercontent.com"
     }
+    val WEB_CLIENT_SECRET: String = BuildConfig.GDRIVE_WEB_CLIENT_SECRET
 
     fun isConfigured(): Boolean {
         return WEB_CLIENT_ID.isNotBlank() && !WEB_CLIENT_ID.startsWith("YOUR_WEB_CLIENT_ID")

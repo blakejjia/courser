@@ -158,7 +158,7 @@ class GDriveRepository @Inject constructor(
                     val tokenResponse = api.exchangeAuthCode(
                         authCode = serverAuthCode,
                         clientId = GDriveConstants.WEB_CLIENT_ID,
-                        clientSecret = "" // For Android apps using installed app flow
+                        clientSecret = GDriveConstants.WEB_CLIENT_SECRET
                     )
 
                     val tokenJson = JSONObject(tokenResponse)
@@ -200,7 +200,7 @@ class GDriveRepository @Inject constructor(
                 val tokenResponse = api.refreshToken(
                     refreshToken = refreshToken,
                     clientId = GDriveConstants.WEB_CLIENT_ID,
-                    clientSecret = ""
+                    clientSecret = GDriveConstants.WEB_CLIENT_SECRET
                 )
 
                 val tokenJson = JSONObject(tokenResponse)
