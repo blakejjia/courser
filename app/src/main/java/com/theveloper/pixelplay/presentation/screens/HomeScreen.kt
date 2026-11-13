@@ -78,6 +78,7 @@ import com.theveloper.pixelplay.R
 import com.theveloper.pixelplay.data.model.Playlist
 import com.theveloper.pixelplay.presentation.components.BetaInfoBottomSheet
 import com.theveloper.pixelplay.presentation.components.ChangelogBottomSheet
+import com.theveloper.pixelplay.presentation.components.AddCourseSourceBottomSheet
 import com.theveloper.pixelplay.presentation.components.HomeGradientTopBar
 import com.theveloper.pixelplay.presentation.components.CourserLazyColumn
 import com.theveloper.pixelplay.presentation.components.MiniPlayerHeight
@@ -117,6 +118,7 @@ fun HomeScreen(
     val context = LocalContext.current
     val playlistUiState by playlistViewModel.uiState.collectAsStateWithLifecycle()
     val dailyGoalUiState by dailyGoalViewModel.uiState.collectAsStateWithLifecycle()
+    val isSyncing by playerViewModel.isCourseSyncing.collectAsStateWithLifecycle()
     val allCourses = playlistUiState.playlists
     val plannedCourses = dailyGoalUiState.plannedCourses
 
@@ -132,6 +134,7 @@ fun HomeScreen(
     var showChangelogBottomSheet by remember { mutableStateOf(false) }
     var showBetaInfoBottomSheet by remember { mutableStateOf(false) }
     var showStreamingProviderSheet by remember { mutableStateOf(false) }
+    var showAddCourseSourceSheet by remember { mutableStateOf(false) }
 
     ReportDrawnWhen {
         allCourses.isNotEmpty() || !playlistUiState.isLoading
@@ -148,7 +151,8 @@ fun HomeScreen(
         modifier = Modifier.fillMaxSize(),
         topBar = {
             HomeGradientTopBar(
-                isScrolled = isScrolledPastThreshold.value
+                isScrolled = isScrolledPastThreshold.value,
+                isSyncing = isSyncing
             )
         }
     ) { innerPadding ->
@@ -193,22 +197,41 @@ fun HomeScreen(
                         )
                     }
 
-                    FilledTonalButton(
-                        onClick = { navController.navigateSafely(Screen.TodaysLearn.route) },
-                        shape = MaterialTheme.shapes.small,
-                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            text = "View All",
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                        Spacer(Modifier.width(4.dp))
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Rounded.ArrowForward,
-                            contentDescription = "View all today's courses",
-                            modifier = Modifier.size(16.dp)
-                        )
+                        if (plannedCourses.isNotEmpty()) {
+                            FilledIconButton(
+                                onClick = { dailyGoalViewModel.startLearning(playerViewModel) },
+                                modifier = Modifier.size(36.dp),
+                                shape = MaterialTheme.shapes.small
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.PlayArrow,
+                                    contentDescription = "Start Today's Learn",
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
+
+                        FilledTonalButton(
+                            onClick = { navController.navigateSafely(Screen.TodaysLearn.route) },
+                            shape = MaterialTheme.shapes.small,
+                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
+                        ) {
+                            Text(
+                                text = "View All",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Spacer(Modifier.width(4.dp))
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Rounded.ArrowForward,
+                                contentDescription = "View all today's courses",
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
                     }
                 }
             }
@@ -266,7 +289,7 @@ fun HomeScreen(
                             if (allCourses.isEmpty()) {
                                 FilledTonalButton(
                                     onClick = {
-                                        navController.navigateSafely(Screen.CourseFolderSelection.route)
+                                        showAddCourseSourceSheet = true
                                     },
                                     shape = MaterialTheme.shapes.small
                                 ) {
@@ -283,23 +306,47 @@ fun HomeScreen(
                                     )
                                 }
                             } else {
-                                FilledTonalButton(
-                                    onClick = {
-                                        navController.navigateSafely(Screen.TodaysLearn.route)
-                                    },
-                                    shape = MaterialTheme.shapes.small
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                    verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Icon(
-                                        imageVector = Icons.Rounded.Tune,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(18.dp)
-                                    )
-                                    Spacer(Modifier.width(8.dp))
-                                    Text(
-                                        text = "Set Today's Goal",
-                                        fontFamily = GoogleSansRounded,
-                                        fontWeight = FontWeight.SemiBold
-                                    )
+                                    FilledTonalButton(
+                                        onClick = {
+                                            dailyGoalViewModel.startLearning(playerViewModel)
+                                        },
+                                        shape = MaterialTheme.shapes.small
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Rounded.PlayArrow,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                        Spacer(Modifier.width(6.dp))
+                                        Text(
+                                            text = "Continue Learning",
+                                            fontFamily = GoogleSansRounded,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+
+                                    FilledTonalButton(
+                                        onClick = {
+                                            navController.navigateSafely(Screen.TodaysLearn.route)
+                                        },
+                                        shape = MaterialTheme.shapes.small
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Rounded.Tune,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                        Spacer(Modifier.width(6.dp))
+                                        Text(
+                                            text = "Set Goal",
+                                            fontFamily = GoogleSansRounded,
+                                            fontWeight = FontWeight.SemiBold
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -358,6 +405,20 @@ fun HomeScreen(
             isGDriveLoggedIn = isGDriveLoggedIn,
             onNavigateToGDriveDashboard = {
                 navController.navigateSafely(Screen.GDriveDashboard.route)
+            }
+        )
+    }
+
+    if (showAddCourseSourceSheet) {
+        AddCourseSourceBottomSheet(
+            onDismissRequest = { showAddCourseSourceSheet = false },
+            onSelectLocal = {
+                showAddCourseSourceSheet = false
+                navController.navigateSafely(Screen.CourseFolderSelection.createRoute("local"))
+            },
+            onSelectGDrive = {
+                showAddCourseSourceSheet = false
+                navController.navigateSafely(Screen.CourseFolderSelection.createRoute("gdrive"))
             }
         )
     }

@@ -77,7 +77,10 @@ fun CourseFolderSelectionScreen(
 
     val gdriveLoginLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
-    ) {
+    ) { result ->
+        if (result.resultCode == android.app.Activity.RESULT_OK) {
+            viewModel.refreshDriveLoginState()
+        }
         viewModel.selectTab(CourseSourceTab.GDRIVE)
     }
 
@@ -101,15 +104,25 @@ fun CourseFolderSelectionScreen(
         topBar = {
             TopAppBar(
                 title = {
+                    val titleText = when {
+                        isSetupFlow -> "Select Course Folders"
+                        uiState.currentTab == CourseSourceTab.LOCAL -> "Local Course Folders"
+                        else -> "Google Drive Folders"
+                    }
+                    val selectedCount = if (uiState.currentTab == CourseSourceTab.LOCAL) {
+                        uiState.checkedLocalPaths.size
+                    } else {
+                        uiState.checkedDriveFolderIds.size
+                    }
                     Column {
                         Text(
-                            text = if (isSetupFlow) "Select Course Folders" else "Manage Course Folders",
+                            text = titleText,
                             fontFamily = GoogleSansRounded,
                             fontWeight = FontWeight.Bold,
                             style = MaterialTheme.typography.titleLarge
                         )
                         Text(
-                            text = "${uiState.totalSelectedCoursesCount} course folders selected",
+                            text = "$selectedCount course ${if (selectedCount == 1) "folder" else "folders"} selected",
                             fontFamily = GoogleSansRounded,
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -194,39 +207,6 @@ fun CourseFolderSelectionScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            // Source Segmented Tabs: Local Storage | Google Drive
-            TabRow(
-                selectedTabIndex = if (uiState.currentTab == CourseSourceTab.LOCAL) 0 else 1,
-                containerColor = MaterialTheme.colorScheme.surface,
-                contentColor = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Tab(
-                    selected = uiState.currentTab == CourseSourceTab.LOCAL,
-                    onClick = { viewModel.selectTab(CourseSourceTab.LOCAL) },
-                    text = {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Rounded.PhoneAndroid, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Spacer(Modifier.width(8.dp))
-                            Text("Local Storage", fontFamily = GoogleSansRounded, fontWeight = FontWeight.SemiBold)
-                        }
-                    }
-                )
-                Tab(
-                    selected = uiState.currentTab == CourseSourceTab.GDRIVE,
-                    onClick = { viewModel.selectTab(CourseSourceTab.GDRIVE) },
-                    text = {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Rounded.Cloud, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Spacer(Modifier.width(8.dp))
-                            Text("Google Drive", fontFamily = GoogleSansRounded, fontWeight = FontWeight.SemiBold)
-                        }
-                    }
-                )
-            }
-
-            Spacer(Modifier.height(8.dp))
-
             when (uiState.currentTab) {
                 CourseSourceTab.LOCAL -> {
                     LocalFolderExplorerContent(

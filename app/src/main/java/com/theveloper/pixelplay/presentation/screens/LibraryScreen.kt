@@ -4,8 +4,21 @@ package com.theveloper.pixelplay.presentation.screens
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.material.icons.rounded.Sync
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.ui.graphics.graphicsLayer
+import com.theveloper.pixelplay.presentation.components.AddCourseSourceBottomSheet
+import com.theveloper.pixelplay.ui.theme.GoogleSansRounded
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -57,6 +70,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -97,8 +111,10 @@ fun LibraryScreen(
 ) {
     val context = LocalContext.current
     val playlistUiState by playlistViewModel.uiState.collectAsStateWithLifecycle()
+    val isSyncing by playerViewModel.isCourseSyncing.collectAsStateWithLifecycle()
     var searchQuery by rememberSaveable { mutableStateOf("") }
     var showStreamingProviderSheet by remember { mutableStateOf(false) }
+    var showAddCourseSourceSheet by remember { mutableStateOf(false) }
     val keyboardController = LocalSoftwareKeyboardController.current
     val searchInputFocusRequester = remember { FocusRequester() }
     val haptic = LocalHapticFeedback.current
@@ -254,7 +270,7 @@ fun LibraryScreen(
                 FilledIconButton(
                     onClick = {
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        navController.navigateSafely(Screen.CourseFolderSelection.route)
+                        showAddCourseSourceSheet = true
                     },
                     modifier = Modifier.size(52.dp),
                     shape = CircleShape,
@@ -267,6 +283,60 @@ fun LibraryScreen(
                         imageVector = Icons.Rounded.Add,
                         contentDescription = "Add Course Folders",
                         modifier = Modifier.size(26.dp)
+                    )
+                }
+            }
+
+            // Sync progress indicator below search header
+            AnimatedVisibility(
+                visible = isSyncing,
+                enter = fadeIn() + expandVertically(),
+                exit = fadeOut() + shrinkVertically()
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp, vertical = 2.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        val infiniteTransition = rememberInfiniteTransition(label = "library_sync_spin")
+                        val rotation by infiniteTransition.animateFloat(
+                            initialValue = 0f,
+                            targetValue = 360f,
+                            animationSpec = infiniteRepeatable(
+                                animation = tween(1200, easing = LinearEasing),
+                                repeatMode = RepeatMode.Restart
+                            ),
+                            label = "library_sync_rotation"
+                        )
+                        Icon(
+                            imageVector = Icons.Rounded.Sync,
+                            contentDescription = "Syncing",
+                            modifier = Modifier
+                                .size(16.dp)
+                                .graphicsLayer { rotationZ = rotation },
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                        Text(
+                            text = "Syncing course folders...",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontFamily = GoogleSansRounded,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                    LinearProgressIndicator(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(2.dp)
+                            .clip(RoundedCornerShape(1.dp)),
+                        color = MaterialTheme.colorScheme.primary,
+                        trackColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
                     )
                 }
             }
@@ -380,6 +450,20 @@ fun LibraryScreen(
             isGDriveLoggedIn = isGDriveLoggedIn,
             onNavigateToGDriveDashboard = {
                 navController.navigateSafely(Screen.GDriveDashboard.route)
+            }
+        )
+    }
+
+    if (showAddCourseSourceSheet) {
+        AddCourseSourceBottomSheet(
+            onDismissRequest = { showAddCourseSourceSheet = false },
+            onSelectLocal = {
+                showAddCourseSourceSheet = false
+                navController.navigateSafely(Screen.CourseFolderSelection.createRoute("local"))
+            },
+            onSelectGDrive = {
+                showAddCourseSourceSheet = false
+                navController.navigateSafely(Screen.CourseFolderSelection.createRoute("gdrive"))
             }
         )
     }

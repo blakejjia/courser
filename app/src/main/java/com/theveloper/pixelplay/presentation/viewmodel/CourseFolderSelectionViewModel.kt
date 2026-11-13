@@ -1,6 +1,7 @@
 package com.theveloper.pixelplay.presentation.viewmodel
 
 import android.os.Environment
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.theveloper.pixelplay.data.gdrive.GDriveRepository
@@ -68,10 +69,17 @@ data class CourseFolderSelectionUiState(
 @HiltViewModel
 class CourseFolderSelectionViewModel @Inject constructor(
     private val courseFolderManager: CourseFolderManager,
-    private val gdriveRepository: GDriveRepository
+    private val gdriveRepository: GDriveRepository,
+    savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
-    private val _uiState = MutableStateFlow(CourseFolderSelectionUiState())
+    private val initialTab = if (savedStateHandle.get<String>("tab")?.equals("gdrive", ignoreCase = true) == true) {
+        CourseSourceTab.GDRIVE
+    } else {
+        CourseSourceTab.LOCAL
+    }
+
+    private val _uiState = MutableStateFlow(CourseFolderSelectionUiState(currentTab = initialTab))
     val uiState: StateFlow<CourseFolderSelectionUiState> = _uiState.asStateFlow()
 
     init {
@@ -79,6 +87,20 @@ class CourseFolderSelectionViewModel @Inject constructor(
         viewModelScope.launch {
             courseFolderManager.isSyncing.collect { syncing ->
                 _uiState.update { it.copy(isApplying = syncing) }
+            }
+        }
+        viewModelScope.launch {
+            gdriveRepository.isLoggedInFlow.collect { loggedIn ->
+                val userName = if (loggedIn) gdriveRepository.userDisplayName ?: gdriveRepository.userEmail else null
+                _uiState.update {
+                    it.copy(
+                        isGDriveLoggedIn = loggedIn,
+                        gdriveUserName = userName
+                    )
+                }
+                if (loggedIn && _uiState.value.currentTab == CourseSourceTab.GDRIVE && _uiState.value.driveFolders.isEmpty()) {
+                    loadDriveDirectory(_uiState.value.currentDriveBreadcrumb.lastOrNull()?.id ?: "root")
+                }
             }
         }
     }
@@ -117,7 +139,7 @@ class CourseFolderSelectionViewModel @Inject constructor(
                 )
             }
 
-            if (isLoggedIn) {
+            if (isLoggedIn && _uiState.value.currentTab == CourseSourceTab.GDRIVE) {
                 loadDriveDirectory("root")
             }
         }
@@ -291,6 +313,20 @@ class CourseFolderSelectionViewModel @Inject constructor(
             )
         }
         loadDriveDirectory("root")
+    }
+
+    fun refreshDriveLoginState() {
+        val isLoggedIn = gdriveRepository.isLoggedIn
+        val userName = gdriveRepository.userDisplayName ?: gdriveRepository.userEmail
+        _uiState.update {
+            it.copy(
+                isGDriveLoggedIn = isLoggedIn,
+                gdriveUserName = userName
+            )
+        }
+        if (isLoggedIn) {
+            loadDriveDirectory(_uiState.value.currentDriveBreadcrumb.lastOrNull()?.id ?: "root")
+        }
     }
 
     // --- Apply Batch Changes ---

@@ -67,6 +67,7 @@ import com.theveloper.pixelplay.data.service.cast.CastRemotePlaybackState
 import com.theveloper.pixelplay.data.service.player.CastPlayer
 import com.theveloper.pixelplay.data.service.http.MediaFileHttpServerService
 import com.theveloper.pixelplay.data.service.player.DualPlayerEngine
+import com.theveloper.pixelplay.data.repository.CourseFolderManager
 import com.theveloper.pixelplay.data.worker.SyncManager
 import com.theveloper.pixelplay.utils.ValidatedLyricsImport
 import com.theveloper.pixelplay.utils.LocalArtworkUri
@@ -216,7 +217,8 @@ class PlayerViewModel @Inject constructor(
     private val playbackDispatchStateHolder: PlaybackDispatchStateHolder,
     private val mediaControllerSyncStateHolder: MediaControllerSyncStateHolder,
     private val sessionToken: SessionToken,
-    private val mediaControllerFactory: com.theveloper.pixelplay.data.media.MediaControllerFactory
+    private val mediaControllerFactory: com.theveloper.pixelplay.data.media.MediaControllerFactory,
+    private val courseFolderManager: CourseFolderManager? = null
 ) : ViewModel() {
 
     private val _playerUiState = MutableStateFlow(PlayerUiState())
@@ -1108,6 +1110,13 @@ class PlayerViewModel @Inject constructor(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
             initialValue = true
+        )
+
+    val isCourseSyncing: StateFlow<Boolean> = (courseFolderManager?.isSyncing ?: MutableStateFlow(false))
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = false
         )
 
     private val _isInitialDataLoaded = MutableStateFlow(false)
