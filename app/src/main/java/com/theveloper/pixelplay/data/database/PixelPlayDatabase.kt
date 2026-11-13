@@ -7,13 +7,11 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
     entities = [
-        AlbumArtThemeEntity::class,
         SearchHistoryEntity::class,
         SongEntity::class,
         SongSearchFtsEntity::class,
         AlbumEntity::class,
         ArtistEntity::class,
-        TransitionRuleEntity::class,
         SongArtistCrossRef::class,
         TelegramSongEntity::class,
         TelegramChannelEntity::class,
@@ -30,16 +28,15 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         JellyfinSongEntity::class,
         JellyfinPlaylistEntity::class,
         AiCacheEntity::class,
-        AiUsageEntity::class
+        AiUsageEntity::class,
+        CourseProgressEntity::class
     ],
-    version = 43,
+    version = 45,
     exportSchema = false
 )
 abstract class PixelPlayDatabase : RoomDatabase() {
-    abstract fun albumArtThemeDao(): AlbumArtThemeDao
     abstract fun searchHistoryDao(): SearchHistoryDao
     abstract fun musicDao(): MusicDao
-    abstract fun transitionDao(): TransitionDao
     abstract fun telegramDao(): TelegramDao
     abstract fun engagementDao(): EngagementDao
     abstract fun favoritesDao(): FavoritesDao
@@ -50,6 +47,7 @@ abstract class PixelPlayDatabase : RoomDatabase() {
     abstract fun jellyfinDao(): JellyfinDao
     abstract fun aiCacheDao(): AiCacheDao
     abstract fun aiUsageDao(): AiUsageDao
+    abstract fun courseProgressDao(): CourseProgressDao
 
     companion object {
         // Gap-bridging no-op migrations for missing version ranges.
@@ -640,6 +638,49 @@ abstract class PixelPlayDatabase : RoomDatabase() {
                     """.trimIndent()
                 )
                 db.execSQL("CREATE INDEX IF NOT EXISTS index_albums_album_artist ON albums(album_artist)")
+            }
+        }
+
+        val MIGRATION_42_43 = object : Migration(42, 43) {
+            override fun migrate(db: SupportSQLiteDatabase) { /* no-op gap bridge */ }
+        }
+
+        val MIGRATION_43_44 = object : Migration(43, 44) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // 1. Augment song_engagements with course learning fields
+                db.execSQL("ALTER TABLE song_engagements ADD COLUMN last_resume_position_ms INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE song_engagements ADD COLUMN is_completed INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE song_engagements ADD COLUMN completion_count INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE song_engagements ADD COLUMN last_completed_timestamp INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE song_engagements ADD COLUMN net_listened_ms INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_song_engagements_is_completed ON song_engagements(is_completed)")
+
+                // 2. Create course_progress table
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS course_progress (
+                        course_id TEXT NOT NULL PRIMARY KEY,
+                        course_type TEXT NOT NULL DEFAULT 'LOCAL_FOLDER',
+                        course_name TEXT NOT NULL DEFAULT '',
+                        current_song_id TEXT,
+                        current_position_ms INTEGER NOT NULL DEFAULT 0,
+                        current_song_duration_ms INTEGER NOT NULL DEFAULT 0,
+                        current_song_title TEXT NOT NULL DEFAULT '',
+                        last_played_at INTEGER NOT NULL DEFAULT 0,
+                        total_songs INTEGER NOT NULL DEFAULT 0,
+                        completed_songs_count INTEGER NOT NULL DEFAULT 0,
+                        created_at INTEGER NOT NULL DEFAULT 0
+                    )
+                """.trimIndent())
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_course_progress_last_played_at ON course_progress(last_played_at)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_course_progress_course_type ON course_progress(course_type)")
+            }
+        }
+
+        val MIGRATION_44_45 = object : Migration(44, 45) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // Clean up legacy music features: transition rules & album art color theme table
+                db.execSQL("DROP TABLE IF EXISTS transition_rules")
+                db.execSQL("DROP TABLE IF EXISTS album_art_themes")
             }
         }
 

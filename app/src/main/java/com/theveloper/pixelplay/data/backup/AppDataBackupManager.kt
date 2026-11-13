@@ -12,8 +12,6 @@ import com.theveloper.pixelplay.data.database.LyricsEntity
 import com.theveloper.pixelplay.data.database.SearchHistoryDao
 import com.theveloper.pixelplay.data.database.SearchHistoryEntity
 import com.theveloper.pixelplay.data.database.SongEngagementEntity
-import com.theveloper.pixelplay.data.database.TransitionDao
-import com.theveloper.pixelplay.data.database.TransitionRuleEntity
 import com.theveloper.pixelplay.data.preferences.PreferenceBackupEntry
 import com.theveloper.pixelplay.data.preferences.UserPreferencesRepository
 import com.theveloper.pixelplay.data.stats.PlaybackStatsRepository
@@ -114,7 +112,7 @@ data class AppDataBackupPayload(
     val favorites: List<FavoritesEntity>? = null,
     val lyrics: List<LyricsEntity>? = null,
     val searchHistory: List<SearchHistoryEntity>? = null,
-    val transitions: List<TransitionRuleEntity>? = null,
+    val transitions: List<Any>? = null,
     val engagementStats: List<SongEngagementEntity>? = null,
     val playbackHistory: List<PlaybackHistoryBackupEntry>? = null
 )
@@ -127,7 +125,6 @@ class AppDataBackupManager @Inject constructor(
     private val favoritesDao: FavoritesDao,
     private val lyricsDao: LyricsDao,
     private val searchHistoryDao: SearchHistoryDao,
-    private val transitionDao: TransitionDao,
     private val engagementDao: EngagementDao,
     private val playbackStatsRepository: PlaybackStatsRepository
 ) {
@@ -178,7 +175,7 @@ class AppDataBackupManager @Inject constructor(
             var favorites: List<FavoritesEntity>? = null
             var lyrics: List<LyricsEntity>? = null
             var searchHistory: List<SearchHistoryEntity>? = null
-            var transitions: List<TransitionRuleEntity>? = null
+            var transitions: List<Any>? = null
             var engagementStats: List<SongEngagementEntity>? = null
             var playbackHistory: List<PlaybackHistoryBackupEntry>? = null
 
@@ -198,7 +195,7 @@ class AppDataBackupManager @Inject constructor(
                     BackupSection.FAVORITES -> favorites = favoritesDao.getAllFavoritesOnce()
                     BackupSection.LYRICS -> lyrics = lyricsDao.getAll()
                     BackupSection.SEARCH_HISTORY -> searchHistory = searchHistoryDao.getAll()
-                    BackupSection.TRANSITIONS -> transitions = transitionDao.getAllRulesOnce()
+                    BackupSection.TRANSITIONS -> transitions = emptyList()
                     BackupSection.ENGAGEMENT_STATS -> engagementStats = engagementDao.getAllEngagements()
                     BackupSection.PLAYBACK_HISTORY -> {
                         playbackHistory = playbackStatsRepository.exportEventsForBackup().map { event ->
@@ -348,12 +345,7 @@ class AppDataBackupManager @Inject constructor(
                         }
                     }
                     BackupSection.TRANSITIONS -> {
-                        payload.transitions?.let { rules ->
-                            transitionDao.clearAllRules()
-                            if (rules.isNotEmpty()) {
-                                transitionDao.setRules(rules)
-                            }
-                        }
+                        // No-op: transition rules removed
                     }
                     BackupSection.ENGAGEMENT_STATS -> {
                         payload.engagementStats?.let { stats ->

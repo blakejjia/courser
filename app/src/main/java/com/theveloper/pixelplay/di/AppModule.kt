@@ -17,7 +17,7 @@ import coil.disk.DiskCache
 import coil.memory.MemoryCache
 import com.theveloper.pixelplay.BuildConfig
 import com.theveloper.pixelplay.PixelPlayApplication
-import com.theveloper.pixelplay.data.database.AlbumArtThemeDao
+import com.theveloper.pixelplay.data.database.CourseProgressDao
 import com.theveloper.pixelplay.data.database.EngagementDao
 import com.theveloper.pixelplay.data.database.FavoritesDao
 import com.theveloper.pixelplay.data.database.GDriveDao
@@ -28,7 +28,6 @@ import com.theveloper.pixelplay.data.database.LocalPlaylistDao
 import com.theveloper.pixelplay.data.database.MusicDao
 import com.theveloper.pixelplay.data.database.PixelPlayDatabase
 import com.theveloper.pixelplay.data.database.SearchHistoryDao
-import com.theveloper.pixelplay.data.database.TransitionDao
 import com.theveloper.pixelplay.data.preferences.UserPreferencesRepository
 import com.theveloper.pixelplay.data.preferences.PlaylistPreferencesRepository
 import com.theveloper.pixelplay.data.preferences.dataStore
@@ -164,7 +163,10 @@ object AppModule {
             PixelPlayDatabase.MIGRATION_38_39,
             PixelPlayDatabase.MIGRATION_39_40,
             PixelPlayDatabase.MIGRATION_40_41,
-            PixelPlayDatabase.MIGRATION_41_42
+            PixelPlayDatabase.MIGRATION_41_42,
+            PixelPlayDatabase.MIGRATION_42_43,
+            PixelPlayDatabase.MIGRATION_43_44,
+            PixelPlayDatabase.MIGRATION_44_45
         )
             .addCallback(PixelPlayDatabase.createRuntimeArtifactsCallback())
             .setJournalMode(RoomDatabase.JournalMode.WRITE_AHEAD_LOGGING)
@@ -181,12 +183,6 @@ object AppModule {
 
     @Singleton
     @Provides
-    fun provideAlbumArtThemeDao(database: PixelPlayDatabase): AlbumArtThemeDao {
-        return database.albumArtThemeDao()
-    }
-
-    @Singleton
-    @Provides
     fun provideSearchHistoryDao(database: PixelPlayDatabase): SearchHistoryDao { // NUEVO MÉTODO
         return database.searchHistoryDao()
     }
@@ -199,14 +195,14 @@ object AppModule {
 
     @Singleton
     @Provides
-    fun provideTransitionDao(database: PixelPlayDatabase): TransitionDao {
-        return database.transitionDao()
+    fun provideEngagementDao(database: PixelPlayDatabase): EngagementDao {
+        return database.engagementDao()
     }
 
     @Singleton
     @Provides
-    fun provideEngagementDao(database: PixelPlayDatabase): EngagementDao {
-        return database.engagementDao()
+    fun provideCourseProgressDao(database: PixelPlayDatabase): CourseProgressDao {
+        return database.courseProgressDao()
     }
 
     @Singleton

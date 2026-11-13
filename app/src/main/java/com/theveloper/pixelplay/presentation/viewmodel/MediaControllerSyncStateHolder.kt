@@ -496,7 +496,7 @@ class MediaControllerSyncStateHolder @Inject constructor(
                 repeatMode = playerCtrl.repeatMode,
                 isPlaying = playerCtrl.isPlaying,
                 playWhenReady = playerCtrl.playWhenReady,
-                playbackSpeed = if (initialSpeed > 0f) initialSpeed else it.playbackSpeed
+                playbackSpeed = if (initialSpeed > 0f && initialSpeed != 1.0f) initialSpeed else it.playbackSpeed
             )
         }
         preparePlaybackAudioMetadataForMedia(playerCtrl.currentMediaItem?.mediaId)

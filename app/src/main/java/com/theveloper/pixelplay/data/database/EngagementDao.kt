@@ -46,14 +46,70 @@ interface EngagementDao {
      * More efficient than read-modify-write pattern.
      */
     @Query("""
-        INSERT INTO song_engagements (song_id, play_count, total_play_duration_ms, last_played_timestamp)
-        VALUES (:songId, 1, :durationMs, :timestamp)
+        INSERT INTO song_engagements (song_id, play_count, total_play_duration_ms, last_played_timestamp,
+            last_resume_position_ms, is_completed, completion_count, last_completed_timestamp, net_listened_ms)
+        VALUES (:songId, 1, :durationMs, :timestamp, 0, 0, 0, 0, :durationMs)
         ON CONFLICT(song_id) DO UPDATE SET
             play_count = play_count + 1,
             total_play_duration_ms = total_play_duration_ms + :durationMs,
-            last_played_timestamp = :timestamp
+            last_played_timestamp = :timestamp,
+            net_listened_ms = net_listened_ms + :durationMs
     """)
     suspend fun recordPlay(songId: String, durationMs: Long, timestamp: Long)
+
+    /**
+     * Atomically updates resume position for a track (called on pause / track-change).
+     */
+    @Query("""
+        INSERT INTO song_engagements (song_id, play_count, total_play_duration_ms, last_played_timestamp,
+            last_resume_position_ms, is_completed, completion_count, last_completed_timestamp, net_listened_ms)
+        VALUES (:songId, 0, 0, 0, :positionMs, 0, 0, 0, 0)
+        ON CONFLICT(song_id) DO UPDATE SET
+            last_resume_position_ms = :positionMs,
+            last_played_timestamp = MAX(last_played_timestamp, :timestamp)
+    """)
+    suspend fun updateResumePosition(songId: String, positionMs: Long, timestamp: Long)
+
+    /**
+     * Mark a track as completed. Increments completion_count, clears resume position.
+     */
+    @Query("""
+        INSERT INTO song_engagements (song_id, play_count, total_play_duration_ms, last_played_timestamp,
+            last_resume_position_ms, is_completed, completion_count, last_completed_timestamp, net_listened_ms)
+        VALUES (:songId, 1, :totalDurationMs, :timestamp, 0, 1, 1, :timestamp, :netListenedMs)
+        ON CONFLICT(song_id) DO UPDATE SET
+            is_completed = 1,
+            completion_count = completion_count + 1,
+            last_completed_timestamp = :timestamp,
+            last_resume_position_ms = 0,
+            last_played_timestamp = MAX(last_played_timestamp, :timestamp),
+            net_listened_ms = net_listened_ms + :netListenedMs
+    """)
+    suspend fun markCompleted(songId: String, totalDurationMs: Long, timestamp: Long, netListenedMs: Long)
+
+    /**
+     * Update net listened ms (cumulative unique ms heard).
+     */
+    @Query("""
+        INSERT INTO song_engagements (song_id, play_count, total_play_duration_ms, last_played_timestamp,
+            last_resume_position_ms, is_completed, completion_count, last_completed_timestamp, net_listened_ms)
+        VALUES (:songId, 0, 0, 0, 0, 0, 0, 0, :additionalMs)
+        ON CONFLICT(song_id) DO UPDATE SET
+            net_listened_ms = net_listened_ms + :additionalMs
+    """)
+    suspend fun addNetListenedMs(songId: String, additionalMs: Long)
+
+    /** Get resume position for a specific song. Returns null if no record. */
+    @Query("SELECT last_resume_position_ms FROM song_engagements WHERE song_id = :songId")
+    suspend fun getResumePosition(songId: String): Long?
+
+    /** Get all completed songs (is_completed = 1). */
+    @Query("SELECT * FROM song_engagements WHERE is_completed = 1 ORDER BY last_completed_timestamp DESC")
+    suspend fun getCompletedSongs(): List<SongEngagementEntity>
+
+    /** Count completed songs for a list of songIds (used for course progress %). */
+    @Query("SELECT COUNT(*) FROM song_engagements WHERE song_id IN (:songIds) AND is_completed = 1")
+    suspend fun countCompletedInList(songIds: List<String>): Int
 
     /**
      * Get top songs by play count for quick access.

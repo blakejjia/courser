@@ -7,7 +7,6 @@ import android.util.Log
 import androidx.core.net.toUri
 import androidx.media3.common.C
 import com.theveloper.pixelplay.R
-import com.theveloper.pixelplay.data.database.AlbumArtThemeDao
 import com.theveloper.pixelplay.data.media.CoverArtUpdate
 import com.theveloper.pixelplay.data.media.ImageCacheManager
 import com.theveloper.pixelplay.data.media.MetadataEditError
@@ -94,7 +93,7 @@ class MetadataEditStateHolder @Inject constructor(
     private val playbackStateHolder: PlaybackStateHolder,
     private val libraryStateHolder: LibraryStateHolder,
     private val multiSelectionStateHolder: MultiSelectionStateHolder,
-    private val albumArtThemeDao: AlbumArtThemeDao,
+    private val colorSchemeProcessor: ColorSchemeProcessor,
     @ApplicationContext private val context: Context
 ) {
 
@@ -891,8 +890,8 @@ class MetadataEditStateHolder @Inject constructor(
         val uris = uriStrings.mapNotNull { it?.takeIf(String::isNotBlank) }.distinct()
         if (uris.isEmpty()) return
 
-        withContext(Dispatchers.IO) {
-            albumArtThemeDao.deleteThemesByUris(uris)
+        uris.forEach { uri ->
+            colorSchemeProcessor.invalidateScheme(uri)
         }
     }
 

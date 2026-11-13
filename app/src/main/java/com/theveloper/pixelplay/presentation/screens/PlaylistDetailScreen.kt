@@ -825,14 +825,6 @@ fun PlaylistDetailScreen(
                     }
                 )
                 PlaylistActionItem(
-                    icon = painterResource(R.drawable.outline_graph_1_24),
-                    label = setDefaultTransitionLabel,
-                    onClick = {
-                        showPlaylistOptionsSheet = false
-                        navController.navigateSafely(Screen.EditTransition.createRoute(playlistId))
-                    }
-                )
-                PlaylistActionItem(
                     icon = painterResource(R.drawable.rounded_attach_file_24),
                     label = exportPlaylistLabel,
                     onClick = {

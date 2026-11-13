@@ -321,7 +321,7 @@ class UserPreferencesRepository @Inject constructor(
     }
 
     val playbackSpeedFlow: Flow<Float> =
-        pref { (it[PreferencesKeys.PLAYBACK_SPEED] ?: 1.0f).coerceIn(0.25f, 3.0f) }
+        pref { (it[PreferencesKeys.PLAYBACK_SPEED] ?: 1.0f).coerceIn(0.25f, 3.0f) }.distinctUntilChanged()
 
     suspend fun setPlaybackSpeed(speed: Float) {
         dataStore.edit { it[PreferencesKeys.PLAYBACK_SPEED] = speed.coerceIn(0.25f, 3.0f) }

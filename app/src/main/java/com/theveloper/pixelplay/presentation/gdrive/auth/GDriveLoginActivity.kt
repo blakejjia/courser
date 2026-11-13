@@ -131,6 +131,7 @@ fun GDriveLoginScreen(
         when (loginState) {
             is GDriveLoginState.Success -> {
                 Toast.makeText(context, context.getString(R.string.auth_gdrive_connected_toast), Toast.LENGTH_SHORT).show()
+                (context as? android.app.Activity)?.setResult(android.app.Activity.RESULT_OK)
                 onClose()
             }
             is GDriveLoginState.Error -> {
@@ -164,13 +165,7 @@ fun GDriveLoginScreen(
                     }
                 },
                 navigationIcon = {
-                    IconButton(onClick = {
-                        if (loginState is GDriveLoginState.FolderSetup) {
-                            if (!viewModel.navigateBack()) onClose()
-                        } else {
-                            onClose()
-                        }
-                    }) {
+                    IconButton(onClick = onClose) {
                         Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = stringResource(R.string.common_back))
                     }
                 }
@@ -224,29 +219,6 @@ fun GDriveLoginScreen(
                             )
                         }
                     }
-                }
-
-                is GDriveLoginState.LoggedIn -> {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        CircularProgressIndicator(
-                            color = MaterialTheme.colorScheme.secondary
-                        )
-                    }
-                }
-
-                is GDriveLoginState.FolderSetup -> {
-                    FolderSetupContent(
-                        state = state,
-                        cardShape = cardShape,
-                        onFolderClick = { folder -> viewModel.navigateIntoFolder(folder) },
-                        onSelectFolder = { folder ->
-                            viewModel.selectFolder(folder.id, folder.name)
-                        },
-                        onBreadcrumbClick = { index -> viewModel.navigateToBreadcrumb(index) }
-                    )
                 }
 
                 is GDriveLoginState.Success -> {

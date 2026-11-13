@@ -628,12 +628,10 @@ class MainActivity : ComponentActivity() {
                 Screen.GenreDetail.route,
                 Screen.AlbumDetail.route,
                 Screen.ArtistDetail.route,
-                Screen.DJSpace.route,
                 Screen.NavBarCrRad.route,
                 Screen.About.route,
                 Screen.OpenSourceLicenses.route,
                 Screen.Stats.route,
-                Screen.EditTransition.route,
                 Screen.Experimental.route,
                 Screen.ArtistSettings.route,
                 Screen.Equalizer.route,
@@ -656,8 +654,9 @@ class MainActivity : ComponentActivity() {
                 } else {
                     currentRoute?.let { route ->
                         routesWithHiddenNavigationBar.any { hiddenRoute ->
-                            if (hiddenRoute.contains("{")) {
-                                route.startsWith(hiddenRoute.substringBefore("{"))
+                            val prefix = hiddenRoute.substringBefore("{").substringBefore("?")
+                            if (hiddenRoute.contains("{") || hiddenRoute.contains("?")) {
+                                route.startsWith(prefix)
                             } else {
                                 route == hiddenRoute
                             }

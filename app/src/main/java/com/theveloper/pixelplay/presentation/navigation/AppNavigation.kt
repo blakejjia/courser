@@ -261,7 +261,7 @@ fun AppNavigation(
                             navController.navigateSafely(Screen.JellyfinDashboard.route)
                         },
                         onOpenGDriveDashboard = {
-                            navController.navigateSafely(Screen.GDriveDashboard.route)
+                            navController.navigateSafely(Screen.CourseFolderSelection.createRoute("gdrive"))
                         }
                     )
                 }
@@ -375,13 +375,6 @@ fun AppNavigation(
             }
 
             composable(
-                Screen.DJSpace.route,
-            ) {
-                ScreenWrapper(navController = navController, playerViewModel = playerViewModel, animatedVisibilityScope = this) {
-                    MashupScreen()
-                }
-            }
-            composable(
                 route = Screen.GenreDetail.route,
                 arguments = listOf(navArgument("genreId") { type = NavType.StringType }),
             ) { backStackEntry ->
@@ -433,17 +426,6 @@ fun AppNavigation(
             ) {
                 ScreenWrapper(navController = navController, playerViewModel = playerViewModel, animatedVisibilityScope = this) {
                     NavBarCornerRadiusScreen(navController)
-                }
-            }
-            composable(
-                route = Screen.EditTransition.route,
-                arguments = listOf(navArgument("playlistId") {
-                    type = NavType.StringType
-                    nullable = true
-                }),
-            ) {
-                ScreenWrapper(navController = navController, playerViewModel = playerViewModel, animatedVisibilityScope = this) {
-                    EditTransitionScreen(navController = navController)
                 }
             }
             composable(
@@ -539,13 +521,19 @@ fun AppNavigation(
                 Screen.GDriveDashboard.route,
             ) {
                 ScreenWrapper(navController = navController, playerViewModel = playerViewModel, animatedVisibilityScope = this) {
-                    com.theveloper.pixelplay.presentation.gdrive.dashboard.GDriveDashboardScreen(
+                    com.theveloper.pixelplay.presentation.screens.CourseFolderSelectionScreen(
                         onBack = { navController.popBackStack() }
                     )
                 }
             }
             composable(
-                Screen.CourseFolderSelection.route,
+                route = Screen.CourseFolderSelection.route,
+                arguments = listOf(
+                    navArgument("tab") {
+                        type = NavType.StringType
+                        defaultValue = "local"
+                    }
+                )
             ) {
                 ScreenWrapper(navController = navController, playerViewModel = playerViewModel, animatedVisibilityScope = this) {
                     com.theveloper.pixelplay.presentation.screens.CourseFolderSelectionScreen(

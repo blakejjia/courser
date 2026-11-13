@@ -659,14 +659,7 @@ private fun openService(
             )
         }
         ExternalServiceAccount.GOOGLE_DRIVE -> {
-            if (preferDashboard) {
-                onOpenGDriveDashboard()
-            } else {
-                safeStartActivity(
-                    context = context,
-                    intent = Intent(context, GDriveLoginActivity::class.java)
-                )
-            }
+            onOpenGDriveDashboard()
         }
         ExternalServiceAccount.NAVIDROME -> {
             if (preferDashboard) {

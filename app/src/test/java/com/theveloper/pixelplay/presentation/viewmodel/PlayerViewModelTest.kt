@@ -2,7 +2,6 @@ package com.theveloper.pixelplay.presentation.viewmodel
 
 import android.content.Context
 import app.cash.turbine.test
-import com.theveloper.pixelplay.data.database.AlbumArtThemeDao
 import com.google.common.util.concurrent.ListenableFuture
 import com.theveloper.pixelplay.data.model.SearchFilterType
 import com.theveloper.pixelplay.data.model.SearchHistoryItem
@@ -66,7 +65,6 @@ class PlayerViewModelTest {
     private val mockUserPreferencesRepository: UserPreferencesRepository = mockk(relaxed = true)
     private val mockAiPreferencesRepository: AiPreferencesRepository = mockk(relaxed = true)
     private val mockThemePreferencesRepository: ThemePreferencesRepository = mockk(relaxed = true)
-    private val mockAlbumArtThemeDao: AlbumArtThemeDao = mockk(relaxed = true)
     private val mockContext: Context = mockk(relaxed = true)
 
     // New Mocks

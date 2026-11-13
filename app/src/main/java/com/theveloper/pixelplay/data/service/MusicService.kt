@@ -54,7 +54,6 @@ import com.theveloper.pixelplay.data.preferences.ThemePreferencesRepository
 import com.theveloper.pixelplay.data.preferences.UserPreferencesRepository
 import com.theveloper.pixelplay.data.repository.MusicRepository
 import com.theveloper.pixelplay.data.service.player.DualPlayerEngine
-import com.theveloper.pixelplay.data.service.player.TransitionController
 import com.theveloper.pixelplay.ui.glancewidget.PlayerActions
 import com.theveloper.pixelplay.utils.AlbumArtUtils
 import dagger.hilt.android.AndroidEntryPoint
@@ -145,8 +144,6 @@ class MusicService : MediaLibraryService() {
     @Inject
     lateinit var engine: DualPlayerEngine
     @Inject
-    lateinit var controller: TransitionController
-    @Inject
     lateinit var musicRepository: MusicRepository
     @Inject
     lateinit var userPreferencesRepository: UserPreferencesRepository
@@ -168,6 +165,8 @@ class MusicService : MediaLibraryService() {
     lateinit var navidromeRepository: NavidromeRepository
     @Inject
     lateinit var listeningStatsTracker: ListeningStatsTracker
+    @Inject
+    lateinit var courseProgressTracker: CourseProgressTracker
     @Inject
     @AppScope
     lateinit var appScope: CoroutineScope
@@ -323,20 +322,7 @@ class MusicService : MediaLibraryService() {
     }
 
     private val playerSwapListener: (Player) -> Unit = { newPlayer ->
-        publishMediaSessionPlayer(newPlayer, "Swapped MediaSession player to new instance.")
-        replayGainProcessor.prepareForTransition(newPlayer)
-    }
-
-    private val transitionDisplayPlayerListener: (Player) -> Unit = { displayPlayer ->
-        publishMediaSessionPlayer(
-            displayPlayer,
-            "Published incoming crossfade player to MediaSession."
-        )
-        replayGainProcessor.prepareForTransition(displayPlayer)
-    }
-
-    private val transitionFinishedListener: () -> Unit = {
-        replayGainProcessor.onTransitionFinished()
+        publishMediaSessionPlayer(newPlayer, "Re-attached MediaSession player on player rebuild.")
     }
 
     private fun publishMediaSessionPlayer(player: Player, logMessage: String) {
@@ -442,10 +428,6 @@ class MusicService : MediaLibraryService() {
             oldPlayer.removeListener(playerListener)
         }
         engine.addPlayerSwapListener(playerSwapListener)
-        engine.addTransitionDisplayPlayerListener(transitionDisplayPlayerListener)
-        engine.addTransitionFinishedListener(transitionFinishedListener)
-
-        controller.initialize()
         serviceScope.launch {
             delay(DEFERRED_SERVICE_STARTUP_WORK_DELAY_MS)
             if (!isPlaybackUnloadInProgress && mediaSession != null) {
@@ -526,9 +508,12 @@ class MusicService : MediaLibraryService() {
         serviceScope.launch {
             userPreferencesRepository.playbackSpeedFlow.collect { speed ->
                 val safeSpeed = speed.coerceIn(0.25f, 3.0f)
-                val player = mediaSession?.player ?: engine.masterPlayer
-                if (player.playbackParameters.speed != safeSpeed) {
-                    player.playbackParameters = PlaybackParameters(safeSpeed)
+                engine.setPlaybackSpeed(safeSpeed)
+                val sessionPlayer = mediaSession?.player
+                if (sessionPlayer != null && sessionPlayer !== engine.masterPlayer) {
+                    if (sessionPlayer.playbackParameters.speed != safeSpeed) {
+                        sessionPlayer.playbackParameters = PlaybackParameters(safeSpeed)
+                    }
                 }
             }
         }
@@ -1277,6 +1262,7 @@ class MusicService : MediaLibraryService() {
             // is producing — keeps thermal headroom and battery for playback.
             PlaybackActivityTracker.setPlaybackActive(isPlaying)
             syncLocalListeningStatsFromPlayer(player)
+            courseProgressTracker.onPlayPause(isPlaying, player)
 
             if (isPlaying) {
                 reportNavidromePlayback("playing")
@@ -1326,6 +1312,18 @@ class MusicService : MediaLibraryService() {
             Timber.tag(TAG).d("Playback state changed: $playbackState")
             if (playbackState == Player.STATE_ENDED) {
                 listeningStatsTracker.finalizeCurrentSession()
+                val endedPlayer = mediaSession?.player ?: engine.masterPlayer
+                val endedMediaId = endedPlayer.currentMediaItem?.mediaId?.takeIf { it.isNotBlank() }
+                if (endedMediaId != null) {
+                    val endedDuration = endedPlayer.duration.coerceAtLeast(0L)
+                    val endedPosition = endedPlayer.currentPosition.coerceAtLeast(0L)
+                    courseProgressTracker.onTrackEnding(
+                        songId = endedMediaId,
+                        finalPositionMs = endedDuration.coerceAtLeast(endedPosition),
+                        durationMs = endedDuration,
+                        netListenedMs = endedDuration
+                    )
+                }
                 val mediaItem = (mediaSession?.player ?: engine.masterPlayer).currentMediaItem
                 getNavidromeId(mediaItem)?.let { navidromeId ->
                     appScope.launch(Dispatchers.IO) {
@@ -1395,7 +1393,30 @@ class MusicService : MediaLibraryService() {
         }
 
         override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
-            syncLocalListeningStatsFromPlayer(mediaSession?.player ?: engine.masterPlayer, forceNewSession = true)
+            val player = mediaSession?.player ?: engine.masterPlayer
+            syncLocalListeningStatsFromPlayer(player, forceNewSession = true)
+
+            // Update course progress tracker with new track info
+            val newSongId = mediaItem?.mediaId?.takeIf { it.isNotBlank() }
+            if (newSongId != null) {
+                val durationMs = player.duration.takeIf { it > 0L }
+                    ?: mediaItem.mediaMetadata.extras?.getLong(MediaItemBuilder.EXTERNAL_EXTRA_DURATION, 0L)
+                    ?: 0L
+                val title = mediaItem.mediaMetadata.title?.toString() ?: ""
+                val filePath = mediaItem.mediaMetadata.extras?.getString(MediaItemBuilder.EXTERNAL_EXTRA_FILE_PATH)
+                val fallbackFolder = filePath?.substringBeforeLast('/', "")?.takeIf { it.isNotBlank() }
+                val fallbackCourseId = fallbackFolder?.let { com.theveloper.pixelplay.data.database.CourseProgressEntity.localFolderCourseId(it) }
+                val fallbackCourseName = fallbackFolder?.substringAfterLast('/') ?: mediaItem.mediaMetadata.albumTitle?.toString() ?: ""
+
+                courseProgressTracker.onTrackStarted(
+                    songId = newSongId,
+                    songTitle = title,
+                    durationMs = durationMs,
+                    player = player,
+                    fallbackCourseId = fallbackCourseId,
+                    fallbackCourseName = fallbackCourseName
+                )
+            }
             if (isNavidromeMediaItem(mediaItem)) {
                 reportNavidromePlayback("starting")
                 if (engine.masterPlayer.isPlaying) {
@@ -1428,7 +1449,6 @@ class MusicService : MediaLibraryService() {
             }
             replayGainProcessor.apply(mediaSession?.player?.currentMediaItem)
             // Pre-fetch RG for the track after this one so it's cached when needed
-            val player = engine.masterPlayer
             val nextIndex = player.nextMediaItemIndex
             if (nextIndex != androidx.media3.common.C.INDEX_UNSET) {
                 runCatching { replayGainProcessor.prefetch(player.getMediaItemAt(nextIndex)) }
@@ -1504,6 +1524,7 @@ class MusicService : MediaLibraryService() {
     override fun onDestroy() {
         PlaybackActivityTracker.setPlaybackActive(false)
         listeningStatsTracker.finalizeCurrentSession(forceSynchronousPersistence = true)
+        courseProgressTracker.onDestroy(engine.masterPlayer)
         reportNavidromePlayback("stopped")
         stopNavidromePlaybackReporting()
         playbackSnapshotPersistJob?.cancel()
@@ -1517,8 +1538,6 @@ class MusicService : MediaLibraryService() {
         replayGainProcessor.cancel()
 
         engine.removePlayerSwapListener(playerSwapListener)
-        engine.removeTransitionDisplayPlayerListener(transitionDisplayPlayerListener)
-        engine.removeTransitionFinishedListener(transitionFinishedListener)
         engine.setOnPlayerAboutToBeReleasedListener {}
         mediaSession?.player?.removeListener(playerListener)
         engine.masterPlayer.removeListener(playerListener)
@@ -1528,7 +1547,6 @@ class MusicService : MediaLibraryService() {
             mediaSession = null
         }
         engine.release()
-        controller.release()
         serviceScope.cancel()
         Thread.currentThread().setUncaughtExceptionHandler(previousMainThreadExceptionHandler)
         previousMainThreadExceptionHandler = null
