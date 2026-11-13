@@ -495,7 +495,13 @@ class PlaybackDispatchStateHolder @Inject constructor(
         }
     }
 
-    fun playSongs(songsToPlay: List<Song>, startSong: Song, queueName: String = "None", playlistId: String? = null) {
+    fun playSongs(
+        songsToPlay: List<Song>,
+        startSong: Song,
+        queueName: String = "None",
+        playlistId: String? = null,
+        startPositionMs: Long = 0L
+    ) {
         cancelPendingFullQueuePlayback()
         val requestToken = beginDirectPlaybackRequest()
         directPlaybackJob = cb.scope.launch {
@@ -566,7 +572,7 @@ class PlaybackDispatchStateHolder @Inject constructor(
             throwIfDirectPlaybackRequestIsStale(requestToken)
 
             // Send the final list (shuffled or not) to the player engine
-            internalPlaySongs(finalSongsToPlay, validStartSong, queueName, playlistId)
+            internalPlaySongs(finalSongsToPlay, validStartSong, queueName, playlistId, startPositionMs)
             if (requestToken == directPlaybackToken) {
                 directPlaybackJob = null
             }
@@ -804,7 +810,13 @@ class PlaybackDispatchStateHolder @Inject constructor(
         }
     }
 
-    suspend fun internalPlaySongs(songsToPlay: List<Song>, startSong: Song, queueName: String = "None", playlistId: String? = null) {
+    suspend fun internalPlaySongs(
+        songsToPlay: List<Song>,
+        startSong: Song,
+        queueName: String = "None",
+        playlistId: String? = null,
+        startPositionMs: Long = 0L
+    ) {
         if (songsToPlay.isEmpty()) {
             clearPreparingSongIfMatching()
             return
@@ -871,7 +883,7 @@ class PlaybackDispatchStateHolder @Inject constructor(
                 dualPlayerEngine.cancelNext()
                 val enginePlayer = dualPlayerEngine.masterPlayer
 
-                enginePlayer.setMediaItem(startMediaItem, 0L)
+                enginePlayer.setMediaItem(startMediaItem, startPositionMs)
                 enginePlayer.prepare()
                 enginePlayer.play()
                 cb.updateUiState { it.copy(isLoadingInitialSongs = false) }

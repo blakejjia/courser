@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.theveloper.pixelplay.data.model.Playlist
 import com.theveloper.pixelplay.data.preferences.PlaylistPreferencesRepository
 import com.theveloper.pixelplay.data.preferences.UserPreferencesRepository
+import com.theveloper.pixelplay.data.repository.DailyLearningQueueBuilder
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -22,6 +23,7 @@ data class DailyGoalUiState(
     val allCourses: List<Playlist> = emptyList(),
     val courseTargets: Map<String, Int> = emptyMap(), // courseId -> daily target count
     val plannedCourses: List<PlannedCourse> = emptyList(),
+    val priorityCourseIds: List<String> = emptyList(),
     val sortedCoursesForAdd: List<Playlist> = emptyList(), // not-in-plan at front, then in-plan
     val isLoading: Boolean = true
 )
@@ -29,13 +31,15 @@ data class DailyGoalUiState(
 @HiltViewModel
 class DailyGoalViewModel @Inject constructor(
     private val playlistPreferencesRepository: PlaylistPreferencesRepository,
-    private val userPreferencesRepository: UserPreferencesRepository
+    private val userPreferencesRepository: UserPreferencesRepository,
+    private val dailyLearningQueueBuilder: DailyLearningQueueBuilder
 ) : ViewModel() {
 
     val uiState: StateFlow<DailyGoalUiState> = combine(
         playlistPreferencesRepository.userPlaylistsFlow,
-        userPreferencesRepository.dailyGoalCourseTargetsFlow
-    ) { allPlaylists, targets ->
+        userPreferencesRepository.dailyGoalCourseTargetsFlow,
+        userPreferencesRepository.priorityCourseIdsFlow
+    ) { allPlaylists, targets, priorityIds ->
         // Planned courses (only courses explicitly added with a target)
         val planned = targets.mapNotNull { (courseId, count) ->
             allPlaylists.find { it.id == courseId }?.let { playlist ->
@@ -51,6 +55,7 @@ class DailyGoalViewModel @Inject constructor(
             allCourses = allPlaylists,
             courseTargets = targets,
             plannedCourses = planned,
+            priorityCourseIds = priorityIds,
             sortedCoursesForAdd = sortedForAdd,
             isLoading = false
         )
@@ -69,6 +74,36 @@ class DailyGoalViewModel @Inject constructor(
     fun removeCourseFromGoal(courseId: String) {
         viewModelScope.launch {
             userPreferencesRepository.removeCourseFromDailyGoal(courseId)
+        }
+    }
+
+    fun setPriorityCourses(courseIds: List<String>) {
+        viewModelScope.launch {
+            userPreferencesRepository.setPriorityCourseIds(courseIds)
+        }
+    }
+
+    /**
+     * Executes the daily learning algorithm:
+     * - If goals are set, queues today's goal tracks + priority playlists #1/#2/#3.
+     * - If no goal is set, queues "Continue Learning" from where the last course left off.
+     */
+    fun startLearning(
+        playerViewModel: PlayerViewModel,
+        onSessionStarted: ((String) -> Unit)? = null
+    ) {
+        viewModelScope.launch {
+            val session = dailyLearningQueueBuilder.buildLearningQueue() ?: return@launch
+            if (session.songs.isNotEmpty()) {
+                playerViewModel.playSongs(
+                    songsToPlay = session.songs,
+                    startSong = session.startSong,
+                    queueName = session.sessionTitle,
+                    playlistId = session.sourceCourseId,
+                    startPositionMs = session.startPositionMs
+                )
+                onSessionStarted?.invoke(session.sessionTitle)
+            }
         }
     }
 }

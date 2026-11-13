@@ -26,6 +26,8 @@ import com.theveloper.pixelplay.data.preferences.AlbumArtPaletteStyle
 import com.theveloper.pixelplay.data.preferences.AppLanguage
 import com.theveloper.pixelplay.data.preferences.CollagePattern
 import com.theveloper.pixelplay.data.preferences.FullPlayerLoadingTweaks
+import com.theveloper.pixelplay.data.preferences.PlaylistPreferencesRepository
+import com.theveloper.pixelplay.data.model.Playlist
 import com.theveloper.pixelplay.data.preferences.ThemePreferencesRepository
 import com.theveloper.pixelplay.data.repository.LyricsRepository
 import com.theveloper.pixelplay.data.repository.MusicRepository
@@ -181,6 +183,7 @@ private sealed interface SettingsUiUpdate {
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     private val userPreferencesRepository: UserPreferencesRepository,
+    private val playlistPreferencesRepository: PlaylistPreferencesRepository,
     private val aiPreferencesRepository: AiPreferencesRepository,
     private val themePreferencesRepository: ThemePreferencesRepository,
     private val colorSchemeProcessor: ColorSchemeProcessor,
@@ -196,6 +199,22 @@ class SettingsViewModel @Inject constructor(
 
     private val _uiState = MutableStateFlow(SettingsUiState())
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
+
+    val priorityCourses: StateFlow<List<Playlist>> = combine(
+        playlistPreferencesRepository.userPlaylistsFlow,
+        userPreferencesRepository.priorityCourseIdsFlow
+    ) { playlists, priorityIds ->
+        priorityIds.mapNotNull { id -> playlists.find { it.id == id } }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val allCourses: StateFlow<List<Playlist>> = playlistPreferencesRepository.userPlaylistsFlow
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    fun setPriorityCourseIds(courseIds: List<String>) {
+        viewModelScope.launch {
+            userPreferencesRepository.setPriorityCourseIds(courseIds)
+        }
+    }
 
     // AI Provider State
     val aiProvider: StateFlow<String> = aiPreferencesRepository.aiProvider

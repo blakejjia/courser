@@ -65,6 +65,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.School
 import androidx.compose.material.icons.outlined.ClearAll
 import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.Info
@@ -816,24 +817,6 @@ fun SettingsCategoryScreen(
                             }
 
                             SettingsSubsection(title = stringResource(R.string.settings_queue_transitions_section)) {
-                                ThemeSelectorItem(
-                                    label = stringResource(R.string.settings_crossfade_title),
-                                    description = stringResource(R.string.settings_crossfade_subtitle),
-                                    options = mapOf("true" to stringResource(R.string.settings_label_enabled), "false" to stringResource(R.string.settings_label_disabled)),
-                                    selectedKey = if (uiState.isCrossfadeEnabled) "true" else "false",
-                                    onSelectionChanged = { settingsViewModel.setCrossfadeEnabled(it.toBoolean()) },
-                                    leadingIcon = { Icon(painterResource(R.drawable.rounded_align_justify_space_even_24), null, tint = MaterialTheme.colorScheme.secondary) }
-                                )
-                                if (uiState.isCrossfadeEnabled) {
-                                    SliderSettingsItem(
-                                        label = stringResource(R.string.settings_crossfade_duration_title),
-                                        value = uiState.crossfadeDuration.toFloat(),
-                                        valueRange = 1000f..12000f,
-                                        steps= 10,
-                                        onValueChange = { settingsViewModel.setCrossfadeDuration(it.toInt()) },
-                                        valueText = { value -> "${(value / 1000).toInt()}s" }
-                                    )
-                                }
                                 SwitchSettingItem(
                                     title = stringResource(R.string.settings_hifi_mode_title),
                                     subtitle = if (uiState.hiFiModeDeviceSupported)
@@ -863,6 +846,41 @@ fun SettingsCategoryScreen(
                                     onCheckedChange = { settingsViewModel.setShowQueueHistory(it) },
                                     leadingIcon = { Icon(painterResource(R.drawable.rounded_queue_music_24), null, tint = MaterialTheme.colorScheme.secondary) }
                                 )
+                            }
+
+                            SettingsSubsection(title = "Course Learning Priorities") {
+                                var showPriorityDialog by remember { mutableStateOf(false) }
+                                val priorityCourses by settingsViewModel.priorityCourses.collectAsStateWithLifecycle()
+                                val allCourses by settingsViewModel.allCourses.collectAsStateWithLifecycle()
+
+                                SettingsItem(
+                                    title = "Priority Course Order",
+                                    subtitle = if (priorityCourses.isEmpty()) {
+                                        "No priority courses selected (up to 3)"
+                                    } else {
+                                        priorityCourses.mapIndexed { idx, p -> "#${idx + 1} ${p.name}" }.joinToString(" → ")
+                                    },
+                                    onClick = { showPriorityDialog = true },
+                                    leadingIcon = {
+                                        Icon(
+                                            imageVector = Icons.Rounded.School,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.secondary
+                                        )
+                                    }
+                                )
+
+                                if (showPriorityDialog) {
+                                    PriorityCoursesDialog(
+                                        allCourses = allCourses,
+                                        initialPriorityIds = priorityCourses.map { it.id },
+                                        onSave = { selectedIds ->
+                                            settingsViewModel.setPriorityCourseIds(selectedIds)
+                                            showPriorityDialog = false
+                                        },
+                                        onDismiss = { showPriorityDialog = false }
+                                    )
+                                }
                             }
 
                         }
@@ -2892,4 +2910,128 @@ private fun SettingsSubsection(
     if (addBottomSpace) {
         Spacer(modifier = Modifier.height(10.dp))
     }
+}
+
+@Composable
+fun PriorityCoursesDialog(
+    allCourses: List<com.theveloper.pixelplay.data.model.Playlist>,
+    initialPriorityIds: List<String>,
+    onSave: (List<String>) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var selectedIds by remember { mutableStateOf(initialPriorityIds.take(3)) }
+
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                text = "Priority Course Order",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+            )
+        },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 400.dp)
+            ) {
+                Text(
+                    text = "Select up to 3 priority courses (#1, #2, #3). When daily goals finish, playback continues with these courses.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(bottom = 12.dp)
+                )
+
+                if (allCourses.isEmpty()) {
+                    Text(
+                        text = "No course playlists available yet.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(vertical = 16.dp)
+                    )
+                } else {
+                    androidx.compose.foundation.lazy.LazyColumn(
+                        modifier = Modifier.weight(1f, fill = false),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        items(allCourses, key = { it.id }) { course ->
+                            val priorityIndex = selectedIds.indexOf(course.id)
+                            val isSelected = priorityIndex != -1
+
+                            androidx.compose.material3.Surface(
+                                shape = RoundedCornerShape(10.dp),
+                                color = if (isSelected) {
+                                    MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
+                                } else {
+                                    MaterialTheme.colorScheme.surfaceContainer
+                                },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        selectedIds = if (isSelected) {
+                                            selectedIds.filter { it != course.id }
+                                        } else if (selectedIds.size < 3) {
+                                            selectedIds + course.id
+                                        } else {
+                                            selectedIds
+                                        }
+                                    }
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 14.dp, vertical = 12.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+                                        Text(
+                                            text = course.name,
+                                            style = MaterialTheme.typography.bodyLarge,
+                                            fontWeight = if (isSelected) androidx.compose.ui.text.font.FontWeight.Bold else androidx.compose.ui.text.font.FontWeight.Medium,
+                                            maxLines = 1,
+                                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                                        )
+                                        Text(
+                                            text = "${course.songIds.size} tracks",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+
+                                    if (isSelected) {
+                                        androidx.compose.material3.Surface(
+                                            shape = androidx.compose.foundation.shape.CircleShape,
+                                            color = MaterialTheme.colorScheme.primary
+                                        ) {
+                                            Text(
+                                                text = "#${priorityIndex + 1}",
+                                                style = MaterialTheme.typography.labelMedium,
+                                                fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                                                color = MaterialTheme.colorScheme.onPrimary,
+                                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            androidx.compose.material3.FilledTonalButton(
+                onClick = { onSave(selectedIds) }
+            ) {
+                Text("Save")
+            }
+        },
+        dismissButton = {
+            androidx.compose.material3.TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
 }

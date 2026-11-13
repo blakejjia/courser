@@ -15,7 +15,6 @@ import com.theveloper.pixelplay.data.backup.module.PlaybackHistoryModuleHandler
 import com.theveloper.pixelplay.data.backup.module.PlaylistsModuleHandler
 import com.theveloper.pixelplay.data.backup.module.QuickFillModuleHandler
 import com.theveloper.pixelplay.data.backup.module.SearchHistoryModuleHandler
-import com.theveloper.pixelplay.data.backup.module.TransitionsModuleHandler
 import com.theveloper.pixelplay.data.backup.module.AiUsageBackupHandler
 import dagger.Module
 import dagger.Provides
@@ -51,7 +50,6 @@ object BackupModule {
         favoritesHandler: FavoritesModuleHandler,
         lyricsHandler: LyricsModuleHandler,
         searchHistoryHandler: SearchHistoryModuleHandler,
-        transitionsHandler: TransitionsModuleHandler,
         engagementStatsHandler: EngagementStatsModuleHandler,
         playbackHistoryHandler: PlaybackHistoryModuleHandler,
         quickFillHandler: QuickFillModuleHandler,
@@ -65,7 +63,6 @@ object BackupModule {
             BackupSection.FAVORITES to favoritesHandler,
             BackupSection.LYRICS to lyricsHandler,
             BackupSection.SEARCH_HISTORY to searchHistoryHandler,
-            BackupSection.TRANSITIONS to transitionsHandler,
             BackupSection.ENGAGEMENT_STATS to engagementStatsHandler,
             BackupSection.PLAYBACK_HISTORY to playbackHistoryHandler,
             BackupSection.QUICK_FILL to quickFillHandler,

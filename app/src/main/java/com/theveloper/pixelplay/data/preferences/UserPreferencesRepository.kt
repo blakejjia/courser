@@ -21,7 +21,6 @@ import com.theveloper.pixelplay.data.model.PlaybackQueueSnapshot
 import com.theveloper.pixelplay.data.model.Playlist
 import com.theveloper.pixelplay.data.model.SortOption
 import com.theveloper.pixelplay.data.model.StorageFilter
-import com.theveloper.pixelplay.data.model.TransitionSettings
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.flow.Flow
@@ -125,9 +124,6 @@ class UserPreferencesRepository @Inject constructor(
         val CAROUSEL_STYLE = stringPreferencesKey("carousel_style")
         val LIBRARY_NAVIGATION_MODE = stringPreferencesKey("library_navigation_mode")
         val LAUNCH_TAB = stringPreferencesKey("launch_tab")
-
-        // Transition
-        val GLOBAL_TRANSITION_SETTINGS = stringPreferencesKey("global_transition_settings_json")
         val LIBRARY_TABS_ORDER = stringPreferencesKey("library_tabs_order")
         val IS_FOLDER_FILTER_ACTIVE = booleanPreferencesKey("is_folder_filter_active")
         val IS_FOLDERS_PLAYLIST_VIEW = booleanPreferencesKey("is_folders_playlist_view")
@@ -252,6 +248,7 @@ class UserPreferencesRepository @Inject constructor(
         val DAILY_GOAL_COURSE_IDS = stringSetPreferencesKey("daily_goal_course_ids")
         val DAILY_GOAL_TARGET_COUNT = intPreferencesKey("daily_goal_target_count")
         val DAILY_GOAL_COURSE_TARGETS_JSON = stringPreferencesKey("daily_goal_course_targets_json")
+        val PRIORITY_COURSE_IDS = stringPreferencesKey("priority_course_ids_json")
     }
 
     // ─── Private helpers ─────────────────────────────────────────────────────
@@ -507,19 +504,6 @@ class UserPreferencesRepository @Inject constructor(
     /** Removes the deprecated player sheet V2 preference key. */
     suspend fun clearDeprecatedPlayerSheetPreference() {
         dataStore.edit { it.remove(PreferencesKeys.USE_PLAYER_SHEET_V2) }
-    }
-
-    // ─── Transitions ──────────────────────────────────────────────────────────
-
-    val globalTransitionSettingsFlow: Flow<TransitionSettings> =
-        pref { preferences ->
-            val duration = (preferences[PreferencesKeys.CROSSFADE_DURATION] ?: 2000).coerceIn(1000, 12000)
-            val settings = decodeJsonPref(preferences, PreferencesKeys.GLOBAL_TRANSITION_SETTINGS, TransitionSettings())
-            settings.copy(durationMs = duration)
-        }
-
-    suspend fun saveGlobalTransitionSettings(settings: TransitionSettings) {
-        dataStore.edit { it[PreferencesKeys.GLOBAL_TRANSITION_SETTINGS] = json.encodeToString(settings) }
     }
 
     // ─── Favorites ────────────────────────────────────────────────────────────
@@ -830,6 +814,16 @@ suspend fun markDirectoryRulesVersionApplied(version: Int) {
     suspend fun setDailyGoalTargetCount(count: Int) {
         dataStore.edit { preferences ->
             preferences[PreferencesKeys.DAILY_GOAL_TARGET_COUNT] = count.coerceAtLeast(1)
+        }
+    }
+
+    val priorityCourseIdsFlow: Flow<List<String>> =
+        pref { decodeJsonPref(it, PreferencesKeys.PRIORITY_COURSE_IDS, emptyList<String>()) }
+
+    suspend fun setPriorityCourseIds(courseIds: List<String>) {
+        val limited = courseIds.distinct().take(3)
+        dataStore.edit { preferences ->
+            preferences[PreferencesKeys.PRIORITY_COURSE_IDS] = Json.encodeToString(limited)
         }
     }
 

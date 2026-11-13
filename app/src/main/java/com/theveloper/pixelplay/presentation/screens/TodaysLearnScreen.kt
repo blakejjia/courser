@@ -25,6 +25,7 @@ import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.AutoStories
 import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.Remove
 import androidx.compose.material.icons.rounded.School
@@ -131,28 +132,77 @@ fun TodaysLearnScreen(
             ),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // ── Top Prominent "Add" Long Button ──
-            item(key = "add_course_button") {
-                FilledTonalButton(
-                    onClick = {
-                        navController.navigateSafely(Screen.DailyGoalSettings.route)
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(52.dp),
-                    shape = MaterialTheme.shapes.medium
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.Add,
-                        contentDescription = null,
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "Add",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
-                    )
+            // ── Top Action Buttons ──
+            item(key = "learn_action_buttons") {
+                if (plannedCourses.isNotEmpty()) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        FilledTonalButton(
+                            onClick = {
+                                dailyGoalViewModel.startLearning(playerViewModel)
+                            },
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(52.dp),
+                            shape = MaterialTheme.shapes.medium
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.PlayArrow,
+                                contentDescription = null,
+                                modifier = Modifier.size(22.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Start Learning",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+
+                        FilledTonalButton(
+                            onClick = {
+                                navController.navigateSafely(Screen.DailyGoalSettings.route)
+                            },
+                            modifier = Modifier.height(52.dp),
+                            shape = MaterialTheme.shapes.medium
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Add,
+                                contentDescription = null,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "Add",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                } else {
+                    FilledTonalButton(
+                        onClick = {
+                            navController.navigateSafely(Screen.DailyGoalSettings.route)
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(52.dp),
+                        shape = MaterialTheme.shapes.medium
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Add,
+                            contentDescription = null,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Add Courses to Goal",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                 }
             }
 

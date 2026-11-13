@@ -41,8 +41,6 @@ import com.theveloper.pixelplay.data.repository.MediaStoreSongRepository
 import com.theveloper.pixelplay.data.repository.MusicRepository
 import com.theveloper.pixelplay.data.repository.MusicRepositoryImpl
 import com.theveloper.pixelplay.data.repository.SongRepository
-import com.theveloper.pixelplay.data.repository.TransitionRepository
-import com.theveloper.pixelplay.data.repository.TransitionRepositoryImpl
 import com.theveloper.pixelplay.data.repository.FolderTreeBuilder
 import dagger.Module
 import dagger.Provides
@@ -383,14 +381,6 @@ object AppModule {
             folderTreeBuilder = folderTreeBuilder
         )
 
-    }
-
-    @Provides
-    @Singleton
-    fun provideTransitionRepository(
-        transitionRepositoryImpl: TransitionRepositoryImpl
-    ): TransitionRepository {
-        return transitionRepositoryImpl
     }
 
     @Singleton
