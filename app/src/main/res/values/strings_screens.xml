@@ -126,6 +126,11 @@
     <string name="playlist_cd_remove_songs">Remove songs</string>
     <string name="playlist_action_reorder_songs">Reorder</string>
     <string name="playlist_cd_reorder_songs">Reorder songs</string>
+    <string name="playlist_action_ai_reorder">AI Reorder</string>
+    <string name="playlist_ai_reorder_loading">AI is analyzing and reordering tracks…</string>
+    <string name="playlist_ai_reorder_success">Playlist successfully reordered by AI</string>
+    <string name="playlist_ai_reorder_error_no_key">Please configure an AI API key in Settings first</string>
+    <string name="playlist_ai_reorder_error_failed">AI reorder failed: %1$s</string>
 
     <!-- EditTransitionScreen -->
     <string name="transition_title_global">Global transitions</string>

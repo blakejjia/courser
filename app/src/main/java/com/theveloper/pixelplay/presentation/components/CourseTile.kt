@@ -32,6 +32,7 @@ import androidx.compose.material.icons.rounded.School
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -41,9 +42,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
-import com.theveloper.pixelplay.utils.formatTimeAgo
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -116,34 +117,13 @@ fun CourseTile(
     )
 
     val completionRatio = progress?.completionRatio ?: playlist.completionPercentage
-    val percent = (completionRatio * 100).toInt()
-    val lastActiveSongId = progress?.currentSongId ?: playlist.lastPlayedSongId
-    val completedCount = progress?.completedSongsCount ?: ((playlist.completionPercentage * playlist.songIds.size).toInt())
-    val lastPlayedTime = progress?.lastPlayedAt?.takeIf { it > 0L } ?: playlist.lastPlayedAt
-
-    val subtitleText = remember(progress, playlist, completionRatio) {
-        when {
-            lastActiveSongId != null -> {
-                val idx = playlist.songIds.indexOf(lastActiveSongId)
-                val lessonPrefix = if (idx >= 0) "#${idx + 1} Continue" else "Continue"
-                val timeSuffix = lastPlayedTime?.let { " • ${formatTimeAgo(it)}" } ?: ""
-                if (percent > 0) "$lessonPrefix • $percent% learned$timeSuffix"
-                else "$lessonPrefix • ${playlist.songIds.size} lessons$timeSuffix"
-            }
-            completedCount > 0 -> {
-                val timeSuffix = lastPlayedTime?.let { " • ${formatTimeAgo(it)}" } ?: ""
-                "$completedCount/${playlist.songIds.size} completed ($percent%)$timeSuffix"
-            }
-            else -> {
-                "${playlist.songIds.size} lessons"
-            }
-        }
-    }
+    val subtitleText = "${playlist.songIds.size} total"
 
     Card(
         modifier = modifier
             .fillMaxWidth()
             .scale(selectionScale)
+            .clip(RoundedCornerShape(14.dp))
             .then(
                 if (isSelected) {
                     Modifier.border(
@@ -291,56 +271,28 @@ fun CourseTile(
                             }
                         }
 
-                        if (percent > 0 && !isSelectionMode) {
-                            Surface(
-                                shape = RoundedCornerShape(8.dp),
-                                color = if (completionRatio >= 1f) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.secondaryContainer
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(2.dp)
-                                ) {
-                                    if (completionRatio >= 1f) {
-                                        Icon(
-                                            imageVector = Icons.Rounded.CheckCircle,
-                                            contentDescription = "Completed",
-                                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                                            modifier = Modifier.size(12.dp)
-                                        )
-                                    }
-                                    Text(
-                                        text = "$percent%",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        fontWeight = FontWeight.Bold,
-                                        color = if (completionRatio >= 1f) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSecondaryContainer
-                                    )
-                                }
-                            }
-                        }
-
                         if (onPlayClick != null && !isSelectionMode) {
-                            Surface(
-                                shape = CircleShape,
-                                color = if (isPlaying) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
-                                modifier = Modifier.clickable { onPlayClick() }
-                            ) {
-                                if (isPlaying) {
+                            if (isPlaying) {
+                                IconButton(
+                                    onClick = onPlayClick,
+                                    modifier = Modifier.size(36.dp)
+                                ) {
                                     PlayingEqIcon(
-                                        modifier = Modifier
-                                            .padding(9.dp)
-                                            .size(18.dp),
+                                        modifier = Modifier.size(22.dp),
                                         color = MaterialTheme.colorScheme.primary,
                                         isPlaying = isAudioPlaying
                                     )
-                                } else {
+                                }
+                            } else {
+                                IconButton(
+                                    onClick = onPlayClick,
+                                    modifier = Modifier.size(36.dp)
+                                ) {
                                     Icon(
                                         imageVector = Icons.Rounded.PlayArrow,
                                         contentDescription = "Play course",
-                                        tint = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier
-                                            .padding(8.dp)
-                                            .size(20.dp)
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.size(24.dp)
                                     )
                                 }
                             }
@@ -349,15 +301,15 @@ fun CourseTile(
                 }
             }
 
-            // Zero-margin bottom progress indicator border
+            // Zero-margin 2dp bottom progress indicator border
             if (completionRatio > 0f) {
                 LinearProgressIndicator(
                     progress = { completionRatio.coerceIn(0f, 1f) },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(4.dp),
+                        .height(2.dp),
                     color = MaterialTheme.colorScheme.primary,
-                    trackColor = MaterialTheme.colorScheme.surfaceContainerHighest
+                    trackColor = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.4f)
                 )
             }
         }

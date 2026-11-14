@@ -48,6 +48,7 @@ import androidx.compose.material.icons.filled.MusicOff
 import androidx.compose.material.icons.filled.RemoveCircleOutline
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.DragIndicator
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.PushPin
@@ -69,10 +70,13 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.ui.graphics.vector.rememberVectorPainter
+import androidx.compose.ui.window.Dialog
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
@@ -324,16 +328,14 @@ fun PlaylistDetailScreen(
                             contentDescription = sortSongsLabel
                         )
                     }
-                    if (!isFolderPlaylist) {
-                        FilledTonalIconButton(
-                            modifier = Modifier.padding(end = 10.dp),
-                            colors = IconButtonDefaults.filledIconButtonColors(
-                                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                                contentColor = MaterialTheme.colorScheme.onSurface
-                            ),
-                            onClick = { showPlaylistOptionsSheet = true }
-                        ) { Icon(Icons.Filled.MoreVert, moreOptionsLabel) }
-                    }
+                    FilledTonalIconButton(
+                        modifier = Modifier.padding(end = 10.dp),
+                        colors = IconButtonDefaults.filledIconButtonColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                            contentColor = MaterialTheme.colorScheme.onSurface
+                        ),
+                        onClick = { showPlaylistOptionsSheet = true }
+                    ) { Icon(Icons.Filled.MoreVert, moreOptionsLabel) }
                 },
                 scrollBehavior = scrollBehavior
             )
@@ -783,7 +785,7 @@ fun PlaylistDetailScreen(
             }
         )
     }
-    if (showPlaylistOptionsSheet && !isFolderPlaylist) {
+    if (showPlaylistOptionsSheet) {
         val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
         ModalBottomSheet(
@@ -791,11 +793,6 @@ fun PlaylistDetailScreen(
             sheetState = sheetState,
             containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
             tonalElevation = 4.dp,
-//            dragHandle = {
-//                SheetDefaults.DragHandle(
-//                    color = MaterialTheme.colorScheme.onSurfaceVariant
-//                )
-//            }
         ) {
             Column(
                 modifier = Modifier
@@ -822,21 +819,31 @@ fun PlaylistDetailScreen(
                     }
                 }
                 PlaylistActionItem(
-                    icon = painterResource(R.drawable.rounded_edit_24),
-                    label = editPlaylistLabel,
+                    icon = rememberVectorPainter(Icons.Rounded.AutoAwesome),
+                    label = stringResource(R.string.playlist_action_ai_reorder),
                     onClick = {
                         showPlaylistOptionsSheet = false
-                        showEditPlaylistDialog = true
+                        currentPlaylist?.let { playlistViewModel.reorderPlaylistWithAi(it.id) }
                     }
                 )
-                PlaylistActionItem(
-                    icon = painterResource(R.drawable.rounded_delete_24),
-                    label = deletePlaylistLabel,
-                    onClick = {
-                        showPlaylistOptionsSheet = false
-                        showDeleteConfirmation = true
-                    }
-                )
+                if (!isFolderPlaylist) {
+                    PlaylistActionItem(
+                        icon = painterResource(R.drawable.rounded_edit_24),
+                        label = editPlaylistLabel,
+                        onClick = {
+                            showPlaylistOptionsSheet = false
+                            showEditPlaylistDialog = true
+                        }
+                    )
+                    PlaylistActionItem(
+                        icon = painterResource(R.drawable.rounded_delete_24),
+                        label = deletePlaylistLabel,
+                        onClick = {
+                            showPlaylistOptionsSheet = false
+                            showDeleteConfirmation = true
+                        }
+                    )
+                }
                 PlaylistActionItem(
                     icon = painterResource(R.drawable.rounded_attach_file_24),
                     label = exportPlaylistLabel,
@@ -846,6 +853,43 @@ fun PlaylistDetailScreen(
                         m3uExportLauncher.launch("$sanitizedName.m3u")
                     }
                 )
+            }
+        }
+    }
+
+    val aiReorderMessage = uiState.aiReorderMessage
+    LaunchedEffect(aiReorderMessage) {
+        if (!aiReorderMessage.isNullOrBlank()) {
+            playerViewModel.sendToast(aiReorderMessage)
+            playlistViewModel.clearAiReorderMessage()
+        }
+    }
+
+    if (uiState.isAiReordering) {
+        Dialog(
+            onDismissRequest = { /* Non-dismissible while processing */ }
+        ) {
+            Surface(
+                shape = RoundedCornerShape(16.dp),
+                color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                tonalElevation = 6.dp
+            ) {
+                Column(
+                    modifier = Modifier.padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(36.dp),
+                        color = MaterialTheme.colorScheme.primary,
+                        strokeWidth = 3.dp
+                    )
+                    Text(
+                        text = stringResource(R.string.playlist_ai_reorder_loading),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
             }
         }
     }

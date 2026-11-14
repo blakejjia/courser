@@ -126,6 +126,11 @@
     <string name="playlist_cd_remove_songs">移除歌曲</string>
     <string name="playlist_action_reorder_songs">重新排序</string>
     <string name="playlist_cd_reorder_songs">重新排序歌曲</string>
+    <string name="playlist_action_ai_reorder">AI 智能排序</string>
+    <string name="playlist_ai_reorder_loading">AI 正在分析并排序曲目…</string>
+    <string name="playlist_ai_reorder_success">AI 排序已完成并应用</string>
+    <string name="playlist_ai_reorder_error_no_key">请先在设置中配置 AI API Key</string>
+    <string name="playlist_ai_reorder_error_failed">AI 排序失败：%1$s</string>
 
     <!-- EditTransitionScreen -->
     <string name="transition_title_global">全局过渡效果</string>

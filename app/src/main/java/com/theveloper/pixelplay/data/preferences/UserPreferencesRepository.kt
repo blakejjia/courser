@@ -101,6 +101,7 @@ class UserPreferencesRepository @Inject constructor(
         val FAVORITE_SONG_IDS = stringSetPreferencesKey("favorite_song_ids")
         val USER_PLAYLISTS = stringPreferencesKey("user_playlists_json_v1")
         val PLAYLIST_SONG_ORDER_MODES = stringPreferencesKey("playlist_song_order_modes")
+        val FOLDER_PLAYLIST_SONG_ORDERS = stringPreferencesKey("folder_playlist_song_orders")
         val CUSTOM_PLAYLIST_ORDER = stringPreferencesKey("custom_playlist_order_ids")
 
         // Sort options
@@ -576,6 +577,15 @@ class UserPreferencesRepository @Inject constructor(
 
     suspend fun clearPlaylistSongOrderMode(playlistId: String) {
         editJsonMap<String>(PreferencesKeys.PLAYLIST_SONG_ORDER_MODES) { remove(playlistId) }
+    }
+
+    val folderPlaylistSongOrdersFlow: Flow<Map<String, List<String>>> =
+        pref { preferences ->
+            decodeJsonPref(preferences, PreferencesKeys.FOLDER_PLAYLIST_SONG_ORDERS, emptyMap())
+        }
+
+    suspend fun setFolderPlaylistSongOrder(folderPlaylistId: String, songIds: List<String>) {
+        editJsonMap<List<String>>(PreferencesKeys.FOLDER_PLAYLIST_SONG_ORDERS) { put(folderPlaylistId, songIds) }
     }
 
     // Legacy DataStore playlist payload kept only for one-time migration and old backup compatibility.

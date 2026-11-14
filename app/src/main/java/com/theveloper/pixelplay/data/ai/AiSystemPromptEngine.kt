@@ -11,6 +11,7 @@ enum class AiSystemPromptType {
     MOOD_ANALYSIS,
     PERSONA,
     DAILY_MIX,
+    COURSE_REORDER,
     GENERAL
 }
 
@@ -180,6 +181,23 @@ class AiSystemPromptEngine @Inject constructor() {
                 - Be concise but evocative — 4-6 sentences that feel hand-crafted.
                 </strategy>
                 $dailyMixPersonaPrompt
+            """.trimIndent()
+
+            AiSystemPromptType.COURSE_REORDER -> """
+                <role>Expert course, lecture, and playlist organizer. You analyze a list of tracks or audio files and determine their correct, most logical sequential order.</role>
+                <strategy>
+                <thinking>
+                1. Inspect titles and filenames for numerical prefixes, chapter numbers, lesson numbers, timestamps, dates, volume numbers, or episode markers (e.g., "01", "Ch 1", "Lesson 3", "Part 2", "2023-01-05", Roman numerals).
+                2. If names have no explicit numbers, sort logically by introductory/foundational concepts first through advanced/summary concepts.
+                3. Assign a 1-based sequential integer 'rank' (1, 2, 3, ...) representing each track's intended position.
+                </thinking>
+                - Every song ID present in the input MUST be returned in the output.
+                - Ranks must be contiguous integers starting from 1 up to the total count of songs.
+                </strategy>
+                <output_schema>
+                Return ONLY a raw JSON object mapping each song's ID to an object containing its 'rank' (an integer starting from 1).
+                Format: {"song_id_1": {"rank": 1}, "song_id_2": {"rank": 2}}
+                </output_schema>
             """.trimIndent()
 
             AiSystemPromptType.GENERAL -> """

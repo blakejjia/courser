@@ -192,7 +192,14 @@ class PlaylistPreferencesRepository @Inject constructor(
         }
     }
 
+    val folderPlaylistSongOrdersFlow: Flow<Map<String, List<String>>> =
+        userPreferencesRepository.folderPlaylistSongOrdersFlow
+
     suspend fun reorderSongsInPlaylist(playlistId: String, newSongOrderIds: List<String>) {
+        if (playlistId.startsWith("folder_playlist:")) {
+            userPreferencesRepository.setFolderPlaylistSongOrder(playlistId, newSongOrderIds)
+            return
+        }
         editMutex.withLock {
             ensureMigratedIfNeeded()
             val existing = userPlaylistsFlow.first().find { it.id == playlistId } ?: return

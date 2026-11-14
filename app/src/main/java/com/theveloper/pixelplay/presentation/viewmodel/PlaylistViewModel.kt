@@ -35,8 +35,11 @@ import android.provider.MediaStore
 import com.theveloper.pixelplay.data.database.CourseProgressEntity
 import com.theveloper.pixelplay.data.preferences.TelegramTopicDisplayMode
 import com.theveloper.pixelplay.data.preferences.UserPreferencesRepository
+import com.theveloper.pixelplay.data.preferences.AiPreferencesRepository
 import com.theveloper.pixelplay.data.repository.CourseProgressRepository
 import com.theveloper.pixelplay.data.ai.AiPlaylistGenerator
+import com.theveloper.pixelplay.data.ai.AiPlaylistReorderService
+import com.theveloper.pixelplay.data.ai.provider.AiProvider
 import com.theveloper.pixelplay.R
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
@@ -65,7 +68,11 @@ data class PlaylistUiState(
 
     // AI Generation State
     val isAiGenerating: Boolean = false,
-    val aiGenerationError: String? = null
+    val aiGenerationError: String? = null,
+
+    // AI Reorder State
+    val isAiReordering: Boolean = false,
+    val aiReorderMessage: String? = null
 )
 
 sealed class PlaylistSongsOrderMode {
@@ -81,6 +88,8 @@ class PlaylistViewModel @Inject constructor(
     private val musicRepository: MusicRepository,
     private val dailyMixManager: DailyMixManager,
     private val aiPlaylistGenerator: AiPlaylistGenerator,
+    private val aiPlaylistReorderService: AiPlaylistReorderService,
+    private val aiPreferencesRepository: AiPreferencesRepository,
     private val m3uManager: M3uManager,
     @ApplicationContext private val context: Context
 ) : ViewModel() {
@@ -282,10 +291,27 @@ class PlaylistViewModel @Inject constructor(
                         val courseId = CourseProgressEntity.localFolderCourseId(folderPath)
                         val progress = courseProgressRepository.getProgress(courseId)
                         val songsList = courseProgressRepository.enrichSongsWithProgress(rawSongsList)
+
+                        val savedFolderOrders = playlistPreferencesRepository.folderPlaylistSongOrdersFlow.first()
+                        val savedFolderOrder = savedFolderOrders[playlistId]
+                        val orderMode = _uiState.value.playlistOrderModes[playlistId]
+                            ?: if (savedFolderOrder != null) PlaylistSongsOrderMode.Manual
+                               else PlaylistSongsOrderMode.Sorted(_uiState.value.currentPlaylistSongsSortOption)
+
+                        val orderedFolderSongs = if (savedFolderOrder != null && orderMode == PlaylistSongsOrderMode.Manual) {
+                            val songMap = songsList.associateBy { it.id }
+                            savedFolderOrder.mapNotNull { songMap[it] } + songsList.filterNot { it.id in savedFolderOrder }
+                        } else {
+                            when (orderMode) {
+                                is PlaylistSongsOrderMode.Sorted -> applySortToSongs(songsList, orderMode.option)
+                                PlaylistSongsOrderMode.Manual -> songsList
+                            }
+                        }
+
                         val pseudoPlaylist = Playlist(
                             id = playlistId,
                             name = folder.name,
-                            songIds = songsList.map { it.id },
+                            songIds = orderedFolderSongs.map { it.id },
                             lastPlayedAt = progress?.lastPlayedAt?.takeIf { it > 0L },
                             completionPercentage = progress?.completionRatio ?: 0f,
                             lastPlayedSongId = progress?.currentSongId,
@@ -295,8 +321,9 @@ class PlaylistViewModel @Inject constructor(
                         _uiState.update {
                             it.copy(
                                 currentPlaylistDetails = pseudoPlaylist,
-                                currentPlaylistSongs = applySortToSongs(songsList, it.currentPlaylistSongsSortOption),
-                                playlistSongsOrderMode = PlaylistSongsOrderMode.Sorted(it.currentPlaylistSongsSortOption),
+                                currentPlaylistSongs = orderedFolderSongs,
+                                playlistSongsOrderMode = orderMode,
+                                playlistOrderModes = it.playlistOrderModes + (playlistId to orderMode),
                                 isLoading = false,
                                 playlistNotFound = false
                             )
@@ -786,7 +813,6 @@ class PlaylistViewModel @Inject constructor(
     }
 
     fun reorderSongsInPlaylist(playlistId: String, fromIndex: Int, toIndex: Int) {
-        if (isFolderPlaylistId(playlistId)) return
         viewModelScope.launch {
             val currentSongs = _uiState.value.currentPlaylistSongs.toMutableList()
             if (fromIndex in currentSongs.indices && toIndex in currentSongs.indices) {
@@ -808,6 +834,61 @@ class PlaylistViewModel @Inject constructor(
                 }
             }
         }
+    }
+
+    fun reorderPlaylistWithAi(playlistId: String) {
+        viewModelScope.launch {
+            val songs = _uiState.value.currentPlaylistSongs
+            if (songs.size <= 1) return@launch
+
+            val providerStr = aiPreferencesRepository.aiProvider.first()
+            val provider = AiProvider.fromString(providerStr)
+            val apiKey = aiPreferencesRepository.getApiKey(provider).first()
+
+            if (apiKey.isBlank() && provider.requiresApiKey) {
+                _uiState.update {
+                    it.copy(aiReorderMessage = context.getString(R.string.playlist_ai_reorder_error_no_key))
+                }
+                return@launch
+            }
+
+            _uiState.update { it.copy(isAiReordering = true, aiReorderMessage = null) }
+
+            val result = aiPlaylistReorderService.reorderSongs(songs)
+            result.onSuccess { newSongOrderIds ->
+                playlistPreferencesRepository.reorderSongsInPlaylist(playlistId, newSongOrderIds)
+                playlistPreferencesRepository.setPlaylistSongOrderMode(playlistId, MANUAL_ORDER_MODE)
+
+                val songMap = songs.associateBy { it.id }
+                val reorderedSongs = newSongOrderIds.mapNotNull { songMap[it] }
+
+                _uiState.update {
+                    val updatedModes = it.playlistOrderModes + (playlistId to PlaylistSongsOrderMode.Manual)
+                    it.copy(
+                        currentPlaylistSongs = reorderedSongs,
+                        playlistSongsOrderMode = PlaylistSongsOrderMode.Manual,
+                        playlistOrderModes = updatedModes,
+                        isAiReordering = false,
+                        aiReorderMessage = context.getString(R.string.playlist_ai_reorder_success)
+                    )
+                }
+            }.onFailure { error ->
+                val errorMsg = context.getString(
+                    R.string.playlist_ai_reorder_error_failed,
+                    error.localizedMessage ?: error.message ?: "Unknown error"
+                )
+                _uiState.update {
+                    it.copy(
+                        isAiReordering = false,
+                        aiReorderMessage = errorMsg
+                    )
+                }
+            }
+        }
+    }
+
+    fun clearAiReorderMessage() {
+        _uiState.update { it.copy(aiReorderMessage = null) }
     }
 
     fun reorderPlaylists(fromIndex: Int, toIndex: Int) {
