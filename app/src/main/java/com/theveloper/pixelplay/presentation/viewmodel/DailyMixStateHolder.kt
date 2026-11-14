@@ -1,8 +1,8 @@
 package com.theveloper.pixelplay.presentation.viewmodel
 
-import com.theveloper.pixelplay.data.DailyMixManager
 import com.theveloper.pixelplay.data.model.Song
 import com.theveloper.pixelplay.data.preferences.UserPreferencesRepository
+import com.theveloper.pixelplay.data.repository.DailyLearningQueueBuilder
 import com.theveloper.pixelplay.data.repository.MusicRepository
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
@@ -24,17 +24,11 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Manages Daily Mix and Your Mix state.
- * Extracted from PlayerViewModel to improve modularity.
- *
- * Responsibilities:
- * - Generate and update daily/your mixes
- * - Persist and restore mix state
- * - Check if mix needs updating based on day change
+ * Manages Keep Listening and Learning Queue state.
  */
 @Singleton
 class DailyMixStateHolder @Inject constructor(
-    private val dailyMixManager: DailyMixManager,
+    private val dailyLearningQueueBuilder: DailyLearningQueueBuilder,
     private val userPreferencesRepository: UserPreferencesRepository,
     private val musicRepository: MusicRepository
 ) {
@@ -64,48 +58,52 @@ class DailyMixStateHolder @Inject constructor(
     }
 
     /**
-     * Update the daily mix with new songs.
-     * Uses getAllSongsOnce() to load songs on-demand instead of keeping a permanent subscription.
+     * Update the daily mix with new songs from DailyLearningQueueBuilder.
      */
-    fun updateDailyMix(favoriteSongIdsFlow: kotlinx.coroutines.flow.Flow<Set<String>>) {
+    fun updateDailyMix(favoriteSongIdsFlow: kotlinx.coroutines.flow.Flow<Set<String>>? = null) {
         updateJob?.cancel()
         updateJob = scope?.launch(Dispatchers.IO) {
-            val allSongs = musicRepository.getAllSongsOnce()
-            if (allSongs.isNotEmpty()) {
-                val favoriteIds = favoriteSongIdsFlow.first()
-
-                // Generate daily mix
-                val mix = dailyMixManager.generateDailyMix(allSongs, favoriteIds)
-                _dailyMixSongs.value = mix.toImmutableList()
+            val session = dailyLearningQueueBuilder.buildLearningQueue()
+            if (session != null && session.songs.isNotEmpty()) {
+                val mix = session.songs.toImmutableList()
+                _dailyMixSongs.value = mix
+                _yourMixSongs.value = mix
                 userPreferencesRepository.saveDailyMixSongIds(mix.map { it.id })
-
-                // Generate your mix
-                val yourMix = dailyMixManager.generateYourMix(allSongs, favoriteIds)
-                _yourMixSongs.value = yourMix.toImmutableList()
-                userPreferencesRepository.saveYourMixSongIds(yourMix.map { it.id })
             } else {
-                _yourMixSongs.value = persistentListOf()
+                val allSongs = musicRepository.getAllSongsOnce()
+                if (allSongs.isNotEmpty()) {
+                    val mix = allSongs.take(20).toImmutableList()
+                    _dailyMixSongs.value = mix
+                    _yourMixSongs.value = mix
+                    userPreferencesRepository.saveDailyMixSongIds(mix.map { it.id })
+                } else {
+                    _yourMixSongs.value = persistentListOf()
+                }
             }
         }
     }
 
     /**
-     * Load persisted daily mix from storage using direct DB queries by IDs
-     * instead of combining with the full allSongs flow.
+     * Load persisted daily mix from storage or build from queue.
      */
     fun loadPersistedDailyMix() {
-        // Load Daily Mix
         scope?.launch {
-            val dailyMixIds = userPreferencesRepository.dailyMixSongIdsFlow.first()
-            if (dailyMixIds.isNotEmpty() && _dailyMixSongs.value.isEmpty()) {
-                val songs = withContext(Dispatchers.IO) {
-                    musicRepository.getSongsByIds(dailyMixIds).first()
-                }
-                if (songs.isNotEmpty()) {
-                    // Maintain persisted order
-                    val songMap = songs.associateBy { it.id }
-                    val orderedSongs = dailyMixIds.mapNotNull { songMap[it] }
-                    _dailyMixSongs.value = orderedSongs.toImmutableList()
+            val session = dailyLearningQueueBuilder.buildLearningQueue()
+            if (session != null && session.songs.isNotEmpty()) {
+                val mix = session.songs.toImmutableList()
+                _dailyMixSongs.value = mix
+                _yourMixSongs.value = mix
+            } else {
+                val dailyMixIds = userPreferencesRepository.dailyMixSongIdsFlow.first()
+                if (dailyMixIds.isNotEmpty() && _dailyMixSongs.value.isEmpty()) {
+                    val songs = withContext(Dispatchers.IO) {
+                        musicRepository.getSongsByIds(dailyMixIds).first()
+                    }
+                    if (songs.isNotEmpty()) {
+                        val songMap = songs.associateBy { it.id }
+                        val orderedSongs = dailyMixIds.mapNotNull { songMap[it] }
+                        _dailyMixSongs.value = orderedSongs.toImmutableList()
+                    }
                 }
             }
         }
@@ -172,7 +170,7 @@ class DailyMixStateHolder @Inject constructor(
         favoriteIds: Set<String>,
         maxSize: Int = 100
     ): List<Song> {
-        return dailyMixManager.generateDailyMix(allSongs, favoriteIds, maxSize)
+        return allSongs.take(maxSize)
     }
 
     fun onCleared() {

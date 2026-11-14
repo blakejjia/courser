@@ -86,6 +86,9 @@ import com.theveloper.pixelplay.utils.formatSongCount
 import com.theveloper.pixelplay.ui.theme.GoogleSansRounded
 import com.theveloper.pixelplay.ui.theme.LocalShowScrollbar
 import androidx.compose.ui.text.style.TextAlign
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import com.theveloper.pixelplay.data.database.CourseProgressEntity
+import com.theveloper.pixelplay.presentation.viewmodel.PlaylistViewModel
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.distinctUntilChanged
 
@@ -249,6 +252,8 @@ fun PlaylistItems(
     onPlaylistLongPress: (Playlist) -> Unit = {},
     onPlaylistSelectionToggle: (Playlist) -> Unit = {}
 ) {
+    val playlistViewModel: PlaylistViewModel = hiltViewModel()
+    val playlistUiState by playlistViewModel.uiState.collectAsStateWithLifecycle()
     val hasCurrentSong by remember(playerViewModel) {
         playerViewModel.stablePlayerState
             .map { it.currentSong != null && it.currentSong != Song.emptySong() }
@@ -320,17 +325,24 @@ fun PlaylistItems(
                         -1
                     }
                 }
+                val progress = playlistUiState.courseProgressMap[playlist.id]
+                    ?: playlistUiState.courseProgressMap[playlist.name]
+                val isPinned = playlistUiState.pinnedCourseId == playlist.id
+
                 PlaylistItem(
                     playlist = playlist,
                     playerViewModel = playerViewModel,
                     onClick = { rememberedOnClick() },
+                    onPlayClick = { playlistViewModel.playPlaylist(playlist.id, playerViewModel) },
                     isAddingToPlaylist = isAddingToPlaylist,
                     selectedPlaylists = selectedPlaylists,
                     isSelectionMode = isSelectionMode,
                     isSelected = selectedPlaylistIds.contains(playlist.id),
                     selectionIndex = selectionIndex,
                     onLongPress = { onPlaylistLongPress(playlist) },
-                    onPlaylistSelectionToggle = { onPlaylistSelectionToggle(playlist) }
+                    onPlaylistSelectionToggle = { onPlaylistSelectionToggle(playlist) },
+                    progress = progress,
+                    isPinned = isPinned
                 )
             }
         }
@@ -356,201 +368,40 @@ fun PlaylistItem(
     playlist: Playlist,
     playerViewModel: PlayerViewModel,
     onClick: () -> Unit,
-    isAddingToPlaylist: Boolean,
+    modifier: Modifier = Modifier,
+    onPlayClick: (() -> Unit)? = null,
+    isAddingToPlaylist: Boolean = false,
     selectedPlaylists: SnapshotStateMap<String, Boolean>? = null,
     isSelectionMode: Boolean = false,
     isSelected: Boolean = false,
     selectionIndex: Int = -1,
     onLongPress: () -> Unit = {},
-    onPlaylistSelectionToggle: () -> Unit = {}
+    onPlaylistSelectionToggle: () -> Unit = {},
+    progress: CourseProgressEntity? = null,
+    isPinned: Boolean = false
 ) {
-    val playlistPreviewSongIds = remember(playlist.songIds) {
-        playlist.songIds.take(4)
+    val stablePlayerState by playerViewModel.stablePlayerState.collectAsStateWithLifecycle()
+    val isPlayingThis = stablePlayerState.isPlaying && stablePlayerState.currentSong?.id in playlist.songIds
+    val playingSectionNumber = remember(stablePlayerState.currentSong?.id, playlist.songIds) {
+        val idx = playlist.songIds.indexOf(stablePlayerState.currentSong?.id)
+        if (idx >= 0) idx + 1 else null
     }
-    val playlistSongsInitialValue = remember(playlistPreviewSongIds) {
-        if (playlistPreviewSongIds.isEmpty()) emptyList<Song>() else null
-    }
-    val playlistSongs by remember(playlistPreviewSongIds, playerViewModel) {
-        playerViewModel.observeSongs(playlistPreviewSongIds)
-            .map<List<Song>, List<Song>?> { it }
-    }.collectAsStateWithLifecycle(initialValue = playlistSongsInitialValue)
 
-    val selectionScale by animateFloatAsState(
-        targetValue = if (isSelected) 0.98f else 1f,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessLow
-        ),
-        label = "playlistSelectionScaleAnimation"
+    CourseTile(
+        playlist = playlist,
+        progress = progress,
+        isPlaying = isPlayingThis,
+        playingSectionNumber = playingSectionNumber,
+        isPinned = isPinned,
+        onClick = onClick,
+        onPlayClick = onPlayClick,
+        onLongClick = onLongPress,
+        isSelected = isSelected,
+        isSelectionMode = isSelectionMode,
+        selectionIndex = selectionIndex,
+        onSelectionToggle = onPlaylistSelectionToggle,
+        modifier = modifier
     )
-
-    val selectionBorderWidth by animateDpAsState(
-        targetValue = if (isSelected) 2.5.dp else 0.dp,
-        animationSpec = tween(durationMillis = 250),
-        label = "playlistSelectionBorderAnimation"
-    )
-
-    val containerColor by animateColorAsState(
-        targetValue = when {
-            isAddingToPlaylist -> MaterialTheme.colorScheme.surfaceContainerHigh
-            isSelected -> MaterialTheme.colorScheme.secondaryContainer
-            else -> MaterialTheme.colorScheme.surfaceContainerLow
-        },
-        animationSpec = tween(durationMillis = 300),
-        label = "playlistContainerColorAnimation"
-    )
-
-    val selectionBorderColor by animateColorAsState(
-        targetValue = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.primary.copy(alpha = 0f),
-        animationSpec = tween(durationMillis = 250),
-        label = "playlistBorderColorAnimation"
-    )
-
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .scale(selectionScale)
-            .then(
-                if (isSelected && !isAddingToPlaylist) {
-                    Modifier.border(
-                        width = selectionBorderWidth,
-                        color = selectionBorderColor,
-                        shape = RoundedCornerShape(12.dp)
-                    )
-                } else {
-                    Modifier
-                }
-            )
-            .combinedClickable(
-                onClick = {
-                    if (isSelectionMode) {
-                        onPlaylistSelectionToggle()
-                    } else {
-                        onClick()
-                    }
-                },
-                onLongClick = {
-                    onLongPress()
-                }
-            ),
-        colors = CardDefaults.cardColors(containerColor = containerColor)
-    ) {
-        Row(
-            modifier = Modifier.padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            PlaylistCover(
-                playlist = playlist,
-                playlistSongs = playlistSongs ?: emptyList(),
-                size = 48.dp
-            )
-
-            Spacer(modifier = Modifier.width(16.dp))
-
-            Column(modifier = Modifier.weight(1f)) {
-                Row(
-                    modifier = Modifier.padding(end = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = playlist.name,
-                        style = MaterialTheme.typography.titleMedium.copy(fontFamily = GoogleSansRounded),
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f, fill = false)
-                    )
-                    if (playlist.isAiGenerated) {
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Icon(
-                            painter = painterResource(R.drawable.gemini_ai),
-                            contentDescription = "AI Generated",
-                            tint = MaterialTheme.colorScheme.tertiary,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-                    if (playlist.source == "TELEGRAM" || playlist.source == "TELEGRAM_TOPIC") {
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Icon(
-                            painter = painterResource(R.drawable.telegram),
-                            contentDescription = "Telegram",
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-                    if (playlist.source == "TELEGRAM_TOPIC") {
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Icon(
-                            imageVector = Icons.Rounded.Topic,
-                            contentDescription = "Topic",
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(16.dp)
-                        )
-                    }
-                    if (playlist.source == "NAVIDROME") {
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Icon(
-                            painter = painterResource(R.drawable.ic_navidrome),
-                            contentDescription = "Navidrome",
-                            tint = Color.Unspecified,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-                    if (playlist.source == "GDRIVE") {
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Icon(
-                            painter = painterResource(R.drawable.rounded_drive_export_24),
-                            contentDescription = "Google Drive",
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-                }
-                Text(
-                    text = formatSongCount(playlist.songIds.size),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-
-            if (isSelected && isSelectionMode) {
-                Spacer(modifier = Modifier.width(10.dp))
-                Box(
-                    modifier = Modifier
-                        .size(26.dp)
-                        .background(
-                            color = MaterialTheme.colorScheme.primary,
-                            shape = CircleShape
-                        ),
-                    contentAlignment = Alignment.Center
-                ) {
-                    if (selectionIndex >= 0) {
-                        Text(
-                            text = (selectionIndex + 1).toString(),
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onPrimary
-                        )
-                    } else {
-                        Icon(
-                            imageVector = Icons.Rounded.CheckCircle,
-                            contentDescription = stringResource(R.string.common_selected),
-                            tint = MaterialTheme.colorScheme.onPrimary,
-                            modifier = Modifier.size(16.dp)
-                        )
-                    }
-                }
-            }
-
-            if (isAddingToPlaylist && selectedPlaylists != null) {
-                Spacer(modifier = Modifier.width(8.dp))
-                Checkbox(
-                    checked = selectedPlaylists[playlist.id] ?: false,
-                    onCheckedChange = { isChecked -> selectedPlaylists[playlist.id] = isChecked }
-                )
-            }
-        }
-    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)

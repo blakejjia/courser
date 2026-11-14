@@ -50,6 +50,7 @@ import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.DragIndicator
 import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.PushPin
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -301,6 +302,18 @@ fun PlaylistDetailScreen(
                     }
                 },
                 actions = {
+                    val isPinned = uiState.pinnedCourseId == playlistId
+                    IconButton(
+                        onClick = {
+                            playlistViewModel.togglePinPlaylist(playlistId)
+                        }
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.PushPin,
+                            contentDescription = if (isPinned) "Unpin Course" else "Pin Course",
+                            tint = if (isPinned) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                     IconButton(
                         onClick = {
                             playerViewModel.showSortingSheet() 

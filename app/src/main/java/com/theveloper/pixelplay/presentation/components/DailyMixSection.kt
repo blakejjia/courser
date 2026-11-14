@@ -44,6 +44,7 @@ import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontVariation
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -176,11 +177,14 @@ fun DailyMixSection(
 
 @androidx.annotation.OptIn(UnstableApi::class)
 @Composable
-private fun DailyMixCard(
+fun DailyMixCard(
     songs: ImmutableList<Song>,
     onClickOpen: () -> Unit,
     playerViewModel: PlayerViewModel,
-    onMoreOptionsClick: (Song) -> Unit
+    onMoreOptionsClick: (Song) -> Unit,
+    title: String = stringResource(R.string.home_daily_mix_title),
+    subtitle: String = stringResource(R.string.home_daily_mix_subtitle),
+    modifier: Modifier = Modifier
 ) {
     val headerSongs = songs.take(3).toImmutableList()
     val visibleSongs = songs.take(4).toImmutableList()
@@ -198,10 +202,10 @@ private fun DailyMixCard(
         ),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
         elevation = CardDefaults.elevatedCardElevation(0.dp),
-        modifier = Modifier.fillMaxWidth()
+        modifier = modifier.fillMaxWidth()
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
-            DailyMixHeader(thumbnails = headerSongs)
+            DailyMixHeader(thumbnails = headerSongs, title = title, subtitle = subtitle)
             DailyMixSongList(
                 songs = visibleSongs,
                 playbackQueue = songs,
@@ -226,7 +230,11 @@ private fun DailyMixCard(
 }
 
 @Composable
-fun DailyMixHeader(thumbnails: ImmutableList<Song>) {
+fun DailyMixHeader(
+    thumbnails: ImmutableList<Song>,
+    title: String = stringResource(R.string.home_daily_mix_title),
+    subtitle: String = stringResource(R.string.home_daily_mix_subtitle)
+) {
     val titleStyle = rememberDailyMixTitleStyle()
 
     fun shapeConditionalModifier(index: Int): Modifier {
@@ -263,16 +271,20 @@ fun DailyMixHeader(thumbnails: ImmutableList<Song>) {
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = stringResource(R.string.home_daily_mix_title),
+                    text = title,
                     style = titleStyle,
-                    color = MaterialTheme.colorScheme.onPrimary
+                    color = MaterialTheme.colorScheme.onPrimary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
                 Text(
                     modifier = Modifier.padding(start = 1.dp),
-                    text = stringResource(R.string.home_daily_mix_subtitle),
+                    text = subtitle,
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.Normal,
-                    color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f)
+                    color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
             Row(

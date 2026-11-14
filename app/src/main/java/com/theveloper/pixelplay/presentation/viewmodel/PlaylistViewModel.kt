@@ -32,7 +32,10 @@ import android.graphics.Bitmap
 import android.graphics.ImageDecoder
 import android.os.Build
 import android.provider.MediaStore
+import com.theveloper.pixelplay.data.database.CourseProgressEntity
 import com.theveloper.pixelplay.data.preferences.TelegramTopicDisplayMode
+import com.theveloper.pixelplay.data.preferences.UserPreferencesRepository
+import com.theveloper.pixelplay.data.repository.CourseProgressRepository
 import com.theveloper.pixelplay.data.ai.AiPlaylistGenerator
 import com.theveloper.pixelplay.R
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -45,6 +48,8 @@ import javax.inject.Inject
 
 data class PlaylistUiState(
     val playlists: List<Playlist> = emptyList(),
+    val pinnedCourseId: String? = null,
+    val courseProgressMap: Map<String, CourseProgressEntity> = emptyMap(),
     val showTelegramCloudPlaylists: Boolean = true,
     val telegramTopicDisplayMode: TelegramTopicDisplayMode = TelegramTopicDisplayMode.CHANNELS_AND_TOPICS,
     val currentPlaylistSongs: List<Song> = emptyList(),
@@ -71,6 +76,8 @@ sealed class PlaylistSongsOrderMode {
 @HiltViewModel
 class PlaylistViewModel @Inject constructor(
     private val playlistPreferencesRepository: PlaylistPreferencesRepository,
+    private val userPreferencesRepository: UserPreferencesRepository,
+    private val courseProgressRepository: CourseProgressRepository,
     private val musicRepository: MusicRepository,
     private val dailyMixManager: DailyMixManager,
     private val aiPlaylistGenerator: AiPlaylistGenerator,
@@ -112,6 +119,64 @@ class PlaylistViewModel @Inject constructor(
         observeTelegramCloudPlaylistVisibility()
         observeTelegramTopicDisplayMode()
         observePlaylistOrderModes()
+        observePinnedAndProgress()
+    }
+
+    private fun observePinnedAndProgress() {
+        viewModelScope.launch {
+            userPreferencesRepository.pinnedCourseIdFlow.collect { pinnedId ->
+                _uiState.update { current ->
+                    val (pinned, unpinned) = current.playlists.partition { it.id == pinnedId }
+                    current.copy(
+                        pinnedCourseId = pinnedId,
+                        playlists = pinned + unpinned
+                    )
+                }
+            }
+        }
+        viewModelScope.launch {
+            courseProgressRepository.observeAllProgress().collect { progressList ->
+                val progressMap = mutableMapOf<String, CourseProgressEntity>()
+                for (item in progressList) {
+                    progressMap[item.courseId] = item
+                    if (item.courseName.isNotBlank()) {
+                        progressMap[item.courseName] = item
+                    }
+                }
+                _uiState.update { it.copy(courseProgressMap = progressMap) }
+            }
+        }
+    }
+
+    fun togglePinPlaylist(playlistId: String) {
+        viewModelScope.launch {
+            userPreferencesRepository.togglePinCourse(playlistId)
+        }
+    }
+
+    fun playPlaylist(
+        playlistId: String,
+        playerViewModel: PlayerViewModel
+    ) {
+        viewModelScope.launch {
+            val allPlaylists = playlistPreferencesRepository.userPlaylistsFlow.first()
+            val playlist = allPlaylists.find { it.id == playlistId } ?: return@launch
+            val allSongsMap = musicRepository.getAllSongsOnce().associateBy { it.id }
+            val songs = playlist.songIds.mapNotNull { allSongsMap[it] }
+            if (songs.isNotEmpty()) {
+                val progress = courseProgressRepository.getProgress(playlistId)
+                val currentSongId = progress?.currentSongId
+                val startSong = songs.find { it.id == currentSongId } ?: songs.first()
+                val startPos = if (startSong.id == currentSongId) (progress?.currentPositionMs ?: 0L) else 0L
+                playerViewModel.playSongs(
+                    songsToPlay = songs,
+                    startSong = startSong,
+                    queueName = playlist.name,
+                    playlistId = playlist.id,
+                    startPositionMs = startPos
+                )
+            }
+        }
     }
 
     private fun observePlaylistOrderModes() {
@@ -830,7 +895,7 @@ class PlaylistViewModel @Inject constructor(
         playlists: List<com.theveloper.pixelplay.data.model.Playlist>,
         sortOption: SortOption
     ): List<com.theveloper.pixelplay.data.model.Playlist> {
-        return when (sortOption) {
+        val sorted = when (sortOption) {
             SortOption.PlaylistNameAZ -> playlists.sortedWith(
                 compareBy<com.theveloper.pixelplay.data.model.Playlist> { it.name.lowercase() }
                     .thenByDescending { it.lastModified }
@@ -856,6 +921,13 @@ class PlaylistViewModel @Inject constructor(
                     .thenByDescending { it.lastModified }
                     .thenBy { it.id }
             )
+        }
+        val pinnedId = _uiState.value.pinnedCourseId
+        return if (pinnedId != null) {
+            val (pinned, unpinned) = sorted.partition { it.id == pinnedId }
+            pinned + unpinned
+        } else {
+            sorted
         }
     }
 

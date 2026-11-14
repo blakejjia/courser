@@ -249,6 +249,7 @@ class UserPreferencesRepository @Inject constructor(
         val DAILY_GOAL_TARGET_COUNT = intPreferencesKey("daily_goal_target_count")
         val DAILY_GOAL_COURSE_TARGETS_JSON = stringPreferencesKey("daily_goal_course_targets_json")
         val PRIORITY_COURSE_IDS = stringPreferencesKey("priority_course_ids_json")
+        val PINNED_COURSE_ID = stringPreferencesKey("pinned_course_id")
     }
 
     // ─── Private helpers ─────────────────────────────────────────────────────
@@ -824,6 +825,29 @@ suspend fun markDirectoryRulesVersionApplied(version: Int) {
         val limited = courseIds.distinct().take(3)
         dataStore.edit { preferences ->
             preferences[PreferencesKeys.PRIORITY_COURSE_IDS] = Json.encodeToString(limited)
+        }
+    }
+
+    val pinnedCourseIdFlow: Flow<String?> =
+        pref { it[PreferencesKeys.PINNED_COURSE_ID] }
+
+    suspend fun togglePinCourse(courseId: String) {
+        dataStore.edit { preferences ->
+            if (preferences[PreferencesKeys.PINNED_COURSE_ID] == courseId) {
+                preferences.remove(PreferencesKeys.PINNED_COURSE_ID)
+            } else {
+                preferences[PreferencesKeys.PINNED_COURSE_ID] = courseId
+            }
+        }
+    }
+
+    suspend fun setPinnedCourseId(courseId: String?) {
+        dataStore.edit { preferences ->
+            if (courseId == null) {
+                preferences.remove(PreferencesKeys.PINNED_COURSE_ID)
+            } else {
+                preferences[PreferencesKeys.PINNED_COURSE_ID] = courseId
+            }
         }
     }
 

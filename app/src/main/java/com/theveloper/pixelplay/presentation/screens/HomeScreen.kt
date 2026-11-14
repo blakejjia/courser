@@ -44,6 +44,7 @@ import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedCard
@@ -80,6 +81,7 @@ import com.theveloper.pixelplay.presentation.components.BetaInfoBottomSheet
 import com.theveloper.pixelplay.presentation.components.ChangelogBottomSheet
 import com.theveloper.pixelplay.presentation.components.AddCourseSourceBottomSheet
 import com.theveloper.pixelplay.presentation.components.HomeGradientTopBar
+import com.theveloper.pixelplay.presentation.components.CourseTile
 import com.theveloper.pixelplay.presentation.components.CourserLazyColumn
 import com.theveloper.pixelplay.presentation.components.MiniPlayerHeight
 import com.theveloper.pixelplay.presentation.components.PlaylistItem
@@ -95,6 +97,7 @@ import com.theveloper.pixelplay.presentation.viewmodel.PlannedCourse
 import com.theveloper.pixelplay.presentation.viewmodel.PlayerViewModel
 import com.theveloper.pixelplay.presentation.viewmodel.PlaylistViewModel
 import com.theveloper.pixelplay.ui.theme.GoogleSansRounded
+import kotlinx.collections.immutable.toImmutableList
 import racra.compose.smooth_corner_rect_library.AbsoluteSmoothCornerShape
 
 /**
@@ -118,9 +121,19 @@ fun HomeScreen(
     val context = LocalContext.current
     val playlistUiState by playlistViewModel.uiState.collectAsStateWithLifecycle()
     val dailyGoalUiState by dailyGoalViewModel.uiState.collectAsStateWithLifecycle()
+    val stablePlayerState by playerViewModel.stablePlayerState.collectAsStateWithLifecycle()
     val isSyncing by playerViewModel.isCourseSyncing.collectAsStateWithLifecycle()
     val allCourses = playlistUiState.playlists
     val plannedCourses = dailyGoalUiState.plannedCourses
+    val keepSession = dailyGoalUiState.keepListeningSession
+    val pinnedCourseId = playlistUiState.pinnedCourseId
+    val courseProgressMap = playlistUiState.courseProgressMap
+
+    val activeCourse = remember(keepSession, allCourses, pinnedCourseId) {
+        allCourses.find { it.id == keepSession?.sourceCourseId }
+            ?: allCourses.find { it.id == pinnedCourseId }
+            ?: allCourses.firstOrNull()
+    }
 
     val listState = rememberSaveable(saver = androidx.compose.foundation.lazy.LazyListState.Saver) {
         androidx.compose.foundation.lazy.LazyListState()
@@ -170,75 +183,10 @@ fun HomeScreen(
             verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
             // ────────────────────────────────────────────────────────────────
-            // 1. TODAY'S LEARN SECTION
+            // 1. EMPTY STATE (When no courses are enrolled at all)
             // ────────────────────────────────────────────────────────────────
-            item(key = "todays_learn_header") {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 20.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column {
-                        Text(
-                            text = "Today's Learn",
-                            style = MaterialTheme.typography.titleLarge.copy(
-                                fontFamily = GoogleSansRounded,
-                                fontWeight = FontWeight.Bold
-                            ),
-                            color = MaterialTheme.colorScheme.onBackground
-                        )
-                        Text(
-                            text = "${plannedCourses.size} planned ${if (plannedCourses.size == 1) "course" else "courses"}",
-                            style = MaterialTheme.typography.bodySmall,
-                            fontFamily = GoogleSansRounded,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        if (plannedCourses.isNotEmpty()) {
-                            FilledIconButton(
-                                onClick = { dailyGoalViewModel.startLearning(playerViewModel) },
-                                modifier = Modifier.size(36.dp),
-                                shape = MaterialTheme.shapes.small
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Rounded.PlayArrow,
-                                    contentDescription = "Start Today's Learn",
-                                    modifier = Modifier.size(20.dp)
-                                )
-                            }
-                        }
-
-                        FilledTonalButton(
-                            onClick = { navController.navigateSafely(Screen.TodaysLearn.route) },
-                            shape = MaterialTheme.shapes.small,
-                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
-                        ) {
-                            Text(
-                                text = "View All",
-                                style = MaterialTheme.typography.labelMedium,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                            Spacer(Modifier.width(4.dp))
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Rounded.ArrowForward,
-                                contentDescription = "View all today's courses",
-                                modifier = Modifier.size(16.dp)
-                            )
-                        }
-                    }
-                }
-            }
-
-            // Today's Learn Course Carousel
-            if (plannedCourses.isEmpty()) {
-                item(key = "todays_learn_empty") {
+            if (allCourses.isEmpty()) {
+                item(key = "home_empty_enrolled") {
                     OutlinedCard(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -268,102 +216,157 @@ fun HomeScreen(
                             }
 
                             Text(
-                                text = if (allCourses.isEmpty()) "No courses enrolled yet" else "No courses scheduled for today",
+                                text = "Welcome to Courser",
                                 style = MaterialTheme.typography.titleMedium,
                                 fontFamily = GoogleSansRounded,
                                 fontWeight = FontWeight.Bold
                             )
 
                             Text(
-                                text = if (allCourses.isEmpty()) {
-                                    "Select a course folder from Google Drive or local storage. Each folder is automatically organized into a full course."
-                                } else {
-                                    "Customize your daily learning goals to pick which courses to study each day."
-                                },
+                                text = "Select a course folder from Google Drive or local storage. Each folder is automatically organized into a full course.",
                                 style = MaterialTheme.typography.bodyMedium,
                                 fontFamily = GoogleSansRounded,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 textAlign = androidx.compose.ui.text.style.TextAlign.Center
                             )
 
-                            if (allCourses.isEmpty()) {
-                                FilledTonalButton(
-                                    onClick = {
-                                        showAddCourseSourceSheet = true
-                                    },
-                                    shape = MaterialTheme.shapes.small
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Rounded.Add,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(18.dp)
-                                    )
-                                    Spacer(Modifier.width(8.dp))
-                                    Text(
-                                        text = "Add Course Folders",
-                                        fontFamily = GoogleSansRounded,
-                                        fontWeight = FontWeight.SemiBold
-                                    )
-                                }
-                            } else {
-                                Row(
-                                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    FilledTonalButton(
-                                        onClick = {
-                                            dailyGoalViewModel.startLearning(playerViewModel)
-                                        },
-                                        shape = MaterialTheme.shapes.small
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Rounded.PlayArrow,
-                                            contentDescription = null,
-                                            modifier = Modifier.size(18.dp)
-                                        )
-                                        Spacer(Modifier.width(6.dp))
-                                        Text(
-                                            text = "Continue Learning",
-                                            fontFamily = GoogleSansRounded,
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                    }
-
-                                    FilledTonalButton(
-                                        onClick = {
-                                            navController.navigateSafely(Screen.TodaysLearn.route)
-                                        },
-                                        shape = MaterialTheme.shapes.small
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Rounded.Tune,
-                                            contentDescription = null,
-                                            modifier = Modifier.size(18.dp)
-                                        )
-                                        Spacer(Modifier.width(6.dp))
-                                        Text(
-                                            text = "Set Goal",
-                                            fontFamily = GoogleSansRounded,
-                                            fontWeight = FontWeight.SemiBold
-                                        )
-                                    }
-                                }
+                            FilledTonalButton(
+                                onClick = {
+                                    showAddCourseSourceSheet = true
+                                },
+                                shape = MaterialTheme.shapes.small
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.Add,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(Modifier.width(8.dp))
+                                Text(
+                                    text = "Add Course Folders",
+                                    fontFamily = GoogleSansRounded,
+                                    fontWeight = FontWeight.SemiBold
+                                )
                             }
                         }
                     }
                 }
             } else {
-                items(plannedCourses, key = { "today_${it.playlist.id}" }) { planned ->
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 20.dp)
-                    ) {
-                        TodayCourseListItem(
-                            plannedCourse = planned,
+                // ────────────────────────────────────────────────────────────────
+                // 2. KEEP LISTENING SECTION (Unified CourseTile for active course in progress)
+                // ────────────────────────────────────────────────────────────────
+                if (activeCourse != null) {
+                    item(key = "keep_listening_header") {
+                        Text(
+                            text = "Keep Listening",
+                            style = MaterialTheme.typography.titleLarge.copy(
+                                fontFamily = GoogleSansRounded,
+                                fontWeight = FontWeight.Bold
+                            ),
+                            color = MaterialTheme.colorScheme.onBackground,
+                            modifier = Modifier.padding(horizontal = 20.dp)
+                        )
+                    }
+
+                    item(key = "keep_listening_tile") {
+                        val progress = courseProgressMap[activeCourse.id] ?: courseProgressMap[activeCourse.name]
+                        val isPlayingThis = stablePlayerState.isPlaying && stablePlayerState.currentSong?.id in activeCourse.songIds
+                        val playingSection = remember(stablePlayerState.currentSong?.id, activeCourse.songIds) {
+                            val idx = activeCourse.songIds.indexOf(stablePlayerState.currentSong?.id)
+                            if (idx >= 0) idx + 1 else null
+                        }
+
+                        CourseTile(
+                            playlist = activeCourse,
+                            progress = progress,
+                            isPlaying = isPlayingThis,
+                            playingSectionNumber = playingSection,
+                            isPinned = pinnedCourseId == activeCourse.id,
+                            onClick = {
+                                navController.navigateSafely(Screen.PlaylistDetail.createRoute(activeCourse.id))
+                            },
+                            onPlayClick = {
+                                dailyGoalViewModel.startLearning(playerViewModel)
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 20.dp)
+                        )
+                    }
+                }
+
+                // ────────────────────────────────────────────────────────────────
+                // 3. TODAY'S LEARN SECTION (Only when daily goals are scheduled)
+                // ────────────────────────────────────────────────────────────────
+                if (plannedCourses.isNotEmpty()) {
+                    item(key = "todays_learn_header") {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 20.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column {
+                                Text(
+                                    text = "Today's Learn",
+                                    style = MaterialTheme.typography.titleLarge.copy(
+                                        fontFamily = GoogleSansRounded,
+                                        fontWeight = FontWeight.Bold
+                                    ),
+                                    color = MaterialTheme.colorScheme.onBackground
+                                )
+                                Text(
+                                    text = "${plannedCourses.size} planned ${if (plannedCourses.size == 1) "course" else "courses"}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    fontFamily = GoogleSansRounded,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+
+                            FilledTonalButton(
+                                onClick = { navController.navigateSafely(Screen.TodaysLearn.route) },
+                                shape = MaterialTheme.shapes.small,
+                                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
+                            ) {
+                                Text(
+                                    text = "Manage",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                                Spacer(Modifier.width(4.dp))
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Rounded.ArrowForward,
+                                    contentDescription = "Manage today's courses",
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                        }
+                    }
+
+                    items(plannedCourses, key = { "today_${it.playlist.id}" }) { planned ->
+                        val progress = courseProgressMap[planned.playlist.id] ?: courseProgressMap[planned.playlist.name]
+                        val isPlayingThis = stablePlayerState.isPlaying && stablePlayerState.currentSong?.id in planned.playlist.songIds
+                        val playingSection = remember(stablePlayerState.currentSong?.id, planned.playlist.songIds) {
+                            val idx = planned.playlist.songIds.indexOf(stablePlayerState.currentSong?.id)
+                            if (idx >= 0) idx + 1 else null
+                        }
+
+                        CourseTile(
+                            playlist = planned.playlist,
+                            progress = progress,
+                            isPlaying = isPlayingThis,
+                            playingSectionNumber = playingSection,
+                            isPinned = pinnedCourseId == planned.playlist.id,
                             onClick = {
                                 navController.navigateSafely(Screen.PlaylistDetail.createRoute(planned.playlist.id))
-                            }
+                            },
+                            onPlayClick = {
+                                dailyGoalViewModel.playCourse(planned.playlist.id, playerViewModel)
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 20.dp)
                         )
                     }
                 }
@@ -424,88 +427,3 @@ fun HomeScreen(
     }
 }
 
-/**
- * Material 3 compliant course list item for Today's Learn plan.
- */
-@Composable
-private fun TodayCourseListItem(
-    plannedCourse: PlannedCourse,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val course = plannedCourse.playlist
-    val targetCount = plannedCourse.targetCount
-
-    Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
-        )
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 14.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Surface(
-                shape = RoundedCornerShape(10.dp),
-                color = MaterialTheme.colorScheme.primaryContainer,
-                modifier = Modifier.size(46.dp)
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    if (course.source == "GDRIVE") {
-                        Icon(
-                            painter = painterResource(R.drawable.rounded_drive_export_24),
-                            contentDescription = "Google Drive",
-                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                            modifier = Modifier.size(22.dp)
-                        )
-                    } else {
-                        Icon(
-                            imageVector = Icons.Rounded.School,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                            modifier = Modifier.size(24.dp)
-                        )
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.width(14.dp))
-
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = course.name,
-                    style = MaterialTheme.typography.titleMedium.copy(fontFamily = GoogleSansRounded),
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Text(
-                    text = "${course.songIds.size} lessons • $targetCount/day",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-
-            Surface(
-                shape = CircleShape,
-                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
-            ) {
-                Icon(
-                    imageVector = Icons.Rounded.PlayArrow,
-                    contentDescription = "Start course",
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier
-                        .padding(8.dp)
-                        .size(20.dp)
-                )
-            }
-        }
-    }
-}

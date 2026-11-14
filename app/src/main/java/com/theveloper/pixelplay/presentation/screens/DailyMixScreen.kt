@@ -104,8 +104,8 @@ fun DailyMixScreen(
     navController: NavController,
 ) {
     Trace.beginSection("DailyMixScreen.Composition")
-    val dailyMixTitle = stringResource(R.string.daily_mix_title)
-    val playItLabel = stringResource(R.string.daily_mix_action_play_it)
+    val dailyMixTitle = "Keep Listening"
+    val playItLabel = "Start Learning"
     val dailyMixSongs: ImmutableList<Song> by playerViewModel.dailyMixSongs.collectAsStateWithLifecycle()
     val currentSongId by remember { playerViewModel.stablePlayerState.map { it.currentSong?.id }.distinctUntilChanged() }.collectAsStateWithLifecycle(initialValue = null)
     val isPlaying by remember { playerViewModel.stablePlayerState.map { it.isPlaying }.distinctUntilChanged() }.collectAsStateWithLifecycle(initialValue = false)
@@ -389,7 +389,7 @@ private fun ExpressiveDailyMixHeader(
     scrollState: LazyListState,
     onShowMenu: () -> Unit
 ) {
-    val dailyMixHeaderTitle = stringResource(R.string.daily_mix_title)
+    val dailyMixHeaderTitle = "Keep Listening"
     Trace.beginSection("ExpressiveDailyMixHeader.Composition")
     val albumArts = remember(songs) { songs.map { it.albumArtUriString }.distinct().take(3) }
     val totalDuration = remember(songs) { songs.sumOf { it.duration } }
@@ -518,12 +518,7 @@ private fun ExpressiveDailyMixHeader(
                 Spacer(Modifier.height(4.dp))
                 Text(
                     modifier = Modifier.padding(start = 3.dp),
-                    text = pluralStringResource(
-                        R.plurals.daily_mix_songs_dot_duration,
-                        songs.size,
-                        songs.size,
-                        formatDuration(totalDuration)
-                    ),
+                    text = "${songs.size} lessons • ${formatDuration(totalDuration)}",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
                 )

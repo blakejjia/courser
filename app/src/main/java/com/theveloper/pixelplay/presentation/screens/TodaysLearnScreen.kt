@@ -66,6 +66,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.media3.common.util.UnstableApi
 import androidx.navigation.NavController
 import com.theveloper.pixelplay.data.model.Playlist
+import com.theveloper.pixelplay.presentation.components.CourseTile
 import com.theveloper.pixelplay.presentation.components.CourserLazyColumn
 import com.theveloper.pixelplay.presentation.components.MiniPlayerHeight
 import com.theveloper.pixelplay.presentation.navigation.Screen
@@ -73,6 +74,7 @@ import com.theveloper.pixelplay.presentation.navigation.navigateSafely
 import com.theveloper.pixelplay.presentation.viewmodel.DailyGoalViewModel
 import com.theveloper.pixelplay.presentation.viewmodel.PlannedCourse
 import com.theveloper.pixelplay.presentation.viewmodel.PlayerViewModel
+import com.theveloper.pixelplay.presentation.viewmodel.PlaylistViewModel
 
 /**
  * Today's Learn Management Screen.
@@ -85,9 +87,12 @@ fun TodaysLearnScreen(
     navController: NavController,
     playerViewModel: PlayerViewModel,
     dailyGoalViewModel: DailyGoalViewModel = hiltViewModel(),
+    playlistViewModel: PlaylistViewModel = hiltViewModel(),
     onBackClick: () -> Unit = { navController.popBackStack() }
 ) {
     val uiState by dailyGoalViewModel.uiState.collectAsStateWithLifecycle()
+    val playlistUiState by playlistViewModel.uiState.collectAsStateWithLifecycle()
+    val stablePlayerState by playerViewModel.stablePlayerState.collectAsStateWithLifecycle()
     val plannedCourses = uiState.plannedCourses
     val navBarBottomInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
 
@@ -206,52 +211,40 @@ fun TodaysLearnScreen(
                 }
             }
 
-            // ── Plan Content or Empty State ──
+            // ── Plan Content or Quick Add ──
             if (plannedCourses.isEmpty()) {
-                item(key = "empty_goal_state") {
-                    OutlinedCard(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 16.dp),
-                        shape = MaterialTheme.shapes.large
-                    ) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 48.dp, horizontal = 24.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(16.dp)
-                        ) {
-                            Surface(
-                                shape = CircleShape,
-                                color = MaterialTheme.colorScheme.secondaryContainer,
-                                modifier = Modifier.size(64.dp)
-                            ) {
-                                Box(contentAlignment = Alignment.Center) {
-                                    Icon(
-                                        imageVector = Icons.Rounded.School,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.onSecondaryContainer,
-                                        modifier = Modifier.size(32.dp)
-                                    )
-                                }
-                            }
+                if (uiState.allCourses.isNotEmpty()) {
+                    item(key = "available_courses_header") {
+                        Text(
+                            text = "Add Courses to Today's Plan",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp)
+                        )
+                    }
 
-                            Text(
-                                text = "Empty goal, add your first one!",
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface,
-                                textAlign = TextAlign.Center
-                            )
-
-                            Text(
-                                text = "Tap the 'Add' button above to select courses and set your daily learning goal.",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                textAlign = TextAlign.Center
-                            )
+                    items(uiState.allCourses, key = { "avail_${it.id}" }) { course ->
+                        val progress = playlistUiState.courseProgressMap[course.id] ?: playlistUiState.courseProgressMap[course.name]
+                        val isPlayingThis = stablePlayerState.isPlaying && stablePlayerState.currentSong?.id in course.songIds
+                        val playingSection = remember(stablePlayerState.currentSong?.id, course.songIds) {
+                            val idx = course.songIds.indexOf(stablePlayerState.currentSong?.id)
+                            if (idx >= 0) idx + 1 else null
                         }
+
+                        CourseTile(
+                            playlist = course,
+                            progress = progress,
+                            isPlaying = isPlayingThis,
+                            playingSectionNumber = playingSection,
+                            isPinned = playlistUiState.pinnedCourseId == course.id,
+                            onClick = {
+                                courseToEdit = PlannedCourse(playlist = course, targetCount = 1)
+                            },
+                            onPlayClick = {
+                                dailyGoalViewModel.playCourse(course.id, playerViewModel)
+                            }
+                        )
                     }
                 }
             } else {
@@ -285,10 +278,24 @@ fun TodaysLearnScreen(
                 }
 
                 items(plannedCourses, key = { "planned_${it.playlist.id}" }) { planned ->
-                    PlannedCourseSettingCard(
-                        plannedCourse = planned,
-                        onEdit = {
+                    val progress = playlistUiState.courseProgressMap[planned.playlist.id] ?: playlistUiState.courseProgressMap[planned.playlist.name]
+                    val isPlayingThis = stablePlayerState.isPlaying && stablePlayerState.currentSong?.id in planned.playlist.songIds
+                    val playingSection = remember(stablePlayerState.currentSong?.id, planned.playlist.songIds) {
+                        val idx = planned.playlist.songIds.indexOf(stablePlayerState.currentSong?.id)
+                        if (idx >= 0) idx + 1 else null
+                    }
+
+                    CourseTile(
+                        playlist = planned.playlist,
+                        progress = progress,
+                        isPlaying = isPlayingThis,
+                        playingSectionNumber = playingSection,
+                        isPinned = playlistUiState.pinnedCourseId == planned.playlist.id,
+                        onClick = {
                             courseToEdit = planned
+                        },
+                        onPlayClick = {
+                            dailyGoalViewModel.playCourse(planned.playlist.id, playerViewModel)
                         }
                     )
                 }
@@ -310,81 +317,6 @@ fun TodaysLearnScreen(
                 courseToEdit = null
             }
         )
-    }
-}
-
-/**
- * Course Item in Today's Learn settings list.
- * Features a clean, compact course list item layout with an Edit action button.
- */
-@Composable
-fun PlannedCourseSettingCard(
-    plannedCourse: PlannedCourse,
-    onEdit: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val course = plannedCourse.playlist
-
-    Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .clickable(onClick = onEdit),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
-        )
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Surface(
-                shape = RoundedCornerShape(10.dp),
-                color = MaterialTheme.colorScheme.primaryContainer,
-                modifier = Modifier.size(46.dp)
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(
-                        imageVector = Icons.Rounded.AutoStories,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                        modifier = Modifier.size(24.dp)
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.width(14.dp))
-
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = course.name,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Text(
-                    text = "${course.songIds.size} lessons • ${plannedCourse.targetCount} / day",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-
-            IconButton(
-                onClick = onEdit,
-                modifier = Modifier.size(36.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Rounded.Edit,
-                    contentDescription = "Edit goal",
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(18.dp)
-                )
-            }
-        }
     }
 }
 

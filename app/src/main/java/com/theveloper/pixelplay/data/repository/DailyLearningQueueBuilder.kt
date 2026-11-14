@@ -37,7 +37,10 @@ class DailyLearningQueueBuilder @Inject constructor(
         val allSongsMap = musicRepository.getAllSongsOnce().associateBy { it.id }
         val playlistMap = allPlaylists.associateBy { it.id }
         val dailyGoalTargets = userPreferencesRepository.dailyGoalCourseTargetsFlow.first()
-        val priorityCourseIds = userPreferencesRepository.priorityCourseIdsFlow.first()
+        val pinnedCourseId = userPreferencesRepository.pinnedCourseIdFlow.first()
+        val priorityCourseIds = listOfNotNull(pinnedCourseId).ifEmpty {
+            userPreferencesRepository.priorityCourseIdsFlow.first()
+        }
 
         // ────────────────────────────────────────────────────────────────────
         // CASE A: User has NOT set any daily goal targets (or goal list is empty)
