@@ -34609,9 +34609,6 @@ SPLcom/theveloper/pixelplay/presentation/navigation/Screen$About;-><init>()V
 Lcom/theveloper/pixelplay/presentation/navigation/Screen$Accounts;
 SPLcom/theveloper/pixelplay/presentation/navigation/Screen$Accounts;-><clinit>()V
 SPLcom/theveloper/pixelplay/presentation/navigation/Screen$Accounts;-><init>()V
-Lcom/theveloper/pixelplay/presentation/navigation/Screen$AlbumDetail;
-SPLcom/theveloper/pixelplay/presentation/navigation/Screen$AlbumDetail;-><clinit>()V
-SPLcom/theveloper/pixelplay/presentation/navigation/Screen$AlbumDetail;-><init>()V
 Lcom/theveloper/pixelplay/presentation/navigation/Screen$ArtistDetail;
 SPLcom/theveloper/pixelplay/presentation/navigation/Screen$ArtistDetail;-><clinit>()V
 SPLcom/theveloper/pixelplay/presentation/navigation/Screen$ArtistDetail;-><init>()V
@@ -35004,12 +35001,6 @@ SPLcom/theveloper/pixelplay/presentation/viewmodel/AiStateHolder;->isGeneratingM
 Lcom/theveloper/pixelplay/presentation/viewmodel/AiUiSnapshot;
 SPLcom/theveloper/pixelplay/presentation/viewmodel/AiUiSnapshot;-><init>(ZZLjava/lang/String;Ljava/lang/String;Z)V
 SPLcom/theveloper/pixelplay/presentation/viewmodel/AiUiSnapshot;->isGeneratingAiMetadata()Z
-Lcom/theveloper/pixelplay/presentation/viewmodel/AlbumDetailViewModel_HiltModules$KeyModule;
-SPLcom/theveloper/pixelplay/presentation/viewmodel/AlbumDetailViewModel_HiltModules$KeyModule;->provide()Z
-Lcom/theveloper/pixelplay/presentation/viewmodel/AlbumDetailViewModel_HiltModules_BindsModule_Binds_LazyMapKey;
-SPLcom/theveloper/pixelplay/presentation/viewmodel/AlbumDetailViewModel_HiltModules_BindsModule_Binds_LazyMapKey;-><clinit>()V
-Lcom/theveloper/pixelplay/presentation/viewmodel/AlbumDetailViewModel_HiltModules_KeyModule_Provide_LazyMapKey;
-SPLcom/theveloper/pixelplay/presentation/viewmodel/AlbumDetailViewModel_HiltModules_KeyModule_Provide_LazyMapKey;-><clinit>()V
 Lcom/theveloper/pixelplay/presentation/viewmodel/ArtistDetailViewModel_HiltModules$KeyModule;
 SPLcom/theveloper/pixelplay/presentation/viewmodel/ArtistDetailViewModel_HiltModules$KeyModule;->provide()Z
 Lcom/theveloper/pixelplay/presentation/viewmodel/ArtistDetailViewModel_HiltModules_BindsModule_Binds_LazyMapKey;
