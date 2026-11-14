@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -41,6 +42,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -167,25 +170,47 @@ fun CourseTile(
                     .padding(horizontal = 14.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Course Cover / Icon
+                // Course Cover / Icon: Use custom cover if set, otherwise fallback to default music picture
                 Surface(
                     shape = RoundedCornerShape(10.dp),
-                    color = MaterialTheme.colorScheme.primaryContainer,
+                    color = MaterialTheme.colorScheme.surfaceContainerHighest,
                     modifier = Modifier.size(46.dp)
                 ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        if (playlist.source == "GDRIVE") {
+                    if (!playlist.coverImageUri.isNullOrBlank()) {
+                        SmartImage(
+                            model = playlist.coverImageUri,
+                            contentDescription = playlist.name,
+                            modifier = Modifier.fillMaxSize(),
+                            shape = RoundedCornerShape(10.dp),
+                            contentScale = ContentScale.Crop,
+                            placeholderResId = R.drawable.ic_music_placeholder,
+                            errorResId = R.drawable.ic_music_placeholder
+                        )
+                    } else if (playlist.coverColorArgb != null) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(Color(playlist.coverColorArgb)),
+                            contentAlignment = Alignment.Center
+                        ) {
                             Icon(
-                                painter = painterResource(R.drawable.rounded_drive_export_24),
-                                contentDescription = "Google Drive",
-                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                                modifier = Modifier.size(22.dp)
-                            )
-                        } else {
-                            Icon(
-                                imageVector = Icons.Rounded.School,
+                                painter = painterResource(R.drawable.ic_music_placeholder),
                                 contentDescription = null,
                                 tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+                    } else {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(MaterialTheme.colorScheme.surfaceContainerHighest),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                painter = painterResource(R.drawable.ic_music_placeholder),
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.size(24.dp)
                             )
                         }

@@ -1,8 +1,13 @@
 @file:Suppress("DEPRECATION")
 package com.theveloper.pixelplay.data.gdrive
 
+import android.accounts.Account
 import android.content.Context
 import android.content.SharedPreferences
+import com.google.android.gms.auth.api.identity.AuthorizationRequest
+import com.google.android.gms.auth.api.identity.Identity
+import com.google.android.gms.common.api.Scope
+import kotlinx.coroutines.tasks.await
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 import com.theveloper.pixelplay.data.database.AlbumEntity
