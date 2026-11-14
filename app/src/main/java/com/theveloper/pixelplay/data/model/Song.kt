@@ -42,7 +42,27 @@ data class Song(
     val qqMusicMid: String? = null, // QQ Music song MID
     val navidromeId: String? = null, // Navidrome song ID
     val jellyfinId: String? = null, // Jellyfin item ID
+    val lastPlayedAt: Long? = null, // Epoch ms when this song was last played
+    val resumePositionMs: Long = 0L, // Saved playback position in ms
+    val isCompleted: Boolean = false, // Whether the lesson/song was listened to >= 90%
 ) : Parcelable {
+    /**
+     * Playback progress ratio in range [0.0f, 1.0f].
+     * Returns 1.0f if completed, or (resumePositionMs / duration) if duration > 0.
+     */
+    val playbackPercentage: Float
+        get() = when {
+            isCompleted -> 1.0f
+            duration > 0L -> (resumePositionMs.toFloat() / duration).coerceIn(0f, 1f)
+            else -> 0f
+        }
+
+    /**
+     * Integer percentage [0..100] for UI display.
+     */
+    val playbackProgressPercent: Int
+        get() = (playbackPercentage * 100).toInt()
+
     /**
      * Returns the display string for artists.
      * If multiple artists exist (populated during sync), joins them with ", ".
@@ -97,7 +117,10 @@ data class Song(
                 gdriveFileId = null,
                 qqMusicMid = null,
                 navidromeId = null,
-                jellyfinId = null
+                jellyfinId = null,
+                lastPlayedAt = null,
+                resumePositionMs = 0L,
+                isCompleted = false
             )
         }
     }

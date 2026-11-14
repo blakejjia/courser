@@ -46,7 +46,13 @@ data class PlaylistEntity(
     val source: String = "LOCAL",
 )
 
-fun PlaylistEntity.toPlaylist(songIds: List<String>): Playlist {
+fun PlaylistEntity.toPlaylist(
+    songIds: List<String>,
+    lastPlayedAt: Long? = null,
+    completionPercentage: Float = 0f,
+    lastPlayedSongId: String? = null,
+    lastPlayedSongTitle: String? = null
+): Playlist {
     return Playlist(
         id = id,
         name = name,
@@ -64,6 +70,10 @@ fun PlaylistEntity.toPlaylist(songIds: List<String>): Playlist {
         coverShapeDetail3 = coverShapeDetail3,
         coverShapeDetail4 = coverShapeDetail4,
         source = source,
+        lastPlayedAt = lastPlayedAt,
+        completionPercentage = completionPercentage,
+        lastPlayedSongId = lastPlayedSongId,
+        lastPlayedSongTitle = lastPlayedSongTitle
     )
 }
 

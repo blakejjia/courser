@@ -44,6 +44,7 @@ import org.json.JSONObject
 import timber.log.Timber
 import kotlin.math.absoluteValue
 import java.util.ArrayDeque
+import java.util.concurrent.atomic.AtomicInteger
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -63,6 +64,16 @@ class GDriveRepository @Inject constructor(
     )
 
     data class DriveFolder(val id: String, val name: String)
+
+    data class GDriveSyncProgress(
+        val isSyncing: Boolean = false,
+        val current: Int = 0,
+        val total: Int = 0,
+        val currentFolderName: String? = null
+    )
+
+    private val _syncProgressFlow = MutableStateFlow(GDriveSyncProgress())
+    val syncProgressFlow: StateFlow<GDriveSyncProgress> = _syncProgressFlow.asStateFlow()
 
     private companion object {
         const val GDRIVE_SONG_ID_OFFSET = 6_000_000_000_000L
@@ -453,11 +464,17 @@ class GDriveRepository @Inject constructor(
 
     // --- Sync ---
 
-    suspend fun syncFolderSongs(folderId: String): Result<Int> {
+    suspend fun syncFolderSongs(folderId: String, resetOnComplete: Boolean = true): Result<Int> {
         return withContext(Dispatchers.IO) {
+            val currentFolder = dao.getAllFoldersList().find { it.id == folderId }
+            val rootFolderName = currentFolder?.name ?: "Drive Folder"
             try {
-                val currentFolder = dao.getAllFoldersList().find { it.id == folderId }
-                val rootFolderName = currentFolder?.name ?: "Drive Folder"
+                _syncProgressFlow.value = GDriveSyncProgress(
+                    isSyncing = true,
+                    current = 0,
+                    total = 0,
+                    currentFolderName = rootFolderName
+                )
 
                 // Breadth-first search for audio files across this folder and all nested subfolders
                 data class FolderWalkItem(val id: String, val pathPrefix: String)
@@ -521,6 +538,14 @@ class GDriveRepository @Inject constructor(
                     .sortedWith { a, b -> naturalCompare(a.first, b.first) }
                     .map { it.second }
 
+                val total = allEntities.size
+                _syncProgressFlow.value = GDriveSyncProgress(
+                    isSyncing = true,
+                    current = 0,
+                    total = total,
+                    currentFolderName = rootFolderName
+                )
+
                 // Differential sync reconciliation:
                 // 1. Fetch existing songs for this folder
                 val existingSongs = dao.getSongsByFolderList(folderId).associateBy { it.driveFileId }
@@ -535,6 +560,7 @@ class GDriveRepository @Inject constructor(
 
                 // 3. Reconcile metadata: preserve enriched fields and probe duration once during import for new tracks
                 val probeSemaphore = Semaphore(4)
+                val completedCount = AtomicInteger(0)
                 val reconciledEntities = coroutineScope {
                     allEntities.map { remote ->
                         async(Dispatchers.IO) {
@@ -547,6 +573,14 @@ class GDriveRepository @Inject constructor(
                                     probeRemoteDuration(remote.driveFileId)
                                 }
                             }
+
+                            val currentDone = completedCount.incrementAndGet()
+                            _syncProgressFlow.value = GDriveSyncProgress(
+                                isSyncing = true,
+                                current = currentDone,
+                                total = total,
+                                currentFolderName = rootFolderName
+                            )
 
                             if (existing != null) {
                                 remote.copy(
@@ -583,6 +617,10 @@ class GDriveRepository @Inject constructor(
             } catch (e: Exception) {
                 Timber.e(e, "Failed to sync folder $folderId")
                 Result.failure(e)
+            } finally {
+                if (resetOnComplete) {
+                    _syncProgressFlow.value = GDriveSyncProgress(isSyncing = false)
+                }
             }
         }
     }
@@ -597,15 +635,19 @@ class GDriveRepository @Inject constructor(
             var totalSongs = 0
             var failedCount = 0
 
-            folders.forEach { folder ->
-                val result = syncFolderSongs(folder.id)
-                result.fold(
-                    onSuccess = { count -> totalSongs += count },
-                    onFailure = { failedCount++ }
-                )
+            try {
+                _syncProgressFlow.value = GDriveSyncProgress(isSyncing = true, current = 0, total = 0)
+                folders.forEach { folder ->
+                    val result = syncFolderSongs(folder.id, resetOnComplete = false)
+                    result.fold(
+                        onSuccess = { count -> totalSongs += count },
+                        onFailure = { failedCount++ }
+                    )
+                }
+                Result.success(BulkSyncResult(folders.size, totalSongs, failedCount))
+            } finally {
+                _syncProgressFlow.value = GDriveSyncProgress(isSyncing = false)
             }
-
-            Result.success(BulkSyncResult(folders.size, totalSongs, failedCount))
         }
     }
 

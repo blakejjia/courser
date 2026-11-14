@@ -26,6 +26,7 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
@@ -33,6 +34,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import timber.log.Timber
 import java.io.File
+import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.math.absoluteValue
@@ -50,6 +52,23 @@ data class DriveFolderEntry(
     val isChecked: Boolean
 )
 
+data class CourseSyncProgress(
+    val isSyncing: Boolean = false,
+    val current: Int = 0,
+    val total: Int = 0,
+    val message: String? = null
+) {
+    val progressFraction: Float?
+        get() = if (total > 0) (current.toFloat() / total.toFloat()).coerceIn(0f, 1f) else null
+
+    val displayText: String
+        get() = when {
+            total > 0 -> "Syncing ($current/$total)..."
+            !message.isNullOrBlank() -> message
+            else -> "Syncing course folders..."
+        }
+}
+
 @Singleton
 class CourseFolderManager @Inject constructor(
     @ApplicationContext private val context: Context,
@@ -60,6 +79,32 @@ class CourseFolderManager @Inject constructor(
     private val gdriveDao: GDriveDao,
     private val userPreferencesRepository: UserPreferencesRepository
 ) {
+    private val _syncProgress = MutableStateFlow(CourseSyncProgress())
+    val syncProgress: StateFlow<CourseSyncProgress> = _syncProgress.asStateFlow()
+
+    private val _isSyncing = MutableStateFlow(false)
+    val isSyncing: StateFlow<Boolean> = _isSyncing.asStateFlow()
+
+    private val isLocalSyncing = AtomicBoolean(false)
+
+    init {
+        appScope.launch(Dispatchers.IO) {
+            gdriveRepository.syncProgressFlow.collect { gdriveProgress ->
+                if (gdriveProgress.isSyncing) {
+                    _syncProgress.value = CourseSyncProgress(
+                        isSyncing = true,
+                        current = gdriveProgress.current,
+                        total = gdriveProgress.total,
+                        message = if (gdriveProgress.total > 0) null else "Syncing ${gdriveProgress.currentFolderName ?: "Google Drive"}..."
+                    )
+                    _isSyncing.value = true
+                } else if (!isLocalSyncing.get()) {
+                    _syncProgress.value = CourseSyncProgress(isSyncing = false)
+                    _isSyncing.value = false
+                }
+            }
+        }
+    }
     companion object {
         const val LOCAL_COURSE_PREFIX = "local_course_"
         val SUPPORTED_AUDIO_EXTENSIONS = setOf(
@@ -268,7 +313,14 @@ class CourseFolderManager @Inject constructor(
                 )
             )
 
+            val total = sortedFiles.size
             for ((index, file) in sortedFiles.withIndex()) {
+                _syncProgress.value = CourseSyncProgress(
+                    isSyncing = true,
+                    current = index + 1,
+                    total = total,
+                    message = "Syncing ${folder.name}..."
+                )
                 val song = createOrResolveSongEntity(
                     file = file,
                     courseAlbumId = courseAlbumId,
@@ -416,9 +468,6 @@ class CourseFolderManager @Inject constructor(
 
     // --- Batch Apply ---
 
-    private val _isSyncing = MutableStateFlow(false)
-    val isSyncing = _isSyncing.asStateFlow()
-
     fun applyBatchChangesInBackground(
         addedLocalFolders: List<File>,
         removedLocalPaths: List<String>,
@@ -427,7 +476,14 @@ class CourseFolderManager @Inject constructor(
     ) {
         appScope.launch(Dispatchers.IO) {
             try {
+                isLocalSyncing.set(true)
                 _isSyncing.value = true
+                _syncProgress.value = CourseSyncProgress(
+                    isSyncing = true,
+                    current = 0,
+                    total = 0,
+                    message = "Syncing course folders..."
+                )
                 // Immediately update allowedDirectories so library and whitelist reflect the choice at once
                 val currentAllowed = userPreferencesRepository.allowedDirectoriesFlow.first().map(::normalizePath).toMutableSet()
                 removedLocalPaths.forEach { currentAllowed.remove(normalizePath(it)) }
@@ -443,7 +499,11 @@ class CourseFolderManager @Inject constructor(
             } catch (e: Exception) {
                 Timber.e(e, "Background course sync failed")
             } finally {
-                _isSyncing.value = false
+                isLocalSyncing.set(false)
+                if (!gdriveRepository.syncProgressFlow.value.isSyncing) {
+                    _isSyncing.value = false
+                    _syncProgress.value = CourseSyncProgress(isSyncing = false)
+                }
             }
         }
     }

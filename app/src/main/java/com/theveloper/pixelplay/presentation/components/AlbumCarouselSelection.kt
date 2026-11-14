@@ -24,6 +24,19 @@ import kotlinx.collections.immutable.ImmutableList
 import kotlinx.coroutines.flow.first
 
 import com.theveloper.pixelplay.data.preferences.AlbumArtQuality
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import com.theveloper.pixelplay.R
+import com.theveloper.pixelplay.ui.theme.GoogleSansRounded
 
 // ====== TIPOS/STATE DEL CARRUSEL (wrapper para mantener compatibilidad) ======
 
@@ -49,7 +62,9 @@ fun AlbumCarouselSection(
     modifier: Modifier = Modifier,
     carouselStyle: String = CarouselStyle.NO_PEEK,
     itemSpacing: Dp = 8.dp,
-    albumArtQuality: AlbumArtQuality = AlbumArtQuality.MEDIUM
+    albumArtQuality: AlbumArtQuality = AlbumArtQuality.MEDIUM,
+    courseTitle: String = "",
+    courseCoverUri: String? = null
 ) {
     if (queue.isEmpty()) return
 
@@ -210,18 +225,82 @@ fun AlbumCarouselSection(
                             onClick = { onAlbumClick(song) }
                         )
                 ) { // Enforce 1:1 aspect ratio for the item itself
-                    OptimizedAlbumArt(
-                        uri = song.albumArtUriString,
-                        title = song.title,
-                        modifier = Modifier.fillMaxSize(),
-                        targetSize = targetSize,
-                        placeholderModel = if (song.albumArtUriString?.startsWith("telegram_art") == true) {
-                             "${song.albumArtUriString}?quality=thumb"
-                        } else null
-                    )
+                    if (!courseCoverUri.isNullOrBlank()) {
+                        OptimizedAlbumArt(
+                            uri = courseCoverUri,
+                            title = courseTitle.ifBlank { song.title },
+                            modifier = Modifier.fillMaxSize(),
+                            targetSize = targetSize
+                        )
+                    } else {
+                        CourseTitleCoverCard(
+                            courseTitle = courseTitle.ifBlank { "Course" },
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    }
                 }
             }
         )
+    }
+}
+
+@Composable
+fun CourseTitleCoverCard(
+    courseTitle: String,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(24.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerHigh
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(24.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                Surface(
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.primaryContainer,
+                    modifier = Modifier.size(64.dp)
+                ) {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_music_placeholder),
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                            modifier = Modifier.size(32.dp)
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(20.dp))
+                Text(
+                    text = courseTitle,
+                    style = MaterialTheme.typography.headlineSmall.copy(
+                        fontFamily = GoogleSansRounded,
+                        fontWeight = FontWeight.Bold
+                    ),
+                    color = MaterialTheme.colorScheme.onSurface,
+                    textAlign = TextAlign.Center,
+                    maxLines = 3,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = "Course Audio",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
     }
 }
 

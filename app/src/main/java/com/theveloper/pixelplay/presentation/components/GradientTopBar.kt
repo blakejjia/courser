@@ -121,7 +121,8 @@ fun HomeGradientTopBar(
     onTelegramClick: () -> Unit = {},
     onMenuClick: () -> Unit = {},
     isScrolled: Boolean = false,
-    isSyncing: Boolean = false
+    isSyncing: Boolean = false,
+    syncText: String = "Syncing..."
 ) {
     val surfaceContainerHigh = MaterialTheme.colorScheme.surfaceContainerHighest
 
@@ -187,7 +188,7 @@ fun HomeGradientTopBar(
                                 tint = MaterialTheme.colorScheme.primary
                             )
                             Text(
-                                text = "Syncing...",
+                                text = syncText,
                                 style = MaterialTheme.typography.labelSmall,
                                 fontFamily = GoogleSansRounded,
                                 fontWeight = FontWeight.SemiBold,

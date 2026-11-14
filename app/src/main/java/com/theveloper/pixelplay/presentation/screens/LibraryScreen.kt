@@ -7,6 +7,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
@@ -17,6 +18,7 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.material.icons.rounded.Sync
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.ui.graphics.graphicsLayer
+import com.theveloper.pixelplay.data.repository.CourseSyncProgress
 import com.theveloper.pixelplay.presentation.components.AddCourseSourceBottomSheet
 import com.theveloper.pixelplay.ui.theme.GoogleSansRounded
 import androidx.compose.foundation.background
@@ -34,13 +36,16 @@ import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Cloud
 import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material.icons.rounded.SwapVert
 import androidx.compose.material3.DockedSearchBar
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
@@ -112,6 +117,7 @@ fun LibraryScreen(
     val context = LocalContext.current
     val playlistUiState by playlistViewModel.uiState.collectAsStateWithLifecycle()
     val isSyncing by playerViewModel.isCourseSyncing.collectAsStateWithLifecycle()
+    val syncProgress by playerViewModel.courseSyncProgress.collectAsStateWithLifecycle()
     var searchQuery by rememberSaveable { mutableStateOf("") }
     var showStreamingProviderSheet by remember { mutableStateOf(false) }
     var showAddCourseSourceSheet by remember { mutableStateOf(false) }
@@ -125,41 +131,18 @@ fun LibraryScreen(
     val playbackHistory by playerViewModel.playbackHistory.collectAsStateWithLifecycle()
 
     val allPlaylists = playlistUiState.playlists
+    var isReorderMode by rememberSaveable { mutableStateOf(false) }
 
-    // Rank courses by most recent played to least recent played
-    val rankedPlaylists = remember(allPlaylists, playbackHistory) {
-        val latestSongPlayMap = HashMap<String, Long>()
-        for (entry in playbackHistory) {
-            val existing = latestSongPlayMap[entry.songId] ?: 0L
-            if (entry.timestamp > existing) {
-                latestSongPlayMap[entry.songId] = entry.timestamp
-            }
-        }
-
-        allPlaylists.sortedWith(
-            compareByDescending<Playlist> { playlist ->
-                var maxTimestamp = 0L
-                for (id in playlist.songIds) {
-                    val ts = latestSongPlayMap[id] ?: 0L
-                    if (ts > maxTimestamp) maxTimestamp = ts
-                }
-                maxTimestamp
-            }.thenByDescending { playlist ->
-                playlist.lastModified.coerceAtLeast(playlist.createdAt)
-            }
-        )
-    }
-
-    val filteredPlaylists = remember(searchQuery, rankedPlaylists) {
+    val filteredPlaylists = remember(searchQuery, allPlaylists) {
         if (searchQuery.isBlank()) {
-            rankedPlaylists
+            allPlaylists
         } else {
-            rankedPlaylists.filter { it.name.contains(searchQuery.trim(), ignoreCase = true) }
+            allPlaylists.filter { it.name.contains(searchQuery.trim(), ignoreCase = true) }
         }
     }
 
-    val selectedPlaylistsList = remember(selectedPlaylistIds, rankedPlaylists) {
-        rankedPlaylists.filter { it.id in selectedPlaylistIds }
+    val selectedPlaylistsList = remember(selectedPlaylistIds, allPlaylists) {
+        allPlaylists.filter { it.id in selectedPlaylistIds }
     }
 
     var showPlaylistMultiSelectionSheet by remember { mutableStateOf(false) }
@@ -215,7 +198,7 @@ fun LibraryScreen(
                             onExpandedChange = {},
                             placeholder = {
                                 Text(
-                                    text = "Search courses...",
+                                    text = stringResource(R.string.common_search),
                                     style = MaterialTheme.typography.bodyLarge,
                                     color = MaterialTheme.colorScheme.primary
                                 )
@@ -266,24 +249,51 @@ fun LibraryScreen(
                     content = {}
                 )
 
-                // Add Course Button to select folder as course (Local Storage or Google Drive)
-                FilledIconButton(
-                    onClick = {
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        showAddCourseSourceSheet = true
-                    },
-                    modifier = Modifier.size(52.dp),
-                    shape = CircleShape,
-                    colors = IconButtonDefaults.filledIconButtonColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f),
-                        contentColor = MaterialTheme.colorScheme.primary
-                    )
+                // Compact Action Controls: Reorder and Add Course Folders
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f))
                 ) {
-                    Icon(
-                        imageVector = Icons.Rounded.Add,
-                        contentDescription = "Add Course Folders",
-                        modifier = Modifier.size(26.dp)
-                    )
+                    IconButton(
+                        onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            isReorderMode = !isReorderMode
+                        },
+                        modifier = Modifier
+                            .size(42.dp)
+                            .then(
+                                if (isReorderMode) {
+                                    Modifier.background(
+                                        MaterialTheme.colorScheme.primary,
+                                        CircleShape
+                                    )
+                                } else Modifier
+                            )
+                    ) {
+                        Icon(
+                            imageVector = if (isReorderMode) Icons.Rounded.Check else Icons.Rounded.SwapVert,
+                            contentDescription = if (isReorderMode) "Done Reordering" else "Reorder Courses",
+                            tint = if (isReorderMode) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
+
+                    IconButton(
+                        onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            showAddCourseSourceSheet = true
+                        },
+                        modifier = Modifier.size(42.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Add,
+                            contentDescription = "Add Course Folders",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
                 }
             }
 
@@ -323,21 +333,39 @@ fun LibraryScreen(
                             tint = MaterialTheme.colorScheme.primary
                         )
                         Text(
-                            text = "Syncing course folders...",
+                            text = syncProgress.displayText,
                             style = MaterialTheme.typography.labelMedium,
                             fontFamily = GoogleSansRounded,
                             fontWeight = FontWeight.SemiBold,
                             color = MaterialTheme.colorScheme.primary
                         )
                     }
-                    LinearProgressIndicator(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(2.dp)
-                            .clip(RoundedCornerShape(1.dp)),
-                        color = MaterialTheme.colorScheme.primary,
-                        trackColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
-                    )
+                    val progressFraction = syncProgress.progressFraction
+                    if (progressFraction != null) {
+                        val animatedProgress by animateFloatAsState(
+                            targetValue = progressFraction,
+                            animationSpec = tween(durationMillis = 200),
+                            label = "library_sync_determinate"
+                        )
+                        LinearProgressIndicator(
+                            progress = { animatedProgress },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(2.dp)
+                                .clip(RoundedCornerShape(1.dp)),
+                            color = MaterialTheme.colorScheme.primary,
+                            trackColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+                        )
+                    } else {
+                        LinearProgressIndicator(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(2.dp)
+                                .clip(RoundedCornerShape(1.dp)),
+                            color = MaterialTheme.colorScheme.primary,
+                            trackColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+                        )
+                    }
                 }
             }
 
@@ -377,6 +405,7 @@ fun LibraryScreen(
                     navController = navController,
                     playerViewModel = playerViewModel,
                     isSelectionMode = isSelectionMode,
+                    isReorderMode = isReorderMode,
                     selectedPlaylistIds = selectedPlaylistIds,
                     onPlaylistLongPress = { playlist ->
                         haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
@@ -449,7 +478,7 @@ fun LibraryScreen(
             },
             isGDriveLoggedIn = isGDriveLoggedIn,
             onNavigateToGDriveDashboard = {
-                navController.navigateSafely(Screen.GDriveDashboard.route)
+                navController.navigateSafely(Screen.CourseFolderSelection.createRoute("gdrive"))
             }
         )
     }
@@ -466,5 +495,15 @@ fun LibraryScreen(
                 navController.navigateSafely(Screen.CourseFolderSelection.createRoute("gdrive"))
             }
         )
+    }
+}
+
+internal fun resolveFolderNavigationDirection(initialPath: String?, targetPath: String?): Int {
+    if (initialPath == null) return 1
+    if (targetPath == null) return -1
+    return when {
+        targetPath.startsWith(initialPath) && targetPath != initialPath -> 1
+        initialPath.startsWith(targetPath) && initialPath != targetPath -> -1
+        else -> 1
     }
 }

@@ -4,6 +4,7 @@ package com.theveloper.pixelplay.presentation.screens
 
 import android.content.Intent
 import androidx.activity.compose.ReportDrawnWhen
+import com.theveloper.pixelplay.data.repository.CourseSyncProgress
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -123,6 +124,7 @@ fun HomeScreen(
     val dailyGoalUiState by dailyGoalViewModel.uiState.collectAsStateWithLifecycle()
     val stablePlayerState by playerViewModel.stablePlayerState.collectAsStateWithLifecycle()
     val isSyncing by playerViewModel.isCourseSyncing.collectAsStateWithLifecycle()
+    val syncProgress by playerViewModel.courseSyncProgress.collectAsStateWithLifecycle()
     val allCourses = playlistUiState.playlists
     val plannedCourses = dailyGoalUiState.plannedCourses
     val keepSession = dailyGoalUiState.keepListeningSession
@@ -165,7 +167,8 @@ fun HomeScreen(
         topBar = {
             HomeGradientTopBar(
                 isScrolled = isScrolledPastThreshold.value,
-                isSyncing = isSyncing
+                isSyncing = isSyncing,
+                syncText = if (syncProgress.total > 0) "Syncing (${syncProgress.current}/${syncProgress.total})..." else "Syncing..."
             )
         }
     ) { innerPadding ->
@@ -270,17 +273,15 @@ fun HomeScreen(
 
                     item(key = "keep_listening_tile") {
                         val progress = courseProgressMap[activeCourse.id] ?: courseProgressMap[activeCourse.name]
-                        val isPlayingThis = stablePlayerState.isPlaying && stablePlayerState.currentSong?.id in activeCourse.songIds
-                        val playingSection = remember(stablePlayerState.currentSong?.id, activeCourse.songIds) {
-                            val idx = activeCourse.songIds.indexOf(stablePlayerState.currentSong?.id)
-                            if (idx >= 0) idx + 1 else null
-                        }
+                        val isPlayingThis = stablePlayerState.currentSong != null &&
+                            stablePlayerState.currentSong != com.theveloper.pixelplay.data.model.Song.emptySong() &&
+                            stablePlayerState.currentSong?.id in activeCourse.songIds
 
                         CourseTile(
                             playlist = activeCourse,
                             progress = progress,
                             isPlaying = isPlayingThis,
-                            playingSectionNumber = playingSection,
+                            isAudioPlaying = stablePlayerState.isPlaying,
                             isPinned = pinnedCourseId == activeCourse.id,
                             onClick = {
                                 navController.navigateSafely(Screen.PlaylistDetail.createRoute(activeCourse.id))
@@ -346,17 +347,15 @@ fun HomeScreen(
 
                     items(plannedCourses, key = { "today_${it.playlist.id}" }) { planned ->
                         val progress = courseProgressMap[planned.playlist.id] ?: courseProgressMap[planned.playlist.name]
-                        val isPlayingThis = stablePlayerState.isPlaying && stablePlayerState.currentSong?.id in planned.playlist.songIds
-                        val playingSection = remember(stablePlayerState.currentSong?.id, planned.playlist.songIds) {
-                            val idx = planned.playlist.songIds.indexOf(stablePlayerState.currentSong?.id)
-                            if (idx >= 0) idx + 1 else null
-                        }
+                        val isPlayingThis = stablePlayerState.currentSong != null &&
+                            stablePlayerState.currentSong != com.theveloper.pixelplay.data.model.Song.emptySong() &&
+                            stablePlayerState.currentSong?.id in planned.playlist.songIds
 
                         CourseTile(
                             playlist = planned.playlist,
                             progress = progress,
                             isPlaying = isPlayingThis,
-                            playingSectionNumber = playingSection,
+                            isAudioPlaying = stablePlayerState.isPlaying,
                             isPinned = pinnedCourseId == planned.playlist.id,
                             onClick = {
                                 navController.navigateSafely(Screen.PlaylistDetail.createRoute(planned.playlist.id))
@@ -407,7 +406,7 @@ fun HomeScreen(
             },
             isGDriveLoggedIn = isGDriveLoggedIn,
             onNavigateToGDriveDashboard = {
-                navController.navigateSafely(Screen.GDriveDashboard.route)
+                navController.navigateSafely(Screen.CourseFolderSelection.createRoute("gdrive"))
             }
         )
     }

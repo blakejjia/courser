@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -29,6 +30,7 @@ import androidx.compose.material3.CircularWavyProgressIndicator
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.key
@@ -40,11 +42,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.size.Size
+import com.theveloper.pixelplay.R
 import com.theveloper.pixelplay.data.model.Song
 import com.theveloper.pixelplay.ui.theme.GoogleSansRounded
 
@@ -70,7 +74,9 @@ internal fun MiniPlayerContentInternal(
     onPrevious: () -> Unit,
     onNext: () -> Unit,
     modifier: Modifier = Modifier,
-    canScroll: Boolean = true
+    canScroll: Boolean = true,
+    currentQueueSourceName: String = "",
+    courseCoverUri: String? = null
 ) {
     val hapticFeedback = LocalHapticFeedback.current
     val controlsEnabled = !isCastConnecting && !isPreparingPlayback
@@ -87,19 +93,34 @@ internal fun MiniPlayerContentInternal(
             .padding(start = 10.dp, end = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        val albumArtModel = song.albumArtUriString?.takeIf { it.isNotBlank() }
         Box(contentAlignment = Alignment.Center) {
-            key(song.id) {
+            val hasCustomCover = !courseCoverUri.isNullOrBlank()
+            if (hasCustomCover) {
                 SmartImage(
-                    model = albumArtModel,
-                    contentDescription = "Carátula de ${song.title}",
+                    model = courseCoverUri,
+                    contentDescription = currentQueueSourceName.ifBlank { song.title },
                     shape = CircleShape,
                     targetSize = Size(150, 150),
-                    modifier = Modifier.size(44.dp),
-                    placeholderModel = if (albumArtModel?.startsWith("telegram_art") == true) {
-                        "$albumArtModel?quality=thumb"
-                    } else null
+                    modifier = Modifier.size(44.dp)
                 )
+            } else {
+                Surface(
+                    shape = CircleShape,
+                    color = LocalMaterialTheme.current.surfaceContainerHighest,
+                    modifier = Modifier.size(44.dp)
+                ) {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_music_placeholder),
+                            contentDescription = currentQueueSourceName,
+                            tint = LocalMaterialTheme.current.onSurfaceVariant,
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
+                }
             }
             if (isCastConnecting) {
                 CircularProgressIndicator(

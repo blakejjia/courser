@@ -22,8 +22,15 @@ data class Playlist(
     val coverShapeDetail2: Float? = null, // e.g., Smoothness / StarRotation
     val coverShapeDetail3: Float? = null, // e.g., StarScale
     val coverShapeDetail4: Float? = null, // e.g., Star Sides (Int)
-    val source: String = "LOCAL" // Source: "LOCAL", "NETEASE", "TELEGRAM", "AI", etc.
-)
+    val source: String = "LOCAL", // Source: "LOCAL", "NETEASE", "TELEGRAM", "AI", etc.
+    val lastPlayedAt: Long? = null, // Epoch ms when course/playlist was last studied
+    val completionPercentage: Float = 0f, // Ratio of completed lessons [0.0f..1.0f]
+    val lastPlayedSongId: String? = null, // ID of last active song in playlist
+    val lastPlayedSongTitle: String? = null // Title of last active song
+) {
+    val completionProgressPercent: Int
+        get() = (completionPercentage * 100).toInt()
+}
 
 enum class PlaylistShapeType {
     Circle,

@@ -11,6 +11,8 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.session.MediaController
 import com.google.android.gms.cast.framework.media.RemoteMediaClient
 import com.theveloper.pixelplay.R
+import com.theveloper.pixelplay.data.database.CourseProgressEntity
+import com.theveloper.pixelplay.data.service.CourseProgressTracker
 import com.theveloper.pixelplay.data.service.cast.CastRemotePlaybackState
 import com.theveloper.pixelplay.data.model.Song
 import com.theveloper.pixelplay.data.preferences.UserPreferencesRepository
@@ -94,6 +96,7 @@ class PlaybackDispatchStateHolder @Inject constructor(
     private val castTransferStateHolder: CastTransferStateHolder,
     private val connectivityStateHolder: ConnectivityStateHolder,
     private val themeStateHolder: ThemeStateHolder,
+    private val courseProgressTracker: CourseProgressTracker,
     @param:ApplicationContext private val context: Context,
 ) {
 
@@ -500,7 +503,8 @@ class PlaybackDispatchStateHolder @Inject constructor(
         startSong: Song,
         queueName: String = "None",
         playlistId: String? = null,
-        startPositionMs: Long = 0L
+        startPositionMs: Long = 0L,
+        playlistCoverUri: String? = null
     ) {
         cancelPendingFullQueuePlayback()
         val requestToken = beginDirectPlaybackRequest()
@@ -572,7 +576,7 @@ class PlaybackDispatchStateHolder @Inject constructor(
             throwIfDirectPlaybackRequestIsStale(requestToken)
 
             // Send the final list (shuffled or not) to the player engine
-            internalPlaySongs(finalSongsToPlay, validStartSong, queueName, playlistId, startPositionMs)
+            internalPlaySongs(finalSongsToPlay, validStartSong, queueName, playlistId, startPositionMs, playlistCoverUri)
             if (requestToken == directPlaybackToken) {
                 directPlaybackJob = null
             }
@@ -815,7 +819,8 @@ class PlaybackDispatchStateHolder @Inject constructor(
         startSong: Song,
         queueName: String = "None",
         playlistId: String? = null,
-        startPositionMs: Long = 0L
+        startPositionMs: Long = 0L,
+        playlistCoverUri: String? = null
     ) {
         if (songsToPlay.isEmpty()) {
             clearPreparingSongIfMatching()
@@ -826,6 +831,32 @@ class PlaybackDispatchStateHolder @Inject constructor(
         // Update dynamic shortcut for last played playlist
         if (playlistId != null && queueName != "None") {
             appShortcutManager.updateLastPlaylistShortcut(playlistId, queueName)
+        }
+
+        // Keep CourseProgressTracker aligned with active course/playlist context
+        if (!playlistId.isNullOrBlank()) {
+            val courseId = when {
+                playlistId.startsWith("playlist:") || playlistId.startsWith("local:") || playlistId.startsWith("gdrive:") || playlistId.startsWith("telegram:") -> playlistId
+                playlistId.startsWith("folder_") -> {
+                    val folderPath = Uri.decode(playlistId.removePrefix("folder_"))
+                    CourseProgressEntity.localFolderCourseId(folderPath)
+                }
+                else -> CourseProgressEntity.playlistCourseId(playlistId)
+            }
+            val courseType = when {
+                courseId.startsWith("local:") -> CourseProgressEntity.TYPE_LOCAL_FOLDER
+                courseId.startsWith("gdrive:") -> CourseProgressEntity.TYPE_GDRIVE_FOLDER
+                courseId.startsWith("telegram:") -> CourseProgressEntity.TYPE_TELEGRAM_TOPIC
+                else -> CourseProgressEntity.TYPE_PLAYLIST
+            }
+            courseProgressTracker.setCourseContext(
+                courseId = courseId,
+                courseType = courseType,
+                courseName = queueName,
+                songIds = songsToPlay.map { it.id }
+            )
+        } else {
+            courseProgressTracker.clearCourseContext()
         }
 
         val castSession = castStateHolder.castSession.value
@@ -847,7 +878,13 @@ class PlaybackDispatchStateHolder @Inject constructor(
                 return
             }
 
-            cb.updateUiState { it.copy(currentPlaybackQueue = songsToPlay.toPlaybackQueue(), currentQueueSourceName = queueName) }
+            cb.updateUiState {
+                it.copy(
+                    currentPlaybackQueue = songsToPlay.toPlaybackQueue(),
+                    currentQueueSourceName = queueName,
+                    currentPlaylistCoverUri = playlistCoverUri
+                )
+            }
             playbackStateHolder.updateStablePlayerState {
                 it.copy(
                     currentSong = effectiveStartSong,
@@ -862,7 +899,8 @@ class PlaybackDispatchStateHolder @Inject constructor(
             cb.updateUiState {
                 it.copy(
                     currentPlaybackQueue = songsToPlay.toPlaybackQueue(),
-                    currentQueueSourceName = queueName
+                    currentQueueSourceName = queueName,
+                    currentPlaylistCoverUri = playlistCoverUri
                 )
             }
             playbackStateHolder.updateStablePlayerState {

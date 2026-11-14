@@ -139,6 +139,14 @@ class PlaylistViewModel @Inject constructor(
                 val progressMap = mutableMapOf<String, CourseProgressEntity>()
                 for (item in progressList) {
                     progressMap[item.courseId] = item
+                    if (item.courseId.startsWith("playlist:")) {
+                        progressMap[item.courseId.removePrefix("playlist:")] = item
+                    }
+                    if (item.courseId.startsWith("local:")) {
+                        val path = item.courseId.removePrefix("local:")
+                        progressMap[path] = item
+                        progressMap["folder_${Uri.encode(path)}"] = item
+                    }
                     if (item.courseName.isNotBlank()) {
                         progressMap[item.courseName] = item
                     }
@@ -173,7 +181,8 @@ class PlaylistViewModel @Inject constructor(
                     startSong = startSong,
                     queueName = playlist.name,
                     playlistId = playlist.id,
-                    startPositionMs = startPos
+                    startPositionMs = startPos,
+                    playlistCoverUri = playlist.coverImageUri
                 )
             }
         }
@@ -197,12 +206,16 @@ class PlaylistViewModel @Inject constructor(
             val initialSortOption = resolvePlaylistSortOption(initialSortOptionName)
             _uiState.update { it.copy(currentPlaylistSortOption = initialSortOption) }
 
-            // Then, collect playlists and apply the sort option
+            // Then, collect playlists ordered by user custom reorder truth
             playlistPreferencesRepository.userPlaylistsFlow.collect { playlists ->
-                val currentSortOption =
-                    _uiState.value.currentPlaylistSortOption // Use the most up-to-date sort option
-                val sortedPlaylists = sortPlaylistsList(playlists, currentSortOption)
-                _uiState.update { it.copy(playlists = sortedPlaylists) }
+                val pinnedId = _uiState.value.pinnedCourseId
+                val ordered = if (pinnedId != null) {
+                    val (pinned, unpinned) = playlists.partition { it.id == pinnedId }
+                    pinned + unpinned
+                } else {
+                    playlists
+                }
+                _uiState.update { it.copy(playlists = ordered) }
             }
         }
         // Collect subsequent changes to sort option from preferences
@@ -258,7 +271,7 @@ class PlaylistViewModel @Inject constructor(
                     val folder = findFolder(folderPath, folders)
 
                     if (folder != null) {
-                        val songsList = withContext(Dispatchers.IO) {
+                        val rawSongsList = withContext(Dispatchers.IO) {
                             val rawSongs = folder.collectAllSongs()
                             if (rawSongs.any { it.contentUriString.isBlank() }) {
                                 musicRepository.getSongsByIds(rawSongs.map { it.id }).first()
@@ -266,10 +279,17 @@ class PlaylistViewModel @Inject constructor(
                                 rawSongs
                             }
                         }
+                        val courseId = CourseProgressEntity.localFolderCourseId(folderPath)
+                        val progress = courseProgressRepository.getProgress(courseId)
+                        val songsList = courseProgressRepository.enrichSongsWithProgress(rawSongsList)
                         val pseudoPlaylist = Playlist(
                             id = playlistId,
                             name = folder.name,
-                            songIds = songsList.map { it.id }
+                            songIds = songsList.map { it.id },
+                            lastPlayedAt = progress?.lastPlayedAt?.takeIf { it > 0L },
+                            completionPercentage = progress?.completionRatio ?: 0f,
+                            lastPlayedSongId = progress?.currentSongId,
+                            lastPlayedSongTitle = progress?.currentSongTitle?.takeIf { it.isNotBlank() }
                         )
 
                         _uiState.update {
@@ -302,9 +322,10 @@ class PlaylistViewModel @Inject constructor(
                             ?: PlaylistSongsOrderMode.Manual
 
                         // Colectar la lista de canciones del Flow devuelto por el repositorio en un hilo de IO
-                        val songsList: List<Song> = withContext(kotlinx.coroutines.Dispatchers.IO) {
+                        val rawSongsList: List<Song> = withContext(kotlinx.coroutines.Dispatchers.IO) {
                             musicRepository.getSongsByIds(playlist.songIds).first()
                         }
+                        val songsList = courseProgressRepository.enrichSongsWithProgress(rawSongsList)
 
                         val orderedSongs = when (orderMode) {
                             is PlaylistSongsOrderMode.Sorted -> applySortToSongs(songsList, orderMode.option)
@@ -785,6 +806,18 @@ class PlaylistViewModel @Inject constructor(
                         playlistOrderModes = updatedModes
                     )
                 }
+            }
+        }
+    }
+
+    fun reorderPlaylists(fromIndex: Int, toIndex: Int) {
+        viewModelScope.launch {
+            val current = _uiState.value.playlists.toMutableList()
+            if (fromIndex in current.indices && toIndex in current.indices) {
+                val moved = current.removeAt(fromIndex)
+                current.add(toIndex, moved)
+                _uiState.update { it.copy(playlists = current) }
+                playlistPreferencesRepository.reorderPlaylists(current.map { it.id })
             }
         }
     }

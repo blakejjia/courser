@@ -226,17 +226,15 @@ fun TodaysLearnScreen(
 
                     items(uiState.allCourses, key = { "avail_${it.id}" }) { course ->
                         val progress = playlistUiState.courseProgressMap[course.id] ?: playlistUiState.courseProgressMap[course.name]
-                        val isPlayingThis = stablePlayerState.isPlaying && stablePlayerState.currentSong?.id in course.songIds
-                        val playingSection = remember(stablePlayerState.currentSong?.id, course.songIds) {
-                            val idx = course.songIds.indexOf(stablePlayerState.currentSong?.id)
-                            if (idx >= 0) idx + 1 else null
-                        }
+                        val isPlayingThis = stablePlayerState.currentSong != null &&
+                            stablePlayerState.currentSong != com.theveloper.pixelplay.data.model.Song.emptySong() &&
+                            stablePlayerState.currentSong?.id in course.songIds
 
                         CourseTile(
                             playlist = course,
                             progress = progress,
                             isPlaying = isPlayingThis,
-                            playingSectionNumber = playingSection,
+                            isAudioPlaying = stablePlayerState.isPlaying,
                             isPinned = playlistUiState.pinnedCourseId == course.id,
                             onClick = {
                                 courseToEdit = PlannedCourse(playlist = course, targetCount = 1)
@@ -279,17 +277,15 @@ fun TodaysLearnScreen(
 
                 items(plannedCourses, key = { "planned_${it.playlist.id}" }) { planned ->
                     val progress = playlistUiState.courseProgressMap[planned.playlist.id] ?: playlistUiState.courseProgressMap[planned.playlist.name]
-                    val isPlayingThis = stablePlayerState.isPlaying && stablePlayerState.currentSong?.id in planned.playlist.songIds
-                    val playingSection = remember(stablePlayerState.currentSong?.id, planned.playlist.songIds) {
-                        val idx = planned.playlist.songIds.indexOf(stablePlayerState.currentSong?.id)
-                        if (idx >= 0) idx + 1 else null
-                    }
+                    val isPlayingThis = stablePlayerState.currentSong != null &&
+                        stablePlayerState.currentSong != com.theveloper.pixelplay.data.model.Song.emptySong() &&
+                        stablePlayerState.currentSong?.id in planned.playlist.songIds
 
                     CourseTile(
                         playlist = planned.playlist,
                         progress = progress,
                         isPlaying = isPlayingThis,
-                        playingSectionNumber = playingSection,
+                        isAudioPlaying = stablePlayerState.isPlaying,
                         isPinned = playlistUiState.pinnedCourseId == planned.playlist.id,
                         onClick = {
                             courseToEdit = planned

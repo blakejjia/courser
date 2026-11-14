@@ -78,6 +78,12 @@ data class SongEntity(
     @ColumnInfo(name = "album_name") val albumName: String,
     @ColumnInfo(name = "album_id") val albumId: Long, // index = true eliminado
     @ColumnInfo(name = "content_uri_string") val contentUriString: String,
+    /**
+     * Note: In Courser, individual song/lesson covers are hidden from the course player UI
+     * in favor of course/playlist title cards or user-set course covers.
+     * This field is intentionally retained in the database schema and DAO for data integrity
+     * and potential future fallback or export needs.
+     */
     @ColumnInfo(name = "album_art_uri_string") val albumArtUriString: String?,
     @ColumnInfo(name = "duration") val duration: Long,
     @ColumnInfo(name = "genre") val genre: String?,

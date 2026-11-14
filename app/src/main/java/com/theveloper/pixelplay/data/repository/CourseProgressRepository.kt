@@ -3,7 +3,10 @@ package com.theveloper.pixelplay.data.repository
 import com.theveloper.pixelplay.data.database.CourseProgressDao
 import com.theveloper.pixelplay.data.database.CourseProgressEntity
 import com.theveloper.pixelplay.data.database.EngagementDao
+import com.theveloper.pixelplay.data.database.SongEngagementEntity
+import com.theveloper.pixelplay.data.model.Song
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 import timber.log.Timber
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -44,6 +47,52 @@ class CourseProgressRepository @Inject constructor(
 
     suspend fun getResumePosition(songId: String): Long? =
         engagementDao.getResumePosition(songId)
+
+    suspend fun getSongEngagement(songId: String): SongEngagementEntity? =
+        engagementDao.getEngagement(songId)
+
+    suspend fun getSongEngagements(songIds: List<String>): Map<String, SongEngagementEntity> {
+        if (songIds.isEmpty()) return emptyMap()
+        return try {
+            engagementDao.getEngagementsForSongs(songIds).associateBy { it.songId }
+        } catch (e: Exception) {
+            Timber.tag(TAG).e(e, "Failed to load song engagements")
+            emptyMap()
+        }
+    }
+
+    fun observeSongEngagements(songIds: List<String>): Flow<Map<String, SongEngagementEntity>> =
+        engagementDao.observeEngagementsForSongs(songIds).map { list -> list.associateBy { it.songId } }
+
+    /**
+     * Enriches a list of [Song]s with their individual learning progress,
+     * including last played timestamp, resume position in ms, and completion status.
+     */
+    suspend fun enrichSongsWithProgress(songs: List<Song>): List<Song> {
+        if (songs.isEmpty()) return songs
+        val engagements = getSongEngagements(songs.map { it.id })
+        return songs.map { song ->
+            val engagement = engagements[song.id]
+            if (engagement != null) {
+                song.copy(
+                    lastPlayedAt = engagement.lastPlayedTimestamp.takeIf { it > 0L },
+                    resumePositionMs = engagement.lastResumePositionMs,
+                    isCompleted = engagement.isCompleted
+                )
+            } else {
+                song
+            }
+        }
+    }
+
+    suspend fun enrichSongWithProgress(song: Song): Song {
+        val engagement = getSongEngagement(song.id) ?: return song
+        return song.copy(
+            lastPlayedAt = engagement.lastPlayedTimestamp.takeIf { it > 0L },
+            resumePositionMs = engagement.lastResumePositionMs,
+            isCompleted = engagement.isCompleted
+        )
+    }
 
     // ── Write: cursor update (call on pause / track-change / 30s heartbeat) ──
 

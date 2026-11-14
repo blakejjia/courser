@@ -46,6 +46,7 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.QueueMusic
 import androidx.compose.material.icons.rounded.Album
 import androidx.compose.material.icons.rounded.AudioFile
+import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Cloud
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FavoriteBorder
@@ -100,6 +101,7 @@ import androidx.compose.ui.graphics.TransformOrigin
 import com.theveloper.pixelplay.presentation.screens.TabAnimation
 import com.theveloper.pixelplay.ui.theme.GoogleSansRounded
 import com.theveloper.pixelplay.utils.AudioMetaUtils
+import com.theveloper.pixelplay.utils.formatTimeAgo
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.sp
 import com.theveloper.pixelplay.presentation.components.subcomps.TightWrapText
@@ -608,16 +610,27 @@ fun SongInfoBottomSheet(
                                                 shape = infoSegmentItemShape,
                                             )
 
-                                            if (!song.genre.isNullOrEmpty()) {
-                                                SongInfoSegmentedListItem(
-                                                    headline = stringResource(R.string.song_info_genre_label),
-                                                    supporting = song.genre,
-                                                    icon = Icons.Rounded.MusicNote,
-                                                    iconDescription = stringResource(R.string.song_info_genre_label),
-                                                    shape = infoSegmentItemShape,
-                                                    onClick = onNavigateToGenre,
-                                                )
+                                            val progressText = when {
+                                                song.isCompleted -> {
+                                                    val lastPlayed = song.lastPlayedAt?.takeIf { it > 0L }?.let { " • ${formatTimeAgo(it)}" } ?: ""
+                                                    "Completed (100%)$lastPlayed"
+                                                }
+                                                song.playbackProgressPercent > 0 -> {
+                                                    val lastPlayed = song.lastPlayedAt?.takeIf { it > 0L }?.let { " • ${formatTimeAgo(it)}" } ?: ""
+                                                    "${song.playbackProgressPercent}% finished (${formatDuration(song.resumePositionMs)} / ${formatDuration(song.duration)})$lastPlayed"
+                                                }
+                                                else -> {
+                                                    "Not started (0%)"
+                                                }
                                             }
+
+                                            SongInfoSegmentedListItem(
+                                                headline = "Learning Progress",
+                                                supporting = progressText,
+                                                icon = if (song.isCompleted) Icons.Rounded.CheckCircle else Icons.Rounded.Schedule,
+                                                iconDescription = "Learning Progress",
+                                                shape = infoSegmentItemShape,
+                                            )
 
                                             SongInfoSegmentedListItem(
                                                 headline = stringResource(R.string.song_info_album_label),
@@ -626,21 +639,6 @@ fun SongInfoBottomSheet(
                                                 iconDescription = stringResource(R.string.song_info_album_label),
                                                 shape = infoSegmentItemShape,
                                                 onClick = onNavigateToAlbum,
-                                            )
-
-                                            SongInfoSegmentedListItem(
-                                                headline = stringResource(R.string.song_info_artist_label),
-                                                supporting = song.displayArtist,
-                                                icon = Icons.Rounded.Person,
-                                                iconDescription = stringResource(R.string.song_info_artist_label),
-                                                shape = infoSegmentItemShape,
-                                                onClick = {
-                                                    if (song.artists.size > 1) {
-                                                        showArtistPicker = true
-                                                    } else {
-                                                        onNavigateToArtist()
-                                                    }
-                                                },
                                             )
 
                                             if (!audioMetaLabel.isNullOrEmpty()) {

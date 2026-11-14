@@ -27,6 +27,12 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.material.icons.rounded.DragIndicator
+import androidx.compose.material3.IconButton
+import androidx.compose.ui.graphics.graphicsLayer
+import sh.calvin.reorderable.ReorderableItem
+import sh.calvin.reorderable.rememberReorderableLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.PlaylistPlay
@@ -108,6 +114,7 @@ fun PlaylistContainer(
     filteredPlaylists: List<Playlist> = playlistUiState.playlists,
     currentSortOption: SortOption? = null,
     isSelectionMode: Boolean = false,
+    isReorderMode: Boolean = false,
     selectedPlaylistIds: Set<String> = emptySet(),
     onPlaylistLongPress: (Playlist) -> Unit = {},
     onPlaylistSelectionToggle: (Playlist) -> Unit = {},
@@ -212,6 +219,7 @@ fun PlaylistContainer(
                         filteredPlaylists = filteredPlaylists,
                         currentSortOption = currentSortOption,
                         isSelectionMode = isSelectionMode,
+                        isReorderMode = isReorderMode,
                         selectedPlaylistIds = selectedPlaylistIds,
                         onPlaylistLongPress = onPlaylistLongPress,
                         onPlaylistSelectionToggle = onPlaylistSelectionToggle
@@ -248,6 +256,7 @@ fun PlaylistItems(
     currentSortOption: SortOption? = null,
     selectedPlaylists: SnapshotStateMap<String, Boolean>? = null,
     isSelectionMode: Boolean = false,
+    isReorderMode: Boolean = false,
     selectedPlaylistIds: Set<String> = emptySet(),
     onPlaylistLongPress: (Playlist) -> Unit = {},
     onPlaylistSelectionToggle: (Playlist) -> Unit = {}
@@ -260,6 +269,36 @@ fun PlaylistItems(
             .distinctUntilChanged()
     }.collectAsStateWithLifecycle(initialValue = false)
     val listState = rememberLazyListState()
+
+    var localPlaylists by remember(filteredPlaylists) { mutableStateOf(filteredPlaylists) }
+    LaunchedEffect(filteredPlaylists) {
+        localPlaylists = filteredPlaylists
+    }
+
+    var lastMovedFrom by remember { mutableStateOf<Int?>(null) }
+    var lastMovedTo by remember { mutableStateOf<Int?>(null) }
+
+    val reorderableState = rememberReorderableLazyListState(
+        lazyListState = listState,
+        onMove = { from, to ->
+            localPlaylists = localPlaylists.toMutableList().apply {
+                add(to.index, removeAt(from.index))
+            }
+            if (lastMovedFrom == null) {
+                lastMovedFrom = from.index
+            }
+            lastMovedTo = to.index
+        }
+    )
+
+    LaunchedEffect(reorderableState.isAnyItemDragging) {
+        if (!reorderableState.isAnyItemDragging && lastMovedFrom != null && lastMovedTo != null) {
+            playlistViewModel.reorderPlaylists(lastMovedFrom!!, lastMovedTo!!)
+            lastMovedFrom = null
+            lastMovedTo = null
+        }
+    }
+
     val playlistFastScrollLabelProvider = remember(filteredPlaylists, currentSortOption) {
         { index: Int ->
             playlistFastScrollLabel(
@@ -305,45 +344,76 @@ fun PlaylistItems(
                 bottom = bottomBarHeight + (if (hasCurrentSong) MiniPlayerHeight else 0.dp) + 32.dp
             )
         ) {
-            items(filteredPlaylists, key = { it.id }) { playlist ->
-                val rememberedOnClick = remember(playlist.id) {
-                    {
-                        if (isAddingToPlaylist && currentSong != null && selectedPlaylists != null) {
-                            val currentSelection = selectedPlaylists[playlist.id] ?: false
-                            selectedPlaylists[playlist.id] = !currentSelection
-                        } else if (isSelectionMode) {
-                            onPlaylistSelectionToggle(playlist)
-                        } else {
-                            navController?.navigateSafely(Screen.PlaylistDetail.createRoute(playlist.id))
+            items(localPlaylists, key = { it.id }) { playlist ->
+                ReorderableItem(
+                    state = reorderableState,
+                    key = playlist.id,
+                    enabled = isReorderMode
+                ) { isDragging ->
+                    val scale by animateFloatAsState(
+                        targetValue = if (isDragging) 1.03f else 1f,
+                        label = "playlistReorderScale"
+                    )
+                    val rememberedOnClick = remember(playlist.id) {
+                        {
+                            if (isAddingToPlaylist && currentSong != null && selectedPlaylists != null) {
+                                val currentSelection = selectedPlaylists[playlist.id] ?: false
+                                selectedPlaylists[playlist.id] = !currentSelection
+                            } else if (isSelectionMode) {
+                                onPlaylistSelectionToggle(playlist)
+                            } else {
+                                navController?.navigateSafely(Screen.PlaylistDetail.createRoute(playlist.id))
+                            }
                         }
                     }
-                }
-                val selectionIndex = remember(playlist.id, selectedPlaylistIds) {
-                    if (selectedPlaylistIds.contains(playlist.id)) {
-                        selectedPlaylistIds.toList().indexOf(playlist.id)
-                    } else {
-                        -1
+                    val selectionIndex = remember(playlist.id, selectedPlaylistIds) {
+                        if (selectedPlaylistIds.contains(playlist.id)) {
+                            selectedPlaylistIds.toList().indexOf(playlist.id)
+                        } else {
+                            -1
+                        }
                     }
-                }
-                val progress = playlistUiState.courseProgressMap[playlist.id]
-                    ?: playlistUiState.courseProgressMap[playlist.name]
-                val isPinned = playlistUiState.pinnedCourseId == playlist.id
+                    val progress = playlistUiState.courseProgressMap[playlist.id]
+                        ?: playlistUiState.courseProgressMap[playlist.name]
+                    val isPinned = playlistUiState.pinnedCourseId == playlist.id
 
-                PlaylistItem(
-                    playlist = playlist,
-                    playerViewModel = playerViewModel,
-                    onClick = { rememberedOnClick() },
-                    onPlayClick = { playlistViewModel.playPlaylist(playlist.id, playerViewModel) },
-                    isAddingToPlaylist = isAddingToPlaylist,
-                    selectedPlaylists = selectedPlaylists,
-                    isSelectionMode = isSelectionMode,
-                    isSelected = selectedPlaylistIds.contains(playlist.id),
-                    selectionIndex = selectionIndex,
-                    onLongPress = { onPlaylistLongPress(playlist) },
-                    onPlaylistSelectionToggle = { onPlaylistSelectionToggle(playlist) },
-                    progress = progress,
-                    isPinned = isPinned
-                )
+                    PlaylistItem(
+                        modifier = Modifier.graphicsLayer {
+                            scaleX = scale
+                            scaleY = scale
+                        },
+                        playlist = playlist,
+                        playerViewModel = playerViewModel,
+                        onClick = { rememberedOnClick() },
+                        onPlayClick = { playlistViewModel.playPlaylist(playlist.id, playerViewModel) },
+                        isAddingToPlaylist = isAddingToPlaylist,
+                        selectedPlaylists = selectedPlaylists,
+                        isSelectionMode = isSelectionMode,
+                        isSelected = selectedPlaylistIds.contains(playlist.id),
+                        selectionIndex = selectionIndex,
+                        onLongPress = { onPlaylistLongPress(playlist) },
+                        onPlaylistSelectionToggle = { onPlaylistSelectionToggle(playlist) },
+                        progress = progress,
+                        isPinned = isPinned,
+                        isReorderMode = isReorderMode,
+                        dragHandle = if (isReorderMode) {
+                            {
+                                IconButton(
+                                    onClick = {},
+                                    modifier = Modifier
+                                        .draggableHandle()
+                                        .size(36.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.DragIndicator,
+                                        contentDescription = "Reorder",
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                        } else null
+                    )
+                }
             }
         }
         
@@ -378,20 +448,20 @@ fun PlaylistItem(
     onLongPress: () -> Unit = {},
     onPlaylistSelectionToggle: () -> Unit = {},
     progress: CourseProgressEntity? = null,
-    isPinned: Boolean = false
+    isPinned: Boolean = false,
+    isReorderMode: Boolean = false,
+    dragHandle: (@Composable () -> Unit)? = null
 ) {
     val stablePlayerState by playerViewModel.stablePlayerState.collectAsStateWithLifecycle()
-    val isPlayingThis = stablePlayerState.isPlaying && stablePlayerState.currentSong?.id in playlist.songIds
-    val playingSectionNumber = remember(stablePlayerState.currentSong?.id, playlist.songIds) {
-        val idx = playlist.songIds.indexOf(stablePlayerState.currentSong?.id)
-        if (idx >= 0) idx + 1 else null
-    }
+    val isPlayingThis = stablePlayerState.currentSong != null &&
+        stablePlayerState.currentSong != Song.emptySong() &&
+        stablePlayerState.currentSong?.id in playlist.songIds
 
     CourseTile(
         playlist = playlist,
         progress = progress,
         isPlaying = isPlayingThis,
-        playingSectionNumber = playingSectionNumber,
+        isAudioPlaying = stablePlayerState.isPlaying,
         isPinned = isPinned,
         onClick = onClick,
         onPlayClick = onPlayClick,
@@ -400,6 +470,8 @@ fun PlaylistItem(
         isSelectionMode = isSelectionMode,
         selectionIndex = selectionIndex,
         onSelectionToggle = onPlaylistSelectionToggle,
+        isReorderMode = isReorderMode,
+        dragHandle = dragHandle,
         modifier = modifier
     )
 }

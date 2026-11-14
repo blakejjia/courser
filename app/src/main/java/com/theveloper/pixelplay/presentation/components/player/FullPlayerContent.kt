@@ -196,6 +196,7 @@ fun FullPlayerContent(
     currentSong: Song?,
     currentPlaybackQueue: ImmutableList<Song>,
     currentQueueSourceName: String,
+    currentPlaylistCoverUri: String? = null,
     currentMediaItemIndex: Int = -1,
     isShuffleEnabled: Boolean,
     shuffleTransitionInProgress: Boolean,
@@ -523,6 +524,8 @@ fun FullPlayerContent(
             onAlbumClick = { albumSong ->
                 playerViewModel.triggerAlbumNavigationFromPlayer(albumSong.albumId)
             },
+            currentQueueSourceName = currentQueueSourceName,
+            currentPlaylistCoverUri = currentPlaylistCoverUri,
             modifier = modifier
         )
     }
@@ -1031,6 +1034,8 @@ private fun FullPlayerAlbumCoverSection(
     requestedScrollIndex: Int?,
     onSongSelected: (Song, Int) -> Unit,
     onAlbumClick: (Song) -> Unit,
+    currentQueueSourceName: String = "",
+    currentPlaylistCoverUri: String? = null,
     modifier: Modifier = Modifier
 ) {
     val shouldDelay = loadingTweaks.delayAll || loadingTweaks.delayAlbumCarousel
@@ -1113,7 +1118,9 @@ private fun FullPlayerAlbumCoverSection(
                         scaleX = albumArtScale
                         scaleY = albumArtScale
                     },
-                albumArtQuality = albumArtQuality
+                albumArtQuality = albumArtQuality,
+                courseTitle = currentQueueSourceName,
+                courseCoverUri = currentPlaylistCoverUri
             )
         }
     }

@@ -41,6 +41,11 @@ private fun buildSongSearchMatchQuery(query: String): String {
     return tokens.joinToString(separator = " AND ") { "${it}*" }
 }
 
+/**
+ * Note: [SongEntity.albumArtUriString] / `album_art_uri_string` is preserved in DAO queries
+ * for database integrity and schema compatibility, although course audio files display
+ * playlist/course title covers in the UI.
+ */
 private const val SONG_DETAIL_PROJECTION = """
     songs.id AS id,
     songs.title AS title,

@@ -140,7 +140,8 @@ class DailyGoalViewModel @Inject constructor(
                     startSong = startSong,
                     queueName = playlist.name,
                     playlistId = playlist.id,
-                    startPositionMs = startPos
+                    startPositionMs = startPos,
+                    playlistCoverUri = playlist.coverImageUri
                 )
             }
         }

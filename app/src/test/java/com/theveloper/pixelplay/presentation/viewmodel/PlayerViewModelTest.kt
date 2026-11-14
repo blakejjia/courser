@@ -97,6 +97,7 @@ class PlayerViewModelTest {
     private val mockThemeStateHolder: ThemeStateHolder = mockk(relaxed = true)
     private val mockMultiSelectionStateHolder: MultiSelectionStateHolder = mockk(relaxed = true)
     private val mockPlaylistSelectionStateHolder: PlaylistSelectionStateHolder = mockk(relaxed = true)
+    private val mockCourseProgressTracker: com.theveloper.pixelplay.data.service.CourseProgressTracker = mockk(relaxed = true)
     private val mockMediaMapper: com.theveloper.pixelplay.data.media.MediaMapper = mockk(relaxed = true)
     private lateinit var mockMediaControllerFactory: com.theveloper.pixelplay.data.media.MediaControllerFactory
 
@@ -261,6 +262,7 @@ class PlayerViewModelTest {
             mockCastTransferStateHolder,
             mockConnectivityStateHolder,
             mockThemeStateHolder,
+            mockCourseProgressTracker,
             mockContext
         )
         // Real controller-sync holder wired to the same mocks, so existing tests

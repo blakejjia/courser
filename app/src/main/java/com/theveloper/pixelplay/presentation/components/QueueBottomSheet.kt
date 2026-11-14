@@ -55,6 +55,7 @@ import androidx.compose.material.icons.rounded.Repeat
 import androidx.compose.material.icons.rounded.RepeatOne
 import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.DoneAll
 import androidx.compose.material.icons.rounded.RemoveDone
@@ -72,12 +73,14 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.LargeTopAppBar
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
+import com.theveloper.pixelplay.utils.formatTimeAgo
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MediumExtendedFloatingActionButton
 import androidx.compose.material3.MediumFloatingActionButton
@@ -2010,10 +2013,11 @@ fun QueuePlaylistSongItem(
             tonalElevation = elevation,
             shadowElevation = elevation
         ) {
-            Row(
-                modifier = Modifier.padding(horizontal = 4.dp, vertical = 16.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
+            Column {
+                Row(
+                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                 AnimatedVisibility(visible = isDragHandleVisible) {
                     dragHandle()
                 }
@@ -2038,37 +2042,54 @@ fun QueuePlaylistSongItem(
                         .then(dismissGestureModifier),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    val albumArtPadding by animateDpAsState(
-                        targetValue = if (isDragHandleVisible) 6.dp else 12.dp,
-                        label = "albumArtPadding"
-                    )
-                    Spacer(Modifier.width(albumArtPadding))
-
-                    SmartImage(
-                        model = song.albumArtUriString,
-                        shape = albumShape,
-                        contentDescription = stringResource(R.string.common_album_art_for_title, song.title),
-                        modifier = Modifier
-                            .size(42.dp)
-                            .clip(albumShape),
-                        contentScale = ContentScale.Crop,
-                        targetSize = SmartImageCompactListTargetSize
-                    )
-
-                    Spacer(Modifier.width(16.dp))
+                    Spacer(Modifier.width(12.dp))
 
                     Column(Modifier.weight(1f)) {
                         Text(
-                            song.title, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                            song.title,
+                            maxLines = 2,
+                            overflow = TextOverflow.Clip,
                             color = if (isCurrentSong) colors.primary else colors.onSurface,
                             fontWeight = if (isCurrentSong) FontWeight.Bold else FontWeight.Normal,
                             style = MaterialTheme.typography.bodyLarge
                         )
                         Text(
-                            song.displayArtist, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                            song.displayArtist,
+                            maxLines = 2,
+                            overflow = TextOverflow.Clip,
                             style = MaterialTheme.typography.bodyMedium,
                             color = if (isCurrentSong) colors.primary.copy(alpha = 0.8f) else colors.onSurfaceVariant
                         )
+                        if (song.isCompleted) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                modifier = Modifier.padding(top = 2.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.CheckCircle,
+                                    contentDescription = "Finished",
+                                    tint = colors.primary,
+                                    modifier = Modifier.size(13.dp)
+                                )
+                                Text(
+                                    text = "Finished" + (song.lastPlayedAt?.let { " • ${formatTimeAgo(it)}" } ?: ""),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = colors.primary,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Clip
+                                )
+                            }
+                        } else if (song.playbackPercentage > 0f) {
+                            Text(
+                                text = "${song.playbackProgressPercent}% played" + (song.lastPlayedAt?.let { " • ${formatTimeAgo(it)}" } ?: ""),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = colors.secondary,
+                                maxLines = 2,
+                                overflow = TextOverflow.Clip,
+                                modifier = Modifier.padding(top = 2.dp)
+                            )
+                        }
                     }
 
                     if (isCurrentSong) {
@@ -2132,6 +2153,17 @@ fun QueuePlaylistSongItem(
                     }
                 }
             }
+            if (song.playbackPercentage > 0f && !isCurrentSong) {
+                LinearProgressIndicator(
+                    progress = { song.playbackPercentage },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(2.5.dp),
+                    color = if (song.isCompleted) colors.primary else colors.secondary,
+                    trackColor = colors.surfaceContainerHighest.copy(alpha = 0.4f)
+                )
+            }
+        }
         }
     }
 }

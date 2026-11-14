@@ -68,6 +68,7 @@ import com.theveloper.pixelplay.data.service.player.CastPlayer
 import com.theveloper.pixelplay.data.service.http.MediaFileHttpServerService
 import com.theveloper.pixelplay.data.service.player.DualPlayerEngine
 import com.theveloper.pixelplay.data.repository.CourseFolderManager
+import com.theveloper.pixelplay.data.repository.CourseSyncProgress
 import com.theveloper.pixelplay.data.worker.SyncManager
 import com.theveloper.pixelplay.utils.ValidatedLyricsImport
 import com.theveloper.pixelplay.utils.LocalArtworkUri
@@ -1117,6 +1118,13 @@ class PlayerViewModel @Inject constructor(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
             initialValue = false
+        )
+
+    val courseSyncProgress: StateFlow<CourseSyncProgress> = (courseFolderManager?.syncProgress ?: MutableStateFlow(CourseSyncProgress()))
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = CourseSyncProgress()
         )
 
     private val _isInitialDataLoaded = MutableStateFlow(false)
@@ -2218,8 +2226,9 @@ class PlayerViewModel @Inject constructor(
         startSong: Song,
         queueName: String = "None",
         playlistId: String? = null,
-        startPositionMs: Long = 0L
-    ) = playbackDispatchStateHolder.playSongs(songsToPlay, startSong, queueName, playlistId, startPositionMs)
+        startPositionMs: Long = 0L,
+        playlistCoverUri: String? = null
+    ) = playbackDispatchStateHolder.playSongs(songsToPlay, startSong, queueName, playlistId, startPositionMs, playlistCoverUri)
 
     fun playSongsShuffled(
         songsToPlay: List<Song>,

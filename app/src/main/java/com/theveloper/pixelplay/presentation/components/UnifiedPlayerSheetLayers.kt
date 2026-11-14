@@ -55,6 +55,7 @@ internal fun BoxScope.UnifiedPlayerMiniAndFullLayers(
     fullPlayerVisualState: FullPlayerVisualState,
     containerHeight: Dp,
     currentQueueSourceName: String,
+    currentPlaylistCoverUri: String? = null,
     currentSheetContentState: PlayerSheetState,
     carouselStyle: String,
     fullPlayerLoadingTweaks: FullPlayerLoadingTweaks,
@@ -127,6 +128,8 @@ internal fun BoxScope.UnifiedPlayerMiniAndFullLayers(
                         onPrevious = { playerViewModel.previousSong() },
                         onNext = { playerViewModel.nextSong() },
                         canScroll = isMiniPlayerVisible && infrequentPlayerState.isPlaying,
+                        currentQueueSourceName = currentQueueSourceName,
+                        courseCoverUri = currentPlaylistCoverUri,
                         modifier = Modifier.fillMaxSize()
                     )
                 }
@@ -229,6 +232,7 @@ internal fun BoxScope.UnifiedPlayerMiniAndFullLayers(
                         currentSong = currentSongNonNull,
                         currentPlaybackQueue = currentPlaybackQueue,
                         currentQueueSourceName = currentQueueSourceName,
+                        currentPlaylistCoverUri = currentPlaylistCoverUri,
                         currentMediaItemIndex = infrequentPlayerState.currentMediaItemIndex,
                         isShuffleEnabled = infrequentPlayerState.isShuffleEnabled,
                         shuffleTransitionInProgress = infrequentPlayerState.isShuffleTransitionInProgress,

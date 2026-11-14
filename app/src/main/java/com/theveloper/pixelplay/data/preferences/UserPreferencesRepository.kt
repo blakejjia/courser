@@ -101,6 +101,7 @@ class UserPreferencesRepository @Inject constructor(
         val FAVORITE_SONG_IDS = stringSetPreferencesKey("favorite_song_ids")
         val USER_PLAYLISTS = stringPreferencesKey("user_playlists_json_v1")
         val PLAYLIST_SONG_ORDER_MODES = stringPreferencesKey("playlist_song_order_modes")
+        val CUSTOM_PLAYLIST_ORDER = stringPreferencesKey("custom_playlist_order_ids")
 
         // Sort options
         val SONGS_SORT_OPTION = stringPreferencesKey("songs_sort_option")
@@ -543,6 +544,21 @@ class UserPreferencesRepository @Inject constructor(
         pref { preferences ->
             decodeJsonPref(preferences, PreferencesKeys.PLAYLIST_SONG_ORDER_MODES, emptyMap())
         }
+
+    val customPlaylistOrderFlow: Flow<List<String>> =
+        pref { preferences ->
+            decodeJsonPref(preferences, PreferencesKeys.CUSTOM_PLAYLIST_ORDER, emptyList())
+        }
+
+    suspend fun setCustomPlaylistOrder(playlistIds: List<String>) {
+        dataStore.edit { preferences ->
+            if (playlistIds.isEmpty()) {
+                preferences.remove(PreferencesKeys.CUSTOM_PLAYLIST_ORDER)
+            } else {
+                preferences[PreferencesKeys.CUSTOM_PLAYLIST_ORDER] = json.encodeToString(playlistIds)
+            }
+        }
+    }
 
     suspend fun setPlaylistSongOrderMode(playlistId: String, modeValue: String) {
         editJsonMap<String>(PreferencesKeys.PLAYLIST_SONG_ORDER_MODES) { put(playlistId, modeValue) }

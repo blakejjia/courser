@@ -43,6 +43,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import com.theveloper.pixelplay.utils.formatTimeAgo
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -70,6 +71,7 @@ fun CourseTile(
     progress: CourseProgressEntity? = null,
     isPlaying: Boolean = false,
     playingSectionNumber: Int? = null,
+    isAudioPlaying: Boolean = true,
     isPinned: Boolean = false,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
@@ -78,7 +80,9 @@ fun CourseTile(
     isSelectionMode: Boolean = false,
     selectionIndex: Int = -1,
     onLongClick: (() -> Unit)? = null,
-    onSelectionToggle: (() -> Unit)? = null
+    onSelectionToggle: (() -> Unit)? = null,
+    isReorderMode: Boolean = false,
+    dragHandle: (@Composable () -> Unit)? = null
 ) {
     val selectionScale by animateFloatAsState(
         targetValue = if (isSelected) 0.98f else 1f,
@@ -111,29 +115,30 @@ fun CourseTile(
         label = "courseBorderColor"
     )
 
-    val subtitleText = remember(isPlaying, playingSectionNumber, progress, playlist.songIds) {
+    val completionRatio = progress?.completionRatio ?: playlist.completionPercentage
+    val percent = (completionRatio * 100).toInt()
+    val lastActiveSongId = progress?.currentSongId ?: playlist.lastPlayedSongId
+    val completedCount = progress?.completedSongsCount ?: ((playlist.completionPercentage * playlist.songIds.size).toInt())
+    val lastPlayedTime = progress?.lastPlayedAt?.takeIf { it > 0L } ?: playlist.lastPlayedAt
+
+    val subtitleText = remember(progress, playlist, completionRatio) {
         when {
-            isPlaying && playingSectionNumber != null -> {
-                "Playing #$playingSectionNumber • ${playlist.songIds.size} lessons"
+            lastActiveSongId != null -> {
+                val idx = playlist.songIds.indexOf(lastActiveSongId)
+                val lessonPrefix = if (idx >= 0) "#${idx + 1} Continue" else "Continue"
+                val timeSuffix = lastPlayedTime?.let { " • ${formatTimeAgo(it)}" } ?: ""
+                if (percent > 0) "$lessonPrefix • $percent% learned$timeSuffix"
+                else "$lessonPrefix • ${playlist.songIds.size} lessons$timeSuffix"
             }
-            progress?.currentSongId != null -> {
-                val idx = playlist.songIds.indexOf(progress.currentSongId)
-                if (idx >= 0) {
-                    "#${idx + 1} Continue • ${playlist.songIds.size} lessons"
-                } else {
-                    "${playlist.songIds.size} lessons"
-                }
-            }
-            (progress?.completedSongsCount ?: 0) > 0 -> {
-                "${progress?.completedSongsCount}/${playlist.songIds.size} completed"
+            completedCount > 0 -> {
+                val timeSuffix = lastPlayedTime?.let { " • ${formatTimeAgo(it)}" } ?: ""
+                "$completedCount/${playlist.songIds.size} completed ($percent%)$timeSuffix"
             }
             else -> {
                 "${playlist.songIds.size} lessons"
             }
         }
     }
-
-    val completionRatio = progress?.completionRatio ?: 0f
 
     Card(
         modifier = modifier
@@ -241,97 +246,118 @@ fun CourseTile(
 
                 Spacer(modifier = Modifier.width(8.dp))
 
-                // Action area: Pin icon, Playing section indicator, Play button, or Selection check
+                // Action area: Pin icon, Drag handle (in reorder mode), Play button, or Selection check
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    if (isPinned) {
-                        Icon(
-                            imageVector = Icons.Rounded.PushPin,
-                            contentDescription = "Pinned course",
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-
-                    if (isSelectionMode) {
-                        Box(
-                            modifier = Modifier
-                                .size(26.dp)
-                                .background(
-                                    color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHighest,
-                                    shape = CircleShape
-                                ),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            if (selectionIndex >= 0) {
-                                Text(
-                                    text = (selectionIndex + 1).toString(),
-                                    style = MaterialTheme.typography.labelMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onPrimary
-                                )
-                            } else if (isSelected) {
-                                Icon(
-                                    imageVector = Icons.Rounded.CheckCircle,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.onPrimary,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                            }
-                        }
-                    } else if (isPlaying && playingSectionNumber != null) {
-                        Surface(
-                            shape = RoundedCornerShape(16.dp),
-                            color = MaterialTheme.colorScheme.primaryContainer
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(6.dp)
-                            ) {
-                                PlayingEqIcon(
-                                    modifier = Modifier.size(width = 14.dp, height = 12.dp),
-                                    color = MaterialTheme.colorScheme.onPrimaryContainer,
-                                    isPlaying = true
-                                )
-                                Text(
-                                    text = "Playing #$playingSectionNumber",
-                                    style = MaterialTheme.typography.labelMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onPrimaryContainer
-                                )
-                            }
-                        }
-                    } else if (onPlayClick != null) {
-                        Surface(
-                            shape = CircleShape,
-                            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
-                            modifier = Modifier.clickable { onPlayClick() }
-                        ) {
+                    if (isReorderMode && dragHandle != null) {
+                        dragHandle()
+                    } else {
+                        if (isPinned) {
                             Icon(
-                                imageVector = Icons.Rounded.PlayArrow,
-                                contentDescription = "Play course",
+                                imageVector = Icons.Rounded.PushPin,
+                                contentDescription = "Pinned course",
                                 tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier
-                                    .padding(8.dp)
-                                    .size(20.dp)
+                                modifier = Modifier.size(18.dp)
                             )
+                        }
+
+                        if (isSelectionMode) {
+                            Box(
+                                modifier = Modifier
+                                    .size(26.dp)
+                                    .background(
+                                        color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHighest,
+                                        shape = CircleShape
+                                    ),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                if (selectionIndex >= 0) {
+                                    Text(
+                                        text = (selectionIndex + 1).toString(),
+                                        style = MaterialTheme.typography.labelMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onPrimary
+                                    )
+                                } else if (isSelected) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.CheckCircle,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onPrimary,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+                            }
+                        }
+
+                        if (percent > 0 && !isSelectionMode) {
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = if (completionRatio >= 1f) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.secondaryContainer
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(2.dp)
+                                ) {
+                                    if (completionRatio >= 1f) {
+                                        Icon(
+                                            imageVector = Icons.Rounded.CheckCircle,
+                                            contentDescription = "Completed",
+                                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                            modifier = Modifier.size(12.dp)
+                                        )
+                                    }
+                                    Text(
+                                        text = "$percent%",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = if (completionRatio >= 1f) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSecondaryContainer
+                                    )
+                                }
+                            }
+                        }
+
+                        if (onPlayClick != null && !isSelectionMode) {
+                            Surface(
+                                shape = CircleShape,
+                                color = if (isPlaying) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
+                                modifier = Modifier.clickable { onPlayClick() }
+                            ) {
+                                if (isPlaying) {
+                                    PlayingEqIcon(
+                                        modifier = Modifier
+                                            .padding(9.dp)
+                                            .size(18.dp),
+                                        color = MaterialTheme.colorScheme.primary,
+                                        isPlaying = isAudioPlaying
+                                    )
+                                } else {
+                                    Icon(
+                                        imageVector = Icons.Rounded.PlayArrow,
+                                        contentDescription = "Play course",
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier
+                                            .padding(8.dp)
+                                            .size(20.dp)
+                                    )
+                                }
+                            }
                         }
                     }
                 }
             }
 
-            // Zero-margin bottom progress bar
+            // Zero-margin bottom progress indicator border
             if (completionRatio > 0f) {
                 LinearProgressIndicator(
                     progress = { completionRatio.coerceIn(0f, 1f) },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(3.dp),
+                        .height(4.dp),
                     color = MaterialTheme.colorScheme.primary,
-                    trackColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
+                    trackColor = MaterialTheme.colorScheme.surfaceContainerHighest
                 )
             }
         }

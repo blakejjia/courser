@@ -1,11 +1,14 @@
 package com.theveloper.pixelplay.data.preferences
 
+import com.theveloper.pixelplay.data.database.CourseProgressDao
+import com.theveloper.pixelplay.data.database.CourseProgressEntity
 import com.theveloper.pixelplay.data.database.LocalPlaylistDao
 import com.theveloper.pixelplay.data.model.Playlist
 import com.theveloper.pixelplay.data.database.toEntity
 import com.theveloper.pixelplay.data.database.toPlaylist
 import com.theveloper.pixelplay.data.model.SortOption
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
@@ -18,7 +21,8 @@ import javax.inject.Singleton
 @Singleton
 class PlaylistPreferencesRepository @Inject constructor(
     private val localPlaylistDao: LocalPlaylistDao,
-    private val userPreferencesRepository: UserPreferencesRepository
+    private val userPreferencesRepository: UserPreferencesRepository,
+    private val courseProgressDao: CourseProgressDao
 ) {
     private val migrationMutex = Mutex()
     // Serializes read-modify-write edits to playlists. Without this, concurrent edits
@@ -29,15 +33,42 @@ class PlaylistPreferencesRepository @Inject constructor(
     @Volatile
     private var migrationChecked = false
 
-    val userPlaylistsFlow: Flow<List<Playlist>> = localPlaylistDao.observePlaylistsWithSongs()
-        .onStart { ensureMigratedIfNeeded() }
-        .map { rows ->
-            rows.map { row ->
-                row.playlist.toPlaylist(
-                    songIds = row.songs.sortedBy { it.sortOrder }.map { it.songId }
-                )
-            }
+    val userPlaylistsFlow: Flow<List<Playlist>> = combine(
+        localPlaylistDao.observePlaylistsWithSongs().onStart { ensureMigratedIfNeeded() },
+        courseProgressDao.observeAllProgress(),
+        userPreferencesRepository.customPlaylistOrderFlow
+    ) { rows, allProgress, customOrder ->
+        val progressByCourseId = allProgress.associateBy { it.courseId }
+        val progressByName = allProgress.filter { it.courseName.isNotBlank() }.associateBy { it.courseName }
+        val unordered = rows.map { row ->
+            val playlistId = row.playlist.id
+            val courseId = CourseProgressEntity.playlistCourseId(playlistId)
+            val progress = progressByCourseId[courseId]
+                ?: progressByCourseId[playlistId]
+                ?: progressByName[row.playlist.name]
+
+            row.playlist.toPlaylist(
+                songIds = row.songs.sortedBy { it.sortOrder }.map { it.songId },
+                lastPlayedAt = progress?.lastPlayedAt?.takeIf { it > 0L },
+                completionPercentage = progress?.completionRatio ?: 0f,
+                lastPlayedSongId = progress?.currentSongId,
+                lastPlayedSongTitle = progress?.currentSongTitle?.takeIf { it.isNotBlank() }
+            )
         }
+        if (customOrder.isEmpty()) {
+            unordered.sortedBy { it.createdAt }
+        } else {
+            val orderMap = customOrder.withIndex().associate { it.value to it.index }
+            unordered.sortedWith(
+                compareBy<Playlist> { orderMap[it.id] ?: Int.MAX_VALUE }
+                    .thenBy { it.createdAt }
+            )
+        }
+    }
+
+    suspend fun reorderPlaylists(newPlaylistOrderIds: List<String>) {
+        userPreferencesRepository.setCustomPlaylistOrder(newPlaylistOrderIds)
+    }
 
     val playlistSongOrderModesFlow: Flow<Map<String, String>> =
         userPreferencesRepository.playlistSongOrderModesFlow

@@ -8,6 +8,7 @@ import androidx.compose.animation.core.updateTransition
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -27,9 +28,11 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import com.theveloper.pixelplay.utils.formatTimeAgo
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.getValue
@@ -89,7 +92,7 @@ fun EnhancedSongListItem(
     isPlaying: Boolean,
     isCurrentSong: Boolean = false,
     isLoading: Boolean = false,
-    showAlbumArt: Boolean = true,
+    showAlbumArt: Boolean = false,
     albumArtSize: Dp = 50.dp,
     customShape: androidx.compose.ui.graphics.Shape? = null,
     containerColorOverride: Color? = null,
@@ -273,13 +276,41 @@ fun EnhancedSongListItem(
             shape = surfaceShape,
             color = containerColor,
         ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 13.dp, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                if (showAlbumArt) {
+            Column {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 13.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                if (showSelectionDecoration) {
+                    Box(
+                        modifier = Modifier
+                            .size(28.dp)
+                            .background(
+                                color = selectionOverlayColor,
+                                shape = CircleShape
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (selectionIndex != null && selectionIndex >= 0) {
+                            Text(
+                                text = selectionIndex.toString(),
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = selectionOverlayContentColor
+                            )
+                        } else {
+                            Icon(
+                                imageVector = Icons.Rounded.CheckCircle,
+                                contentDescription = stringResource(R.string.common_selected),
+                                tint = selectionOverlayContentColor,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.width(12.dp))
+                } else if (showAlbumArt) {
                     Box(
                         modifier = Modifier
                             .size(albumArtSize)
@@ -292,35 +323,6 @@ fun EnhancedSongListItem(
                             targetSize = Size(albumArtTargetSizePx, albumArtTargetSizePx),
                             modifier = Modifier.fillMaxSize()
                         )
-                        
-                        // Selection check overlay on album art
-                        if (showSelectionDecoration) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .background(
-                                        color = selectionOverlayColor,
-                                        shape = albumShape
-                                    ),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                if (selectionIndex != null && selectionIndex >= 0) {
-                                    Text(
-                                        text = selectionIndex.toString(),
-                                        style = MaterialTheme.typography.titleMedium,
-                                        fontWeight = FontWeight.Bold,
-                                        color = selectionOverlayContentColor
-                                    )
-                                } else {
-                                    Icon(
-                                        imageVector = Icons.Rounded.CheckCircle,
-                                        contentDescription = stringResource(R.string.common_selected),
-                                        tint = selectionOverlayContentColor,
-                                        modifier = Modifier.size(28.dp)
-                                    )
-                                }
-                            }
-                        }
                     }
                     Spacer(modifier = Modifier.width(14.dp))
                 } else {
@@ -343,19 +345,49 @@ fun EnhancedSongListItem(
                             text = song.title,
                             style = MaterialTheme.typography.bodyLarge,
                             fontWeight = FontWeight.SemiBold,
-                            maxLines = 1,
+                            maxLines = 2,
                             color = contentColor,
-                            overflow = TextOverflow.Ellipsis
+                            overflow = TextOverflow.Clip
                         )
                     }
-                    Spacer(modifier = Modifier.height(4.dp))
+                    Spacer(modifier = Modifier.height(2.dp))
                     Text(
                         text = song.displayArtist,
                         style = MaterialTheme.typography.bodyMedium,
                         color = contentColor.copy(alpha = 0.7f),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        maxLines = 2,
+                        overflow = TextOverflow.Clip
                     )
+                    if (song.isCompleted) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                            modifier = Modifier.padding(top = 2.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.CheckCircle,
+                                contentDescription = "Finished",
+                                tint = colors.primary,
+                                modifier = Modifier.size(13.dp)
+                            )
+                            Text(
+                                text = "Finished" + (song.lastPlayedAt?.let { " • ${formatTimeAgo(it)}" } ?: ""),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = colors.primary,
+                                maxLines = 2,
+                                overflow = TextOverflow.Clip
+                            )
+                        }
+                    } else if (song.playbackPercentage > 0f) {
+                        Text(
+                            text = "${song.playbackProgressPercent}% played" + (song.lastPlayedAt?.let { " • ${formatTimeAgo(it)}" } ?: ""),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = colors.secondary,
+                            maxLines = 2,
+                            overflow = TextOverflow.Clip,
+                            modifier = Modifier.padding(top = 2.dp)
+                        )
+                    }
                 }
                 
                 val showPlayingIndicator = isCurrentSong && !isSelectionMode
@@ -394,6 +426,17 @@ fun EnhancedSongListItem(
                     }
                 }
             }
+            if (song.playbackPercentage > 0f && !isCurrentSong) {
+                LinearProgressIndicator(
+                    progress = { song.playbackPercentage },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(2.5.dp),
+                    color = if (song.isCompleted) colors.primary else colors.secondary,
+                    trackColor = colors.surfaceContainerHighest.copy(alpha = 0.4f)
+                )
+            }
         }
     }
+}
 }
