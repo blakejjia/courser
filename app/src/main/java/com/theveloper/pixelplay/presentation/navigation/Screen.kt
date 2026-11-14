@@ -49,7 +49,7 @@ sealed class Screen(val route: String) {
     object DeviceCapabilities : Screen("device_capabilities")
     object NavidromeDashboard : Screen("navidrome_dashboard")
     object JellyfinDashboard : Screen("jellyfin_dashboard")
-    object GDriveDashboard : Screen("gdrive_dashboard")
+    object GDriveDashboard : Screen("course_folder_selection?tab=gdrive")
     object CourseFolderSelection : Screen("course_folder_selection?tab={tab}") {
         fun createRoute(tab: String = "local") = "course_folder_selection?tab=$tab"
     }

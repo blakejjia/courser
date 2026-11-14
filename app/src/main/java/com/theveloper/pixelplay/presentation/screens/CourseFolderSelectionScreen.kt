@@ -104,10 +104,11 @@ fun CourseFolderSelectionScreen(
         topBar = {
             TopAppBar(
                 title = {
+                    val isDriveTab = uiState.currentTab == CourseSourceTab.GDRIVE
                     val titleText = when {
                         isSetupFlow -> "Select Course Folders"
-                        uiState.currentTab == CourseSourceTab.LOCAL -> "Local Course Folders"
-                        else -> "Google Drive Folders"
+                        isDriveTab -> stringResource(R.string.auth_gdrive_title)
+                        else -> "Local Storage"
                     }
                     val selectedCount = if (uiState.currentTab == CourseSourceTab.LOCAL) {
                         uiState.checkedLocalPaths.size
@@ -115,12 +116,34 @@ fun CourseFolderSelectionScreen(
                         uiState.checkedDriveFolderIds.size
                     }
                     Column {
-                        Text(
-                            text = titleText,
-                            fontFamily = GoogleSansRounded,
-                            fontWeight = FontWeight.Bold,
-                            style = MaterialTheme.typography.titleLarge
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            if (!isSetupFlow) {
+                                if (isDriveTab) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.Cloud,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(22.dp)
+                                    )
+                                } else {
+                                    Icon(
+                                        imageVector = Icons.Rounded.Folder,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(22.dp)
+                                    )
+                                }
+                            }
+                            Text(
+                                text = titleText,
+                                fontFamily = GoogleSansRounded,
+                                fontWeight = FontWeight.Bold,
+                                style = MaterialTheme.typography.titleLarge
+                            )
+                        }
                         Text(
                             text = "$selectedCount course ${if (selectedCount == 1) "folder" else "folders"} selected",
                             fontFamily = GoogleSansRounded,

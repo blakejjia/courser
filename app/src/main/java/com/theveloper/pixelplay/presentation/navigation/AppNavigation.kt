@@ -517,15 +517,6 @@ fun AppNavigation(
                 }
             }
             composable(
-                Screen.GDriveDashboard.route,
-            ) {
-                ScreenWrapper(navController = navController, playerViewModel = playerViewModel, animatedVisibilityScope = this) {
-                    com.theveloper.pixelplay.presentation.screens.CourseFolderSelectionScreen(
-                        onBack = { navController.popBackStack() }
-                    )
-                }
-            }
-            composable(
                 route = Screen.CourseFolderSelection.route,
                 arguments = listOf(
                     navArgument("tab") {

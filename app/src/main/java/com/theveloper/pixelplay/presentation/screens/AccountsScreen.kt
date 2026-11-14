@@ -222,7 +222,8 @@ fun AccountsScreen(
                         } else null
                     )
                 }
-            } else {
+            }
+            if (uiState.disconnectedServices.isNotEmpty()) {
                 item {
                     EmptyAccountsCard(
                         disconnectedServices = uiState.disconnectedServices,
@@ -659,7 +660,14 @@ private fun openService(
             )
         }
         ExternalServiceAccount.GOOGLE_DRIVE -> {
-            onOpenGDriveDashboard()
+            if (preferDashboard) {
+                onOpenGDriveDashboard()
+            } else {
+                safeStartActivity(
+                    context = context,
+                    intent = Intent(context, GDriveLoginActivity::class.java)
+                )
+            }
         }
         ExternalServiceAccount.NAVIDROME -> {
             if (preferDashboard) {
