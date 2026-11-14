@@ -1358,6 +1358,7 @@ class MusicService : MediaLibraryService() {
             reason: Int
         ) {
             if (reason == Player.DISCONTINUITY_REASON_SEEK) {
+                courseProgressTracker.onSeek(newPosition.positionMs)
                 val state = if (engine.masterPlayer.isPlaying) "playing" else "paused"
                 reportNavidromePlayback(state)
             }

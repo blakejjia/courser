@@ -378,11 +378,7 @@ fun PlaylistDetailScreen(
                     Button(
                         onClick = {
                             if (localReorderableSongs.isNotEmpty()) {
-                                playerViewModel.playSongs(
-                                    localReorderableSongs,
-                                    localReorderableSongs.first(),
-                                    currentPlaylist.name
-                                )
+                                playlistViewModel.playPlaylist(currentPlaylist.id, playerViewModel)
                             }
                         },
                         modifier = Modifier

@@ -118,6 +118,14 @@ class CourseProgressTracker @Inject constructor(
     }
 
     /**
+     * Called when user seeks within the current track.
+     */
+    fun onSeek(positionMs: Long) {
+        if (currentSongId == null) return
+        saveCurrentPosition(player = null, positionMs = positionMs)
+    }
+
+    /**
      * Called when a track ends (STATE_ENDED or AUTO_TRANSITION outgoing).
      * Writes the completion record if the threshold was reached.
      *

@@ -903,6 +903,7 @@ class PlaybackDispatchStateHolder @Inject constructor(
                     currentPlaylistCoverUri = playlistCoverUri
                 )
             }
+            playbackStateHolder.setCurrentPosition(startPositionMs)
             playbackStateHolder.updateStablePlayerState {
                 it.copy(
                     currentSong = effectiveStartSong,
@@ -923,6 +924,9 @@ class PlaybackDispatchStateHolder @Inject constructor(
 
                 enginePlayer.setMediaItem(startMediaItem, startPositionMs)
                 enginePlayer.prepare()
+                if (startPositionMs > 0L) {
+                    enginePlayer.seekTo(startPositionMs)
+                }
                 enginePlayer.play()
                 cb.updateUiState { it.copy(isLoadingInitialSongs = false) }
 

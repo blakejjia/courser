@@ -69,8 +69,12 @@ class DailyLearningQueueBuilder @Inject constructor(
             val courseSongs = playlist.songIds.mapNotNull { allSongsMap[it] }
             if (courseSongs.isEmpty()) continue
 
-            val progress = courseProgressRepository.getProgress(courseId)
-            val (startIndex, startPos) = resolveCourseResumePoint(courseSongs, progress)
+            val (courseResumeSong, startPos) = courseProgressRepository.resolveCourseResume(
+                courseId = courseId,
+                courseName = playlist.name,
+                songs = courseSongs
+            )
+            val startIndex = courseSongs.indexOfFirst { it.id == courseResumeSong.id }.coerceAtLeast(0)
 
             if (firstCourseId == null) {
                 firstCourseId = courseId
@@ -161,9 +165,11 @@ class DailyLearningQueueBuilder @Inject constructor(
         val songs = targetPlaylist.songIds.mapNotNull { allSongsMap[it] }
         if (songs.isEmpty()) return null
 
-        val progress = courseProgressRepository.getProgress(targetPlaylist.id)
-        val (startIndex, startPos) = resolveCourseResumePoint(songs, progress)
-        val startSong = songs.getOrElse(startIndex) { songs.first() }
+        val (startSong, startPos) = courseProgressRepository.resolveCourseResume(
+            courseId = targetPlaylist.id,
+            courseName = targetPlaylist.name,
+            songs = songs
+        )
 
         return PlannedLearningSession(
             songs = songs,

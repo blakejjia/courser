@@ -42,6 +42,69 @@ class CourseProgressRepository @Inject constructor(
     suspend fun getProgress(courseId: String): CourseProgressEntity? =
         courseProgressDao.getProgress(courseId)
 
+    suspend fun findProgress(courseId: String, courseName: String = ""): CourseProgressEntity? =
+        courseProgressDao.findProgress(courseId, courseName)
+
+    /**
+     * Resolves the starting song and starting position (ms) to resume a course.
+     * Looks at course progress first, then individual song engagement records.
+     */
+    suspend fun resolveCourseResume(
+        courseId: String,
+        courseName: String,
+        songs: List<Song>
+    ): Pair<Song, Long> {
+        if (songs.isEmpty()) return Song.emptySong() to 0L
+
+        // 1. Try finding course-level progress
+        val progress = findProgress(courseId, courseName)
+        val candidateSongId = progress?.currentSongId
+
+        if (candidateSongId != null) {
+            val idx = songs.indexOfFirst { it.id == candidateSongId }
+            if (idx >= 0) {
+                val candidateSong = songs[idx]
+                val duration = candidateSong.duration
+                val pos = progress.currentPositionMs.coerceAtLeast(0L)
+
+                // If track is finished (>= 90% or within 5s of end), advance to next track at 0ms
+                val isFinished = duration > 0L && (pos >= duration * 0.90f || (duration - pos) <= 5_000L)
+                return if (isFinished) {
+                    val nextIdx = (idx + 1) % songs.size
+                    songs[nextIdx] to 0L
+                } else {
+                    candidateSong to pos
+                }
+            }
+        }
+
+        // 2. If no course progress, check individual song engagement bookmarks
+        val engagements = getSongEngagements(songs.map { it.id })
+        val inProgressSong = songs.firstOrNull { song ->
+            val eng = engagements[song.id]
+            eng != null && !eng.isCompleted && eng.lastResumePositionMs > 0L
+        }
+        if (inProgressSong != null) {
+            val eng = engagements[inProgressSong.id]
+            val pos = eng?.lastResumePositionMs ?: 0L
+            return inProgressSong to pos
+        }
+
+        // 3. Find the first uncompleted song in the course
+        val firstUncompleted = songs.firstOrNull { song ->
+            val eng = engagements[song.id]
+            eng == null || !eng.isCompleted
+        }
+        if (firstUncompleted != null) {
+            val eng = engagements[firstUncompleted.id]
+            val pos = eng?.lastResumePositionMs ?: 0L
+            return firstUncompleted to pos
+        }
+
+        // 4. Default: first song at 0ms
+        return songs.first() to 0L
+    }
+
     suspend fun getRecentlyPlayedCourses(limit: Int = 10): List<CourseProgressEntity> =
         courseProgressDao.getRecentlyPlayedCourses(limit)
 

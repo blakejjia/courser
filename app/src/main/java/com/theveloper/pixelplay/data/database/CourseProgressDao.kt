@@ -15,6 +15,18 @@ interface CourseProgressDao {
     @Query("SELECT * FROM course_progress WHERE course_id = :courseId")
     suspend fun getProgress(courseId: String): CourseProgressEntity?
 
+    @Query("""
+        SELECT * FROM course_progress 
+        WHERE course_id = :courseId 
+           OR course_id = 'playlist:' || :courseId 
+           OR course_id = 'local:' || :courseId 
+           OR course_id = 'gdrive:' || :courseId 
+           OR (course_name != '' AND course_name = :courseName)
+        ORDER BY last_played_at DESC 
+        LIMIT 1
+    """)
+    suspend fun findProgress(courseId: String, courseName: String = ""): CourseProgressEntity?
+
     @Query("SELECT * FROM course_progress WHERE course_id = :courseId")
     fun observeProgress(courseId: String): Flow<CourseProgressEntity?>
 

@@ -131,10 +131,11 @@ class DailyGoalViewModel @Inject constructor(
             val allSongsMap = musicRepository.getAllSongsOnce().associateBy { it.id }
             val songs = playlist.songIds.mapNotNull { allSongsMap[it] }
             if (songs.isNotEmpty()) {
-                val progress = courseProgressRepository.getProgress(courseId)
-                val currentSongId = progress?.currentSongId
-                val startSong = songs.find { it.id == currentSongId } ?: songs.first()
-                val startPos = if (startSong.id == currentSongId) (progress?.currentPositionMs ?: 0L) else 0L
+                val (startSong, startPos) = courseProgressRepository.resolveCourseResume(
+                    courseId = playlist.id,
+                    courseName = playlist.name,
+                    songs = songs
+                )
                 playerViewModel.playSongs(
                     songsToPlay = songs,
                     startSong = startSong,
