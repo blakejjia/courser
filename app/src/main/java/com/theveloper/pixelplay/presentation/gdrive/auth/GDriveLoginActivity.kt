@@ -99,19 +99,14 @@ fun GDriveLoginScreen(
                     .getAuthorizationResultFromIntent(activityResult.data)
                 val accessToken = authResult.accessToken
                 val serverAuthCode = authResult.serverAuthCode
-                if (!serverAuthCode.isNullOrBlank()) {
+                if (!serverAuthCode.isNullOrBlank() || !accessToken.isNullOrBlank()) {
                     viewModel.processCredential(
                         idToken = pendingIdToken ?: "",
                         serverAuthCode = serverAuthCode,
+                        fallbackAccessToken = accessToken,
                         email = pendingEmail,
                         displayName = pendingDisplayName,
                         profilePictureUri = pendingAvatar
-                    )
-                } else if (!accessToken.isNullOrBlank()) {
-                    viewModel.loginWithAccessToken(
-                        accessToken = accessToken,
-                        email = pendingEmail,
-                        displayName = pendingDisplayName
                     )
                 } else {
                     viewModel.setError("Failed to retrieve Google Drive authorization")
@@ -371,7 +366,7 @@ private suspend fun signInWithGoogle(
         }
 
         try {
-            authRequestBuilder.requestOfflineAccess(GDriveConstants.WEB_CLIENT_ID)
+            authRequestBuilder.requestOfflineAccess(GDriveConstants.WEB_CLIENT_ID, true)
         } catch (e: Exception) {
             Timber.w(e, "requestOfflineAccess builder warning")
         }
@@ -391,19 +386,14 @@ private suspend fun signInWithGoogle(
                 } else {
                     val accessToken = authResult.accessToken
                     val serverAuthCode = authResult.serverAuthCode
-                    if (!serverAuthCode.isNullOrBlank()) {
+                    if (!serverAuthCode.isNullOrBlank() || !accessToken.isNullOrBlank()) {
                         viewModel.processCredential(
                             idToken = idToken,
                             serverAuthCode = serverAuthCode,
+                            fallbackAccessToken = accessToken,
                             email = email,
                             displayName = displayName,
                             profilePictureUri = avatar
-                        )
-                    } else if (!accessToken.isNullOrBlank()) {
-                        viewModel.loginWithAccessToken(
-                            accessToken = accessToken,
-                            email = email,
-                            displayName = displayName
                         )
                     } else {
                         viewModel.setError("Drive access token not returned")

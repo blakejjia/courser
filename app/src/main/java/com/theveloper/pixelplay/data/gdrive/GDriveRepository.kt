@@ -95,7 +95,8 @@ class GDriveRepository @Inject constructor(
     val isLoggedIn: Boolean
         get() = api.hasToken() ||
                 !prefs.getString("gdrive_refresh_token", null).isNullOrBlank() ||
-                !prefs.getString("gdrive_access_token", null).isNullOrBlank()
+                !prefs.getString("gdrive_access_token", null).isNullOrBlank() ||
+                !prefs.getString("gdrive_email", null).isNullOrBlank()
 
     val userEmail: String? get() = prefs.getString("gdrive_email", null)
     val userDisplayName: String? get() = prefs.getString("gdrive_display_name", null)
@@ -106,13 +107,17 @@ class GDriveRepository @Inject constructor(
     private fun initFromSavedTokens() {
         val accessToken = prefs.getString("gdrive_access_token", null)
         val refreshToken = prefs.getString("gdrive_refresh_token", null)
+        val email = prefs.getString("gdrive_email", null)
         val expiresAt = prefs.getLong("gdrive_token_expires_at", 0L)
 
         if (!accessToken.isNullOrBlank()) {
             api.setAccessToken(accessToken)
         }
 
-        if ((accessToken.isNullOrBlank() || System.currentTimeMillis() >= expiresAt) && !refreshToken.isNullOrBlank()) {
+        val needsRefresh = (accessToken.isNullOrBlank() || System.currentTimeMillis() >= (expiresAt - 300_000L)) &&
+                (!refreshToken.isNullOrBlank() || !email.isNullOrBlank())
+
+        if (needsRefresh) {
             Timber.d("GDrive token needs refresh on startup, scheduling background refresh")
             kotlinx.coroutines.CoroutineScope(Dispatchers.IO).launch {
                 refreshAccessToken()
@@ -150,10 +155,12 @@ class GDriveRepository @Inject constructor(
     /**
      * Login using a Google ID token from Credential Manager.
      * For server auth code flow: exchanges the auth code for access + refresh tokens.
+     * Falls back to fallbackAccessToken when available.
      */
     suspend fun loginWithCredential(
         idToken: String,
         serverAuthCode: String?,
+        fallbackAccessToken: String? = null,
         email: String? = null,
         displayName: String? = null,
         profilePictureUri: String? = null
@@ -168,30 +175,40 @@ class GDriveRepository @Inject constructor(
                     .putString("gdrive_id_token", idToken)
                     .apply()
 
-                if (serverAuthCode != null) {
-                    // Exchange auth code for access + refresh tokens
-                    val tokenResponse = api.exchangeAuthCode(
-                        authCode = serverAuthCode,
-                        clientId = GDriveConstants.WEB_CLIENT_ID,
-                        clientSecret = GDriveConstants.WEB_CLIENT_SECRET
-                    )
+                var tokenAcquired = false
 
-                    val tokenJson = JSONObject(tokenResponse)
-                    val accessToken = tokenJson.optString("access_token")
-                    val refreshToken = tokenJson.optString("refresh_token")
-                    val expiresIn = tokenJson.optLong("expires_in", 3600L)
+                if (!serverAuthCode.isNullOrBlank()) {
+                    try {
+                        // Exchange auth code for access + refresh tokens
+                        val tokenResponse = api.exchangeAuthCode(
+                            authCode = serverAuthCode,
+                            clientId = GDriveConstants.WEB_CLIENT_ID,
+                            clientSecret = GDriveConstants.WEB_CLIENT_SECRET
+                        )
 
-                    if (accessToken.isNotBlank()) {
-                        saveTokens(accessToken, refreshToken, expiresIn)
-                        api.setAccessToken(accessToken)
+                        val tokenJson = JSONObject(tokenResponse)
+                        val accessToken = tokenJson.optString("access_token")
+                        val refreshToken = tokenJson.optString("refresh_token")
+                        val expiresIn = tokenJson.optLong("expires_in", 3600L)
+
+                        if (accessToken.isNotBlank()) {
+                            saveTokens(accessToken, refreshToken, expiresIn)
+                            api.setAccessToken(accessToken)
+                            tokenAcquired = true
+                        }
+                    } catch (e: Exception) {
+                        Timber.w(e, "Failed exchanging serverAuthCode, checking fallbackAccessToken")
                     }
-                } else {
-                    // Use ID token directly as bearer token (limited but works for basic access)
-                    api.setAccessToken(idToken)
-                    prefs.edit()
-                        .putString("gdrive_access_token", idToken)
-                        .putLong("gdrive_token_expires_at", System.currentTimeMillis() + 3600_000L)
-                        .apply()
+                }
+
+                if (!tokenAcquired && !fallbackAccessToken.isNullOrBlank()) {
+                    saveTokens(fallbackAccessToken, null, 3600L)
+                    api.setAccessToken(fallbackAccessToken)
+                    tokenAcquired = true
+                }
+
+                if (!tokenAcquired) {
+                    return@withContext Result.failure(Exception("Could not obtain a valid Drive access token"))
                 }
 
                 _isLoggedInFlow.value = true
@@ -205,30 +222,85 @@ class GDriveRepository @Inject constructor(
 
     /**
      * Refresh the access token using the stored refresh token.
+     * If absent or failed, silently re-authorizes via Android Google Play Services Identity API.
      */
     suspend fun refreshAccessToken(): Result<String> {
         return withContext(Dispatchers.IO) {
             try {
                 val refreshToken = prefs.getString("gdrive_refresh_token", null)
-                    ?: return@withContext Result.failure(Exception("No refresh token"))
+                if (!refreshToken.isNullOrBlank()) {
+                    try {
+                        val tokenResponse = api.refreshToken(
+                            refreshToken = refreshToken,
+                            clientId = GDriveConstants.WEB_CLIENT_ID,
+                            clientSecret = GDriveConstants.WEB_CLIENT_SECRET
+                        )
 
-                val tokenResponse = api.refreshToken(
-                    refreshToken = refreshToken,
-                    clientId = GDriveConstants.WEB_CLIENT_ID,
-                    clientSecret = GDriveConstants.WEB_CLIENT_SECRET
-                )
+                        val tokenJson = JSONObject(tokenResponse)
+                        val accessToken = tokenJson.optString("access_token")
+                        val expiresIn = tokenJson.optLong("expires_in", 3600L)
 
-                val tokenJson = JSONObject(tokenResponse)
-                val accessToken = tokenJson.optString("access_token")
-                val expiresIn = tokenJson.optLong("expires_in", 3600L)
-
-                if (accessToken.isNotBlank()) {
-                    saveTokens(accessToken, null, expiresIn)
-                    api.setAccessToken(accessToken)
-                    Result.success(accessToken)
-                } else {
-                    Result.failure(Exception("Empty access token in refresh response"))
+                        if (accessToken.isNotBlank()) {
+                            saveTokens(accessToken, null, expiresIn)
+                            api.setAccessToken(accessToken)
+                            _isLoggedInFlow.value = true
+                            Timber.d("GDrive token refreshed successfully via OAuth refresh token")
+                            return@withContext Result.success(accessToken)
+                        }
+                    } catch (e: Exception) {
+                        Timber.w(e, "Standard OAuth refresh failed, will attempt silent Play Services re-authorization")
+                    }
                 }
+
+                // Fallback: silent re-authorization via Google Play Services on Android
+                val email = userEmail
+                if (!email.isNullOrBlank()) {
+                    Timber.d("Attempting silent re-authorization via Identity for account: $email")
+                    try {
+                        val authRequest = AuthorizationRequest.builder()
+                            .setRequestedScopes(listOf(Scope(GDriveConstants.SCOPE_DRIVE_READONLY)))
+                            .setAccount(Account(email, "com.google"))
+                            .build()
+                        val authResult = Identity.getAuthorizationClient(context).authorize(authRequest).await()
+                        val newAccessToken = authResult.accessToken
+                        val newAuthCode = authResult.serverAuthCode
+
+                        if (!newAuthCode.isNullOrBlank()) {
+                            try {
+                                val tokenResponse = api.exchangeAuthCode(
+                                    authCode = newAuthCode,
+                                    clientId = GDriveConstants.WEB_CLIENT_ID,
+                                    clientSecret = GDriveConstants.WEB_CLIENT_SECRET
+                                )
+                                val tokenJson = JSONObject(tokenResponse)
+                                val token = tokenJson.optString("access_token")
+                                val rToken = tokenJson.optString("refresh_token")
+                                val expiresIn = tokenJson.optLong("expires_in", 3600L)
+                                if (token.isNotBlank()) {
+                                    saveTokens(token, rToken, expiresIn)
+                                    api.setAccessToken(token)
+                                    _isLoggedInFlow.value = true
+                                    Timber.d("Silent re-authorization: acquired new token + refresh token")
+                                    return@withContext Result.success(token)
+                                }
+                            } catch (e: Exception) {
+                                Timber.w(e, "Failed exchanging new serverAuthCode during silent refresh")
+                            }
+                        }
+
+                        if (!newAccessToken.isNullOrBlank()) {
+                            saveTokens(newAccessToken, null, 3600L)
+                            api.setAccessToken(newAccessToken)
+                            _isLoggedInFlow.value = true
+                            Timber.d("Silent re-authorization: acquired new access token directly")
+                            return@withContext Result.success(newAccessToken)
+                        }
+                    } catch (e: Exception) {
+                        Timber.e(e, "Silent Play Services re-authorization failed")
+                    }
+                }
+
+                Result.failure(Exception("Unable to refresh Google Drive token"))
             } catch (e: Exception) {
                 Timber.e(e, "GDrive token refresh failed")
                 Result.failure(e)
@@ -250,11 +322,35 @@ class GDriveRepository @Inject constructor(
     /**
      * Ensure the access token is valid, refreshing if needed.
      */
-    private suspend fun ensureValidToken() {
+    suspend fun ensureValidToken(forceRefresh: Boolean = false): Result<String> {
+        val currentToken = prefs.getString("gdrive_access_token", null)
         val expiresAt = prefs.getLong("gdrive_token_expires_at", 0L)
-        // Refresh 5 minutes before expiry
-        if (System.currentTimeMillis() > expiresAt - 300_000L) {
-            refreshAccessToken()
+        val isExpiringSoon = System.currentTimeMillis() > (expiresAt - 300_000L) // 5 min buffer
+
+        if (!forceRefresh && !currentToken.isNullOrBlank() && !isExpiringSoon && api.hasToken()) {
+            return Result.success(currentToken)
+        }
+
+        return refreshAccessToken()
+    }
+
+    private suspend fun <T> withTokenRetry(block: suspend () -> T): T {
+        ensureValidToken()
+        return try {
+            block()
+        } catch (e: Exception) {
+            val message = e.message.orEmpty()
+            if (message.contains("401") || message.contains("403") || message.contains("Unauthorized", ignoreCase = true)) {
+                Timber.w(e, "API call received 401/403, forcing token refresh and retrying")
+                val refreshResult = refreshAccessToken()
+                if (refreshResult.isSuccess) {
+                    block()
+                } else {
+                    throw e
+                }
+            } else {
+                throw e
+            }
         }
     }
 
@@ -278,28 +374,30 @@ class GDriveRepository @Inject constructor(
     suspend fun listDriveFolders(parentId: String = "root"): Result<List<DriveFolder>> {
         return withContext(Dispatchers.IO) {
             try {
-                ensureValidToken()
-                val allFolders = mutableListOf<DriveFolder>()
-                var pageToken: String? = null
+                val allFolders = withTokenRetry {
+                    val folders = mutableListOf<DriveFolder>()
+                    var pageToken: String? = null
 
-                do {
-                    val raw = api.listFolders(parentId, pageToken)
-                    val root = JSONObject(raw)
-                    val files = root.optJSONArray("files")
+                    do {
+                        val raw = api.listFolders(parentId, pageToken)
+                        val root = JSONObject(raw)
+                        val files = root.optJSONArray("files")
 
-                    if (files != null) {
-                        for (i in 0 until files.length()) {
-                            val file = files.optJSONObject(i) ?: continue
-                            allFolders.add(
-                                DriveFolder(
-                                    id = file.optString("id"),
-                                    name = file.optString("name")
+                        if (files != null) {
+                            for (i in 0 until files.length()) {
+                                val file = files.optJSONObject(i) ?: continue
+                                folders.add(
+                                    DriveFolder(
+                                        id = file.optString("id"),
+                                        name = file.optString("name")
+                                    )
                                 )
-                            )
+                            }
                         }
-                    }
-                    pageToken = root.optString("nextPageToken").takeIf { it.isNotBlank() }
-                } while (pageToken != null)
+                        pageToken = root.optString("nextPageToken").takeIf { it.isNotBlank() }
+                    } while (pageToken != null)
+                    folders
+                }
 
                 Result.success(allFolders)
             } catch (e: Exception) {
@@ -312,13 +410,14 @@ class GDriveRepository @Inject constructor(
     suspend fun createMusicFolder(parentId: String = "root"): Result<DriveFolder> {
         return withContext(Dispatchers.IO) {
             try {
-                ensureValidToken()
-                val raw = api.createFolder("Courser Music", parentId)
-                val json = JSONObject(raw)
-                val folder = DriveFolder(
-                    id = json.optString("id"),
-                    name = json.optString("name")
-                )
+                val folder = withTokenRetry {
+                    val raw = api.createFolder("Courser Music", parentId)
+                    val json = JSONObject(raw)
+                    DriveFolder(
+                        id = json.optString("id"),
+                        name = json.optString("name")
+                    )
+                }
                 Result.success(folder)
             } catch (e: Exception) {
                 Timber.e(e, "Failed to create music folder")
@@ -350,62 +449,64 @@ class GDriveRepository @Inject constructor(
     suspend fun syncFolderSongs(folderId: String): Result<Int> {
         return withContext(Dispatchers.IO) {
             try {
-                ensureValidToken()
                 val currentFolder = dao.getAllFoldersList().find { it.id == folderId }
                 val rootFolderName = currentFolder?.name ?: "Drive Folder"
 
                 // Breadth-first search for audio files across this folder and all nested subfolders
                 data class FolderWalkItem(val id: String, val pathPrefix: String)
-                val folderQueue = ArrayDeque<FolderWalkItem>()
-                val visitedFolderIds = mutableSetOf<String>()
 
-                folderQueue.add(FolderWalkItem(folderId, ""))
-                visitedFolderIds.add(folderId)
+                val allEntitiesWithPaths = withTokenRetry {
+                    val folderQueue = ArrayDeque<FolderWalkItem>()
+                    val visitedFolderIds = mutableSetOf<String>()
+                    val entitiesWithPaths = mutableListOf<Pair<String, GDriveSongEntity>>()
 
-                val allEntitiesWithPaths = mutableListOf<Pair<String, GDriveSongEntity>>()
+                    folderQueue.add(FolderWalkItem(folderId, ""))
+                    visitedFolderIds.add(folderId)
 
-                while (folderQueue.isNotEmpty()) {
-                    val (currentId, currentPrefix) = folderQueue.removeFirst()
+                    while (folderQueue.isNotEmpty()) {
+                        val (currentId, currentPrefix) = folderQueue.removeFirst()
 
-                    // 1. Fetch audio files in current folder
-                    var audioPageToken: String? = null
-                    do {
-                        val raw = api.listAudioFiles(currentId, audioPageToken)
-                        val root = JSONObject(raw)
-                        val files = root.optJSONArray("files")
+                        // 1. Fetch audio files in current folder
+                        var audioPageToken: String? = null
+                        do {
+                            val raw = api.listAudioFiles(currentId, audioPageToken)
+                            val root = JSONObject(raw)
+                            val files = root.optJSONArray("files")
 
-                        if (files != null) {
-                            for (i in 0 until files.length()) {
-                                val file = files.optJSONObject(i) ?: continue
-                                val fileName = file.optString("name", "Unknown")
-                                val relativePath = if (currentPrefix.isEmpty()) fileName else "$currentPrefix$fileName"
-                                val entity = parseFileToEntity(file, folderId, rootFolderName)
-                                allEntitiesWithPaths.add(relativePath to entity)
-                            }
-                        }
-                        audioPageToken = root.optString("nextPageToken").takeIf { it.isNotBlank() }
-                    } while (audioPageToken != null)
-
-                    // 2. Fetch subfolders in current folder
-                    var folderPageToken: String? = null
-                    do {
-                        val rawFolders = api.listFolders(currentId, folderPageToken)
-                        val rootFolders = JSONObject(rawFolders)
-                        val subfolders = rootFolders.optJSONArray("files")
-
-                        if (subfolders != null) {
-                            for (j in 0 until subfolders.length()) {
-                                val sub = subfolders.optJSONObject(j) ?: continue
-                                val subId = sub.optString("id")
-                                val subName = sub.optString("name")
-                                if (subId.isNotBlank() && visitedFolderIds.add(subId)) {
-                                    val nextPrefix = if (currentPrefix.isEmpty()) "$subName/" else "$currentPrefix$subName/"
-                                    folderQueue.add(FolderWalkItem(subId, nextPrefix))
+                            if (files != null) {
+                                for (i in 0 until files.length()) {
+                                    val file = files.optJSONObject(i) ?: continue
+                                    val fileName = file.optString("name", "Unknown")
+                                    val relativePath = if (currentPrefix.isEmpty()) fileName else "$currentPrefix$fileName"
+                                    val entity = parseFileToEntity(file, folderId, rootFolderName)
+                                    entitiesWithPaths.add(relativePath to entity)
                                 }
                             }
-                        }
-                        folderPageToken = rootFolders.optString("nextPageToken").takeIf { it.isNotBlank() }
-                    } while (folderPageToken != null)
+                            audioPageToken = root.optString("nextPageToken").takeIf { it.isNotBlank() }
+                        } while (audioPageToken != null)
+
+                        // 2. Fetch subfolders in current folder
+                        var folderPageToken: String? = null
+                        do {
+                            val rawFolders = api.listFolders(currentId, folderPageToken)
+                            val rootFolders = JSONObject(rawFolders)
+                            val subfolders = rootFolders.optJSONArray("files")
+
+                            if (subfolders != null) {
+                                for (j in 0 until subfolders.length()) {
+                                    val sub = subfolders.optJSONObject(j) ?: continue
+                                    val subId = sub.optString("id")
+                                    val subName = sub.optString("name")
+                                    if (subId.isNotBlank() && visitedFolderIds.add(subId)) {
+                                        val nextPrefix = if (currentPrefix.isEmpty()) "$subName/" else "$currentPrefix$subName/"
+                                        folderQueue.add(FolderWalkItem(subId, nextPrefix))
+                                    }
+                                }
+                            }
+                            folderPageToken = rootFolders.optString("nextPageToken").takeIf { it.isNotBlank() }
+                        } while (folderPageToken != null)
+                    }
+                    entitiesWithPaths
                 }
 
                 // Natural sort by relative path so files in subfolders follow logical course/chapter order

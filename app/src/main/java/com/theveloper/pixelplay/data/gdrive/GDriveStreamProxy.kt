@@ -159,6 +159,9 @@ class GDriveStreamProxy @Inject constructor(
                             return@get
                         }
 
+                        // Ensure token is fresh before streaming request
+                        repository.ensureValidToken()
+
                         val authHeader = repository.getAuthHeader()
 
                         if (authHeader.isBlank() || authHeader == "Bearer ") {
@@ -179,11 +182,11 @@ class GDriveStreamProxy @Inject constructor(
                             okHttpClient.newCall(requestBuilder.build()).execute()
                         }
 
-                        // If 401, try refreshing the token and retry once
+                        // If 401, force-refresh the token and retry once
                         if (response.code == 401) {
                             response.close()
-                            Timber.d("GDriveStreamProxy: 401 received, refreshing token...")
-                            val refreshResult = repository.refreshAccessToken()
+                            Timber.d("GDriveStreamProxy: 401 received, force-refreshing token...")
+                            val refreshResult = repository.ensureValidToken(forceRefresh = true)
                             if (refreshResult.isSuccess) {
                                 val newAuthHeader = repository.getAuthHeader()
                                 if (newAuthHeader.isBlank() || newAuthHeader == "Bearer ") {
@@ -199,6 +202,9 @@ class GDriveStreamProxy @Inject constructor(
                                 response = withContext(Dispatchers.IO) {
                                     okHttpClient.newCall(retryRequest.build()).execute()
                                 }
+                            } else {
+                                call.respond(HttpStatusCode.Unauthorized, "Google Drive token expired and refresh failed")
+                                return@get
                             }
                         }
 

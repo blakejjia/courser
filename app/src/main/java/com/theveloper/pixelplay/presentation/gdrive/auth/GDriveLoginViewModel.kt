@@ -31,6 +31,7 @@ class GDriveLoginViewModel @Inject constructor(
     fun processCredential(
         idToken: String,
         serverAuthCode: String?,
+        fallbackAccessToken: String? = null,
         email: String? = null,
         displayName: String? = null,
         profilePictureUri: String? = null
@@ -40,6 +41,7 @@ class GDriveLoginViewModel @Inject constructor(
             val result = repository.loginWithCredential(
                 idToken = idToken,
                 serverAuthCode = serverAuthCode,
+                fallbackAccessToken = fallbackAccessToken,
                 email = email,
                 displayName = displayName,
                 profilePictureUri = profilePictureUri
