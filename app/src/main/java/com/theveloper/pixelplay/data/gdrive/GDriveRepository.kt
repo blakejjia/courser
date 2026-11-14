@@ -4,9 +4,16 @@ package com.theveloper.pixelplay.data.gdrive
 import android.accounts.Account
 import android.content.Context
 import android.content.SharedPreferences
+import android.media.MediaMetadataRetriever
 import com.google.android.gms.auth.api.identity.AuthorizationRequest
 import com.google.android.gms.auth.api.identity.Identity
 import com.google.android.gms.common.api.Scope
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.tasks.await
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
@@ -526,18 +533,32 @@ class GDriveRepository @Inject constructor(
                     Timber.d("GDrive sync: removed ${deletedSongs.size} deleted songs from folder $folderId")
                 }
 
-                // 3. Reconcile metadata: preserve enriched fields (duration, album tags) from local DB if remote has placeholders
-                val reconciledEntities = allEntities.map { remote ->
-                    val existing = existingSongs[remote.driveFileId]
-                    if (existing != null) {
-                        remote.copy(
-                            duration = if (existing.duration > 0L) existing.duration else remote.duration,
-                            album = if (existing.album.isNotBlank() && existing.album != "Google Drive") existing.album else remote.album,
-                            albumArtUrl = existing.albumArtUrl ?: remote.albumArtUrl
-                        )
-                    } else {
-                        remote
-                    }
+                // 3. Reconcile metadata: preserve enriched fields and probe duration once during import for new tracks
+                val probeSemaphore = Semaphore(4)
+                val reconciledEntities = coroutineScope {
+                    allEntities.map { remote ->
+                        async(Dispatchers.IO) {
+                            val existing = existingSongs[remote.driveFileId]
+                            val cachedDuration = existing?.duration ?: 0L
+                            val finalDuration = if (cachedDuration > 0L) {
+                                cachedDuration
+                            } else {
+                                probeSemaphore.withPermit {
+                                    probeRemoteDuration(remote.driveFileId)
+                                }
+                            }
+
+                            if (existing != null) {
+                                remote.copy(
+                                    duration = finalDuration,
+                                    album = if (existing.album.isNotBlank() && existing.album != "Google Drive") existing.album else remote.album,
+                                    albumArtUrl = existing.albumArtUrl ?: remote.albumArtUrl
+                                )
+                            } else {
+                                remote.copy(duration = finalDuration)
+                            }
+                        }
+                    }.awaitAll()
                 }
 
                 dao.insertSongs(reconciledEntities)
@@ -814,6 +835,38 @@ class GDriveRepository @Inject constructor(
     private fun toUnifiedAlbumId(albumName: String): Long {
         val normalized = albumName.lowercase().hashCode().toLong().absoluteValue
         return -(GDRIVE_ALBUM_ID_OFFSET + normalized)
+    }
+
+    /**
+     * Extracts audio duration (in ms) from remote Google Drive audio headers via MediaMetadataRetriever.
+     * Uses HTTP Range requests under the hood to read only the container header (ID3/MP4/FLAC/WAV)
+     * without downloading the full audio file.
+     */
+    private suspend fun probeRemoteDuration(driveFileId: String): Long {
+        return withTimeoutOrNull(8000L) {
+            withContext(Dispatchers.IO) {
+                val streamUrl = api.getStreamUrl(driveFileId)
+                val authHeader = api.getAuthHeader()
+                if (authHeader.isBlank() || authHeader == "Bearer ") return@withContext 0L
+
+                val headers = mapOf("Authorization" to authHeader)
+                val retriever = MediaMetadataRetriever()
+                try {
+                    retriever.setDataSource(streamUrl, headers)
+                    val durationStr = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)
+                    val durationMs = durationStr?.toLongOrNull() ?: 0L
+                    Timber.d("Probed GDrive duration for $driveFileId: ${durationMs}ms")
+                    durationMs
+                } catch (e: Exception) {
+                    Timber.d(e, "Could not probe duration for GDrive file: $driveFileId")
+                    0L
+                } finally {
+                    try {
+                        retriever.release()
+                    } catch (ignored: Exception) {}
+                }
+            }
+        } ?: 0L
     }
 
     private fun toUnifiedArtistId(artistName: String): Long {
