@@ -25,10 +25,9 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.CheckCircle
-import androidx.compose.material.icons.rounded.PlayArrow
-import androidx.compose.material.icons.rounded.PushPin
-import androidx.compose.material.icons.rounded.School
+import androidx.compose.material.icons.automirrored.rounded.QueueMusic
+import androidx.compose.material.icons.rounded.*
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -171,7 +170,14 @@ fun CourseTile(
                             placeholderResId = R.drawable.ic_music_placeholder,
                             errorResId = R.drawable.ic_music_placeholder
                         )
-                    } else if (playlist.coverColorArgb != null) {
+                    } else if (playlist.coverIconName?.startsWith("text:") == true) {
+                        CourseGridCover(
+                            title = playlist.name,
+                            customText = playlist.coverIconName.removePrefix("text:"),
+                            colorArgb = playlist.coverColorArgb,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    } else if (playlist.coverColorArgb != null && !playlist.coverIconName.isNullOrBlank()) {
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()
@@ -179,26 +185,18 @@ fun CourseTile(
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
-                                painter = painterResource(R.drawable.ic_music_placeholder),
+                                imageVector = getCourseIconByName(playlist.coverIconName) ?: Icons.Rounded.MusicNote,
                                 contentDescription = null,
                                 tint = MaterialTheme.colorScheme.onPrimaryContainer,
                                 modifier = Modifier.size(24.dp)
                             )
                         }
                     } else {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .background(MaterialTheme.colorScheme.surfaceContainerHighest),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                painter = painterResource(R.drawable.ic_music_placeholder),
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(24.dp)
-                            )
-                        }
+                        CourseGridCover(
+                            title = playlist.name,
+                            colorArgb = playlist.coverColorArgb,
+                            modifier = Modifier.fillMaxSize()
+                        )
                     }
                 }
 
@@ -313,5 +311,19 @@ fun CourseTile(
                 )
             }
         }
+    }
+}
+
+private fun getCourseIconByName(name: String?): ImageVector? {
+    return when (name) {
+        "MusicNote" -> Icons.Rounded.MusicNote
+        "Headphones" -> Icons.Rounded.Headphones
+        "Album" -> Icons.Rounded.Album
+        "Mic" -> Icons.Rounded.MicExternalOn
+        "Speaker" -> Icons.Rounded.Speaker
+        "Favorite" -> Icons.Rounded.Favorite
+        "Piano" -> Icons.Rounded.Piano
+        "Queue" -> Icons.AutoMirrored.Rounded.QueueMusic
+        else -> Icons.Rounded.MusicNote
     }
 }

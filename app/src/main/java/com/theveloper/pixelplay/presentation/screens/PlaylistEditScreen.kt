@@ -152,10 +152,10 @@ import kotlinx.coroutines.launch
     ExperimentalMaterial3Api::class
 )
 @Composable
-fun PlaylistDetailScreen(
+fun PlaylistEditScreen(
     playlistId: String,
     onBackClick: () -> Unit,
-    onDeletePlayListClick: () -> Unit,
+    onDeletePlayListClick: () -> Unit = onBackClick,
     playerViewModel: PlayerViewModel,
     playlistViewModel: PlaylistViewModel = hiltViewModel(),
     navController: NavController

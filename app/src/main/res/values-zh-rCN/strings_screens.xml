@@ -186,6 +186,12 @@
     <string name="playlist_creation_tab_default">默认</string>
     <string name="playlist_creation_tab_image">图片</string>
     <string name="playlist_creation_tab_icon">图标</string>
+    <string name="playlist_creation_tab_text">文字网格</string>
+    <string name="playlist_cover_text_section_title">四字课程封面</string>
+    <string name="playlist_cover_select_from_name">点击选择课程名称中的文字：</string>
+    <string name="playlist_cover_custom_text_label">自定义四字内容</string>
+    <string name="playlist_cover_text_auto_reset">自动提取</string>
+    <string name="playlist_cover_color_auto">自动</string>
     <string name="playlist_creation_bg_color">背景颜色</string>
     <string name="playlist_creation_icon_symbol">图标符号</string>
     <string name="playlist_creation_shape_style">形状样式</string>

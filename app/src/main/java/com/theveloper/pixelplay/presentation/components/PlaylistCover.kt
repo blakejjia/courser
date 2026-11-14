@@ -90,7 +90,14 @@ fun PlaylistCover(
                 modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Crop
             )
-        } else if (playlist.coverColorArgb != null) {
+        } else if (playlist.coverIconName?.startsWith("text:") == true) {
+            CourseGridCover(
+                title = playlist.name,
+                customText = playlist.coverIconName.removePrefix("text:"),
+                colorArgb = playlist.coverColorArgb,
+                modifier = Modifier.fillMaxSize()
+            )
+        } else if (playlist.coverColorArgb != null && playlist.coverIconName != null) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -107,9 +114,15 @@ fun PlaylistCover(
                     modifier = Modifier.size(size / 2).then(iconMod)
                 )
             }
-        } else {
+        } else if (playlistSongs.isNotEmpty()) {
             PlaylistArtCollage(
                 songs = playlistSongs,
+                modifier = Modifier.fillMaxSize()
+            )
+        } else {
+            CourseGridCover(
+                title = playlist.name,
+                colorArgb = playlist.coverColorArgb,
                 modifier = Modifier.fillMaxSize()
             )
         }

@@ -697,8 +697,8 @@ fun SearchScreen(
                 onDeleteFromDevice = playerViewModel::deleteFromDevice,
                 onNavigateToAlbum = {
                     navController.navigateSafelyReplacing(
-                        route = Screen.AlbumDetail.createRoute(currentSong.albumId),
-                        patternToPop = Screen.AlbumDetail.route
+                        route = Screen.PlaylistDetail.createRoute(currentSong.albumId.toString()),
+                        patternToPop = Screen.PlaylistDetail.route
                     )
                     showSongInfoBottomSheet = false
                 },
@@ -1225,8 +1225,8 @@ fun SearchResultsList(
                                 ) {
                                     {
                                         navController.navigateSafelyReplacing(
-                                            route = Screen.AlbumDetail.createRoute(item.album.id),
-                                            patternToPop = Screen.AlbumDetail.route
+                                            route = Screen.PlaylistDetail.createRoute(item.album.id),
+                                            patternToPop = Screen.PlaylistDetail.route
                                         )
                                         onItemSelected()
                                     }

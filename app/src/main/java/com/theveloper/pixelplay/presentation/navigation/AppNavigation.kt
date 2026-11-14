@@ -33,7 +33,6 @@ import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import com.theveloper.pixelplay.data.preferences.LaunchTab
 import com.theveloper.pixelplay.data.preferences.UserPreferencesRepository
-import com.theveloper.pixelplay.presentation.screens.AlbumDetailScreen
 import com.theveloper.pixelplay.presentation.screens.AccountsScreen
 import com.theveloper.pixelplay.presentation.screens.ArtistDetailScreen
 import com.theveloper.pixelplay.presentation.screens.ArtistSettingsScreen
@@ -48,7 +47,8 @@ import com.theveloper.pixelplay.presentation.screens.DailyGoalSettingsScreen
 import com.theveloper.pixelplay.presentation.screens.MashupScreen
 import com.theveloper.pixelplay.presentation.screens.NavBarCornerRadiusScreen
 import com.theveloper.pixelplay.presentation.screens.PaletteStyleSettingsScreen
-import com.theveloper.pixelplay.presentation.screens.PlaylistDetailScreen
+import com.theveloper.pixelplay.presentation.screens.PlaylistDefaultScreen
+import com.theveloper.pixelplay.presentation.screens.PlaylistEditScreen
 import com.theveloper.pixelplay.presentation.screens.RecentlyPlayedScreen
 
 import com.theveloper.pixelplay.presentation.screens.AboutScreen
@@ -358,15 +358,37 @@ fun AppNavigation(
                 arguments = listOf(navArgument("playlistId") { type = NavType.StringType }),
             ) { backStackEntry ->
                 val playlistId = backStackEntry.arguments?.getString("playlistId")
+                if (playlistId != null) {
+                    ScreenWrapper(navController = navController, playerViewModel = playerViewModel, animatedVisibilityScope = this) {
+                        PlaylistDefaultScreen(
+                            playlistId = playlistId,
+                            navController = navController,
+                            playerViewModel = playerViewModel,
+                            onBackClick = { navController.popBackStack() },
+                            onEditClick = {
+                                navController.navigateSafely(Screen.PlaylistEdit.createRoute(playlistId))
+                            }
+                        )
+                    }
+                }
+            }
+
+            composable(
+                route = Screen.PlaylistEdit.route,
+                arguments = listOf(navArgument("playlistId") { type = NavType.StringType }),
+            ) { backStackEntry ->
+                val playlistId = backStackEntry.arguments?.getString("playlistId")
                 val playlistViewModel: PlaylistViewModel = hiltViewModel()
                 if (playlistId != null) {
                     ScreenWrapper(navController = navController, playerViewModel = playerViewModel, animatedVisibilityScope = this) {
-                        PlaylistDetailScreen(
+                        PlaylistEditScreen(
                             playlistId = playlistId,
                             playerViewModel = playerViewModel,
                             playlistViewModel = playlistViewModel,
                             onBackClick = { navController.popBackStack() },
-                            onDeletePlayListClick = { navController.popBackStack() },
+                            onDeletePlayListClick = {
+                                navController.popBackStack(Screen.PlaylistDetail.route, inclusive = true)
+                            },
                             navController = navController
                         )
                     }
@@ -388,21 +410,6 @@ fun AppNavigation(
                     }
                 } else {
                     Text(stringResource(R.string.nav_error_genre_id_missing), modifier = Modifier)
-                }
-            }
-            composable(
-                route = Screen.AlbumDetail.route,
-                arguments = listOf(navArgument("albumId") { type = NavType.StringType }),
-            ) { backStackEntry ->
-                val albumId = backStackEntry.arguments?.getString("albumId")
-                if (albumId != null) {
-                    ScreenWrapper(navController = navController, playerViewModel = playerViewModel, animatedVisibilityScope = this) {
-                        AlbumDetailScreen(
-                            albumId = albumId,
-                            navController = navController,
-                            playerViewModel = playerViewModel
-                        )
-                    }
                 }
             }
             composable(

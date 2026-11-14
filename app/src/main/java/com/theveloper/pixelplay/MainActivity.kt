@@ -623,10 +623,10 @@ class MainActivity : ComponentActivity() {
             setOf(
                 Screen.Accounts.route,
                 Screen.PlaylistDetail.route,
+                Screen.PlaylistEdit.route,
                 Screen.DailyMixScreen.route,
                 Screen.RecentlyPlayed.route,
                 Screen.GenreDetail.route,
-                Screen.AlbumDetail.route,
                 Screen.ArtistDetail.route,
                 Screen.NavBarCrRad.route,
                 Screen.About.route,

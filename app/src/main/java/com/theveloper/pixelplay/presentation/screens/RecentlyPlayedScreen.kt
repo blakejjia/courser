@@ -291,7 +291,7 @@ fun RecentlyPlayedScreen(
                 },
                 onDeleteFromDevice = playerViewModel::deleteFromDevice,
                 onNavigateToAlbum = {
-                    navController.navigateSafely(Screen.AlbumDetail.createRoute(song.albumId))
+                    navController.navigateSafely(Screen.PlaylistDetail.createRoute(song.albumId.toString()))
                     showSongInfoBottomSheet = false
                 },
                 onNavigateToArtist = {

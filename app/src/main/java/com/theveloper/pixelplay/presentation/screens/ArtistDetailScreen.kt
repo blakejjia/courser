@@ -489,8 +489,8 @@ fun ArtistDetailScreen(
                 onDeleteFromDevice = playerViewModel::deleteFromDevice,
                 onNavigateToAlbum = {
                     navController.navigateSafelyReplacing(
-                        route = Screen.AlbumDetail.createRoute(currentSong.albumId),
-                        patternToPop = Screen.AlbumDetail.route
+                        route = Screen.PlaylistDetail.createRoute(currentSong.albumId.toString()),
+                        patternToPop = Screen.PlaylistDetail.route
                     )
                     showSongInfoBottomSheet = false
                 },

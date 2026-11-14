@@ -577,8 +577,8 @@ fun GenreDetailScreen(
                         onDeleteFromDevice = playerViewModel::deleteFromDevice,
                         onNavigateToAlbum = {
                             navController.navigateSafelyReplacing(
-                                route = com.theveloper.pixelplay.presentation.navigation.Screen.AlbumDetail.createRoute(song.albumId),
-                                patternToPop = com.theveloper.pixelplay.presentation.navigation.Screen.AlbumDetail.route
+                                route = com.theveloper.pixelplay.presentation.navigation.Screen.PlaylistDetail.createRoute(song.albumId.toString()),
+                                patternToPop = com.theveloper.pixelplay.presentation.navigation.Screen.PlaylistDetail.route
                             )
                             showSongOptionsSheet = null
                         },

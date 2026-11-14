@@ -123,6 +123,8 @@ import coil.ImageLoader
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.theveloper.pixelplay.data.model.Song
+import com.theveloper.pixelplay.presentation.components.CourseGridCover
+import com.theveloper.pixelplay.presentation.components.extractCourseFourChars
 import com.theveloper.pixelplay.presentation.components.ImageCropView
 import com.theveloper.pixelplay.data.model.PlaylistShapeType
 import com.theveloper.pixelplay.data.model.SmartPlaylistRule
@@ -305,7 +307,8 @@ private fun CreatePlaylistContent(
     
     // Step 1: Info State
     var currentStep by remember { mutableStateOf(0) } // 0: Info, 1: Songs
-    var selectedTab by remember { mutableStateOf(0) } // 0: Default, 1: Image, 2: Icon
+    var selectedTab by remember { mutableStateOf(0) } // 0: Default, 1: Image, 2: Icon, 3: TextGrid
+    var customCoverText by remember { mutableStateOf("") }
     var creationMode by remember { mutableStateOf(PlaylistCreationMode.MANUAL) }
     var selectedSmartRule by remember { mutableStateOf(SmartPlaylistRule.TOP_PLAYED) }
     
@@ -463,8 +466,12 @@ private fun CreatePlaylistContent(
                                     currentStep = 1
                                 } else {
                                     val imageUriString = if(selectedTab == 1) selectedImageUri?.toString() else null
-                                    val color = if(selectedTab == 2) selectedColor else null
-                                    val icon = if(selectedTab == 2) selectedIconName else null
+                                    val color = if(selectedTab == 2 || selectedTab == 3) selectedColor else null
+                                    val icon = when (selectedTab) {
+                                        2 -> selectedIconName
+                                        3 -> "text:${customCoverText.ifBlank { extractCourseFourChars(playlistName) }}"
+                                        else -> null
+                                    }
 
                                     val scale = if(selectedTab == 1) cropScale else 1f
                                     val panX = if(selectedTab == 1) cropOffset.x else 0f
@@ -496,8 +503,12 @@ private fun CreatePlaylistContent(
                             }
                         } else {
                             val imageUriString = if(selectedTab == 1) selectedImageUri?.toString() else null
-                            val color = if(selectedTab == 2) selectedColor else null
-                            val icon = if(selectedTab == 2) selectedIconName else null
+                            val color = if(selectedTab == 2 || selectedTab == 3) selectedColor else null
+                            val icon = when (selectedTab) {
+                                2 -> selectedIconName
+                                3 -> "text:${customCoverText.ifBlank { extractCourseFourChars(playlistName) }}"
+                                else -> null
+                            }
                             
                             val scale = if(selectedTab == 1) cropScale else 1f
                             val panX = if(selectedTab == 1) cropOffset.x else 0f
@@ -605,8 +616,12 @@ private fun CreatePlaylistContent(
                     FilledIconButton(
                         onClick = {
                             val imageUriString = if(selectedTab == 1) selectedImageUri?.toString() else null
-                            val color = if(selectedTab == 2) selectedColor else null
-                            val icon = if(selectedTab == 2) selectedIconName else null
+                            val color = if(selectedTab == 2 || selectedTab == 3) selectedColor else null
+                            val icon = when (selectedTab) {
+                                2 -> selectedIconName
+                                3 -> "text:${customCoverText.ifBlank { extractCourseFourChars(playlistName) }}"
+                                else -> null
+                            }
                             
                             val scale = if(selectedTab == 1) cropScale else 1f
                             val panX = if(selectedTab == 1) cropOffset.x else 0f
@@ -673,6 +688,8 @@ private fun CreatePlaylistContent(
                      onNameChange = { playlistName = it },
                      selectedTab = selectedTab,
                      onTabChange = { selectedTab = it },
+                     customCoverText = customCoverText,
+                     onCustomCoverTextChange = { customCoverText = it },
                      selectedImageUri = selectedImageUri,
                      showCropUi = showCropUi,
                      onShowCropUiChange = { showCropUi = it },
@@ -741,19 +758,24 @@ fun EditPlaylistContent(
     var playlistName by remember { mutableStateOf(initialName) }
     
     // Determine initial tab
-    // 0=Default, 1=Image, 2=Icon
-    // Logic: If imageUri present -> Image. If Color/Icon present -> Icon. Else Default.
-    // NOTE: existing playlist usually has one of these.
+    // 0=Default, 1=Image, 2=Icon, 3=TextGrid
+    // Logic: If imageUri present -> Image. If Icon starts with "text:" -> TextGrid. If Color/Icon present -> Icon. Else Default.
     var selectedTab by remember { 
         mutableStateOf(
             when {
                 // If it's a file path or content URI
                 initialImageUri != null -> 1 
-                // If it has specific color/icon (and not just defaults potentially, though defaults are allowed)
-                // We check if image is null. If image is null, do we have custom icon?
+                initialIconName?.startsWith("text:") == true -> 3
                 initialColor != null || initialIconName != null -> 2
                 else -> 0
             }
+        )
+    }
+    var customCoverText by remember {
+        mutableStateOf(
+            if (initialIconName?.startsWith("text:") == true) {
+                initialIconName.removePrefix("text:")
+            } else ""
         )
     }
 
@@ -767,7 +789,12 @@ fun EditPlaylistContent(
     var cropOffset by remember { mutableStateOf(androidx.compose.ui.geometry.Offset.Zero) }
 
     val defaultColor = MaterialTheme.colorScheme.primaryContainer.toArgb()
-    var selectedColor by remember { mutableStateOf(initialColor ?: defaultColor) }
+    var selectedColor by remember { 
+        mutableStateOf<Int?>(
+            if (initialIconName?.startsWith("text:") == true) initialColor
+            else initialColor ?: defaultColor
+        ) 
+    }
     var selectedIconName by remember { mutableStateOf(initialIconName ?: "MusicNote") }
 
     var selectedShapeType by remember { mutableStateOf(initialShapeType ?: PlaylistShapeType.Circle) }
@@ -863,8 +890,12 @@ fun EditPlaylistContent(
                     icon = { Icon(Icons.Rounded.Check, contentDescription = null) },
                     onClick = {
                         val imageUriString = if(selectedTab == 1) selectedImageUri?.toString() else null
-                        val color = if(selectedTab == 2) selectedColor else null
-                        val icon = if(selectedTab == 2) selectedIconName else null
+                        val color = if(selectedTab == 2 || selectedTab == 3) selectedColor else null
+                        val icon = when (selectedTab) {
+                            2 -> selectedIconName
+                            3 -> "text:${customCoverText.ifBlank { extractCourseFourChars(playlistName) }}"
+                            else -> null
+                        }
                         
                         val scale = if(selectedTab == 1) cropScale else 1f
                         val panX = if(selectedTab == 1) cropOffset.x else 0f
@@ -909,6 +940,8 @@ fun EditPlaylistContent(
              onNameChange = { playlistName = it },
              selectedTab = selectedTab,
              onTabChange = { selectedTab = it },
+             customCoverText = customCoverText,
+             onCustomCoverTextChange = { customCoverText = it },
              selectedImageUri = selectedImageUri,
              showCropUi = showCropUi,
              onShowCropUiChange = { showCropUi = it },
@@ -954,6 +987,8 @@ private fun PlaylistFormContent(
     onNameChange: (String) -> Unit,
     selectedTab: Int,
     onTabChange: (Int) -> Unit,
+    customCoverText: String,
+    onCustomCoverTextChange: (String) -> Unit,
     selectedImageUri: Uri?,
     showCropUi: Boolean,
     onShowCropUiChange: (Boolean) -> Unit,
@@ -964,7 +999,7 @@ private fun PlaylistFormContent(
     imageBitmap: ImageBitmap?,
     imagePickerLauncher: androidx.activity.result.ActivityResultLauncher<String>,
     selectedColor: Int?,
-    onColorChange: (Int) -> Unit,
+    onColorChange: (Int?) -> Unit,
     selectedIconName: String?,
     onIconChange: (String) -> Unit,
     selectedShapeType: PlaylistShapeType,
@@ -1241,6 +1276,21 @@ private fun PlaylistFormContent(
                              }
                          }
                     }
+                    3 -> { // Text Grid
+                        Box(
+                            modifier = Modifier
+                                .size(180.dp)
+                                .clip(RoundedCornerShape(32.dp)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            CourseGridCover(
+                                title = playlistName.ifBlank { "Courser" },
+                                customText = customCoverText.ifBlank { null },
+                                colorArgb = selectedColor,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -1337,7 +1387,8 @@ private fun PlaylistFormContent(
             val tabs = listOf(
                 stringResource(R.string.playlist_creation_tab_default),
                 stringResource(R.string.playlist_creation_tab_image),
-                stringResource(R.string.playlist_creation_tab_icon)
+                stringResource(R.string.playlist_creation_tab_icon),
+                stringResource(R.string.playlist_creation_tab_text)
             )
             ExpressiveButtonGroup(
                 items = tabs,
@@ -1534,6 +1585,184 @@ private fun PlaylistFormContent(
                          }
                      }
                  }
+            }
+
+            AnimatedVisibility(visible = selectedTab == 3) {
+                Column(
+                    modifier = Modifier.padding(top = 14.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    Text(
+                        modifier = Modifier.padding(horizontal = 22.dp),
+                        text = stringResource(R.string.playlist_cover_text_section_title),
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    // Distinct characters from course/playlist title as clickable chips
+                    val cleanChars = remember(playlistName) {
+                        playlistName.filter { !it.isWhitespace() }.toList().distinct()
+                    }
+                    if (cleanChars.isNotEmpty()) {
+                        Column(modifier = Modifier.padding(horizontal = 22.dp)) {
+                            Text(
+                                text = stringResource(R.string.playlist_cover_select_from_name),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(Modifier.height(8.dp))
+                            FlowRow(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                cleanChars.take(24).forEach { char ->
+                                    val charStr = char.toString()
+                                    val isContained = customCoverText.contains(charStr)
+                                    FilterChip(
+                                        selected = isContained,
+                                        onClick = {
+                                            val current = if (customCoverText.isNotBlank()) customCoverText else extractCourseFourChars(playlistName)
+                                            val nextText = if (current.length < 4) {
+                                                current + charStr
+                                            } else {
+                                                current.drop(1) + charStr
+                                            }
+                                            onCustomCoverTextChange(nextText)
+                                        },
+                                        label = {
+                                            Text(
+                                                text = charStr,
+                                                style = MaterialTheme.typography.titleMedium.copy(fontFamily = GoogleSansRounded),
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        },
+                                        shape = CircleShape
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    // Manual Text Input & Auto Reset
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 22.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        OutlinedTextField(
+                            value = customCoverText,
+                            onValueChange = { input ->
+                                if (input.length <= 4) {
+                                    onCustomCoverTextChange(input)
+                                }
+                            },
+                            modifier = Modifier.weight(1f),
+                            label = { Text(stringResource(R.string.playlist_cover_custom_text_label)) },
+                            placeholder = { Text(extractCourseFourChars(playlistName.ifBlank { "Courser" })) },
+                            singleLine = true,
+                            shape = RoundedCornerShape(16.dp)
+                        )
+
+                        FilledTonalButton(
+                            onClick = {
+                                onCustomCoverTextChange(extractCourseFourChars(playlistName.ifBlank { "Courser" }))
+                            },
+                            shape = CircleShape,
+                            modifier = Modifier.height(56.dp)
+                        ) {
+                            Text(stringResource(R.string.playlist_cover_text_auto_reset))
+                        }
+                    }
+
+                    // Background Color Selection
+                    Text(
+                        modifier = Modifier.padding(start = 22.dp),
+                        text = stringResource(R.string.playlist_creation_bg_color),
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    val colors = listOf( 
+                        MaterialTheme.colorScheme.primary.toArgb(),
+                        MaterialTheme.colorScheme.primaryContainer.toArgb(),
+                        MaterialTheme.colorScheme.secondary.toArgb(),
+                        MaterialTheme.colorScheme.secondaryContainer.toArgb(),
+                        MaterialTheme.colorScheme.tertiary.toArgb(),
+                        MaterialTheme.colorScheme.tertiaryContainer.toArgb(),
+                        MaterialTheme.colorScheme.error.toArgb(),
+                        MaterialTheme.colorScheme.errorContainer.toArgb(),
+                        MaterialTheme.colorScheme.surfaceContainerHigh.toArgb(),
+                        MaterialTheme.colorScheme.inverseSurface.toArgb()
+                    )
+
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 18.dp)
+                    ) {
+                        // Auto Color chip (null color)
+                        val isAutoSelected = selectedColor == null
+                        val autoCornerRadius by animateDpAsState(targetValue = if (isAutoSelected) 12.dp else 24.dp, label = "AutoCornerRadius")
+                        Box(
+                            modifier = Modifier
+                                .size(52.dp)
+                                .clip(RoundedCornerShape(autoCornerRadius))
+                                .background(if (isAutoSelected) MaterialTheme.colorScheme.primary else Color.Transparent)
+                                .border(
+                                    width = if (isAutoSelected) 3.dp else 1.dp,
+                                    color = if (isAutoSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant,
+                                    shape = RoundedCornerShape(autoCornerRadius)
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(if (isAutoSelected) 42.dp else 48.dp)
+                                    .clip(RoundedCornerShape(if (isAutoSelected) 8.dp else autoCornerRadius))
+                                    .background(MaterialTheme.colorScheme.surfaceContainerHighest)
+                                    .clickable { onColorChange(null) },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = stringResource(R.string.playlist_cover_color_auto),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+
+                        colors.forEach { color ->
+                            val isSelected = selectedColor == color
+                            val cornerRadius by animateDpAsState(targetValue = if (isSelected) 12.dp else 24.dp, label = "CornerRadius")
+                            
+                            Box(
+                                modifier = Modifier
+                                    .size(52.dp)
+                                    .clip(RoundedCornerShape(cornerRadius))
+                                    .background(if (isSelected) Color(color) else Color.Transparent)
+                                    .border(
+                                        width = if (isSelected) 3.dp else 0.dp,
+                                        color = if (isSelected) Color(color) else Color.Transparent,
+                                        shape = RoundedCornerShape(cornerRadius)
+                                    ),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(if (isSelected) 42.dp else 48.dp)
+                                        .clip(RoundedCornerShape(if (isSelected) 8.dp else cornerRadius))
+                                        .background(Color(color))
+                                        .clickable { onColorChange(color) }
+                                )
+                            }
+                        }
+                    }
+                }
             }
             Spacer(Modifier.height(100.dp))
         }

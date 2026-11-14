@@ -84,8 +84,8 @@ internal fun rememberSheetActionHandlers(
             sheetModalOverlayControllerState.value.updateSelectedSongForInfo(null)
             if (song.albumId != -1L) {
                 navController.navigateSafelyReplacing(
-                    route = Screen.AlbumDetail.createRoute(song.albumId),
-                    patternToPop = Screen.AlbumDetail.route
+                    route = Screen.PlaylistDetail.createRoute(song.albumId.toString()),
+                    patternToPop = Screen.PlaylistDetail.route
                 )
             }
         }

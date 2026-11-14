@@ -143,7 +143,7 @@ fun SongInfoBottomSheet(
         replayGainAlbumGainDb: String,
         coverArtUpdate: CoverArtUpdate?
     ) -> Unit,
-    removeFromListTrigger: () -> Unit,
+    removeFromListTrigger: () -> Unit = {},
     songInfoViewModel: SongInfoBottomSheetViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
