@@ -71,6 +71,7 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextFieldDefaults
@@ -822,6 +823,17 @@ fun PlaylistEditScreen(
                         currentPlaylist?.let { playlistViewModel.reorderPlaylistWithAi(it.id) }
                     }
                 )
+                if (uiState.hasAiCleanedTitles && currentPlaylist != null) {
+                    PlaylistSwitchItem(
+                        icon = rememberVectorPainter(Icons.Rounded.AutoAwesome),
+                        label = stringResource(R.string.playlist_action_use_ai_cleaned_title),
+                        description = stringResource(R.string.playlist_action_use_ai_cleaned_title_desc),
+                        checked = uiState.isUsingAiCleanedTitles,
+                        onCheckedChange = {
+                            playlistViewModel.toggleUseAiCleanedTitles(currentPlaylist.id)
+                        }
+                    )
+                }
                 if (!isFolderPlaylist) {
                     PlaylistActionItem(
                         icon = painterResource(R.drawable.rounded_edit_24),
@@ -1150,6 +1162,63 @@ private fun PlaylistActionItem(
             text = label,
             style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.onSurface
+        )
+    }
+}
+
+@Composable
+private fun PlaylistSwitchItem(
+    icon: Painter,
+    label: String,
+    description: String? = null,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 6.dp)
+            .clip(RoundedCornerShape(18.dp))
+            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+            .clickable { onCheckedChange(!checked) }
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.surfaceContainerHighest),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                painter = icon,
+                contentDescription = label,
+                tint = MaterialTheme.colorScheme.primary
+            )
+        }
+        Spacer(modifier = Modifier.width(14.dp))
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.Center
+        ) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            if (!description.isNullOrBlank()) {
+                Text(
+                    text = description,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+        Spacer(modifier = Modifier.width(8.dp))
+        Switch(
+            checked = checked,
+            onCheckedChange = onCheckedChange
         )
     }
 }

@@ -38,19 +38,37 @@ class AiPlaylistReorderServiceTest {
     }
 
     @Test
+    fun `parseRanksAndTitles parses ranks and cleaned titles`() {
+        val raw = """
+            {
+               "song1": {"rank": 2, "cleaned_title": "02 - Second Lesson"},
+               "song2": {"rank": 1, "cleaned_title": "01 - First Lesson"}
+            }
+        """.trimIndent()
+        val (ranks, titles) = service.parseRanksAndTitles(raw)
+
+        assertThat(ranks["song1"]).isEqualTo(2)
+        assertThat(ranks["song2"]).isEqualTo(1)
+        assertThat(titles["song1"]).isEqualTo("02 - Second Lesson")
+        assertThat(titles["song2"]).isEqualTo("01 - First Lesson")
+    }
+
+    @Test
     fun `parseRanks strips markdown code blocks`() {
         val raw = """
             ```json
             {
-               "ch1": {"rank": 1},
-               "ch2": {"rank": 2}
+               "ch1": {"rank": 1, "cleaned_title": "Chapter 1"},
+               "ch2": {"rank": 2, "cleaned_title": "Chapter 2"}
             }
             ```
         """.trimIndent()
-        val result = service.parseRanks(raw)
+        val (ranks, titles) = service.parseRanksAndTitles(raw)
 
-        assertThat(result["ch1"]).isEqualTo(1)
-        assertThat(result["ch2"]).isEqualTo(2)
+        assertThat(ranks["ch1"]).isEqualTo(1)
+        assertThat(ranks["ch2"]).isEqualTo(2)
+        assertThat(titles["ch1"]).isEqualTo("Chapter 1")
+        assertThat(titles["ch2"]).isEqualTo("Chapter 2")
     }
 
     @Test
@@ -63,18 +81,26 @@ class AiPlaylistReorderServiceTest {
     }
 
     @Test
-    fun `reorderSongs reorders list according to ranks`() = runBlocking {
-        val song1 = createMockSong(id = "id1", title = "Lesson 02 - Intro")
-        val song2 = createMockSong(id = "id2", title = "Lesson 01 - Overview")
-        val song3 = createMockSong(id = "id3", title = "Lesson 03 - Advanced")
+    fun `reorderSongs reorders list and captures cleaned titles`() = runBlocking {
+        val song1 = createMockSong(id = "id1", title = "[Coursera] Lesson 02 - Intro (1080p).mp3")
+        val song2 = createMockSong(id = "id2", title = "[Coursera] Lesson 01 - Overview (1080p).mp3")
+        val song3 = createMockSong(id = "id3", title = "[Coursera] Lesson 03 - Advanced (1080p).mp3")
 
         coEvery { aiHandler.generateContent(any(), AiSystemPromptType.COURSE_REORDER, any()) } returns
-            """{"id1": {"rank": 2}, "id2": {"rank": 1}, "id3": {"rank": 3}}"""
+            """{
+                "id1": {"rank": 2, "cleaned_title": "02 - Intro"},
+                "id2": {"rank": 1, "cleaned_title": "01 - Overview"},
+                "id3": {"rank": 3, "cleaned_title": "03 - Advanced"}
+            }"""
 
         val result = service.reorderSongs(listOf(song1, song2, song3))
 
         assertThat(result.isSuccess).isTrue()
-        assertThat(result.getOrNull()).containsExactly("id2", "id1", "id3").inOrder()
+        val reorderResult = result.getOrNull()!!
+        assertThat(reorderResult.orderedSongIds).containsExactly("id2", "id1", "id3").inOrder()
+        assertThat(reorderResult.cleanedTitles["id1"]).isEqualTo("02 - Intro")
+        assertThat(reorderResult.cleanedTitles["id2"]).isEqualTo("01 - Overview")
+        assertThat(reorderResult.cleanedTitles["id3"]).isEqualTo("03 - Advanced")
     }
 
     @Test
@@ -83,6 +109,6 @@ class AiPlaylistReorderServiceTest {
         val result = service.reorderSongs(listOf(song1))
 
         assertThat(result.isSuccess).isTrue()
-        assertThat(result.getOrNull()).containsExactly("id1")
+        assertThat(result.getOrNull()!!.orderedSongIds).containsExactly("id1")
     }
 }

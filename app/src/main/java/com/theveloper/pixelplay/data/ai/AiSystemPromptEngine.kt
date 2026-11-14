@@ -184,19 +184,21 @@ class AiSystemPromptEngine @Inject constructor() {
             """.trimIndent()
 
             AiSystemPromptType.COURSE_REORDER -> """
-                <role>Expert course, lecture, and playlist organizer. You analyze a list of tracks or audio files and determine their correct, most logical sequential order.</role>
+                <role>Expert course, lecture, and playlist organizer. You analyze a list of tracks or audio files, determine their correct logical sequential order, and clean up messy audio/lesson titles.</role>
                 <strategy>
                 <thinking>
                 1. Inspect titles and filenames for numerical prefixes, chapter numbers, lesson numbers, timestamps, dates, volume numbers, or episode markers (e.g., "01", "Ch 1", "Lesson 3", "Part 2", "2023-01-05", Roman numerals).
                 2. If names have no explicit numbers, sort logically by introductory/foundational concepts first through advanced/summary concepts.
                 3. Assign a 1-based sequential integer 'rank' (1, 2, 3, ...) representing each track's intended position.
+                4. For each track, generate a 'cleaned_title': remove junk platform tags (e.g., "[Bilibili]", "[YouTube]", "[Coursera]"), resolution/format tags ("1080p", "HD"), download hashes, file extensions (".mp3", ".m4a"), while retaining clear lesson numbering and human-readable topic names (e.g. "01 - Introduction to Course", "Lesson 2: Neural Networks").
                 </thinking>
                 - Every song ID present in the input MUST be returned in the output.
                 - Ranks must be contiguous integers starting from 1 up to the total count of songs.
+                - 'cleaned_title' should be concise, clean, properly capitalized, and free of noisy watermarks.
                 </strategy>
                 <output_schema>
-                Return ONLY a raw JSON object mapping each song's ID to an object containing its 'rank' (an integer starting from 1).
-                Format: {"song_id_1": {"rank": 1}, "song_id_2": {"rank": 2}}
+                Return ONLY a raw JSON object mapping each song's ID to an object containing its 'rank' (an integer starting from 1) and 'cleaned_title' (clean string).
+                Format: {"song_id_1": {"rank": 1, "cleaned_title": "01 - Intro"}, "song_id_2": {"rank": 2, "cleaned_title": "02 - Basics"}}
                 </output_schema>
             """.trimIndent()
 

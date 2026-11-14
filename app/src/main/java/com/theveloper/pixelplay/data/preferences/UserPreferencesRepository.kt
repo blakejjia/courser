@@ -103,6 +103,8 @@ class UserPreferencesRepository @Inject constructor(
         val PLAYLIST_SONG_ORDER_MODES = stringPreferencesKey("playlist_song_order_modes")
         val FOLDER_PLAYLIST_SONG_ORDERS = stringPreferencesKey("folder_playlist_song_orders")
         val CUSTOM_PLAYLIST_ORDER = stringPreferencesKey("custom_playlist_order_ids")
+        val AI_CLEANED_TITLES_BY_PLAYLIST = stringPreferencesKey("ai_cleaned_titles_by_playlist")
+        val USE_AI_CLEANED_TITLES_PLAYLISTS = stringSetPreferencesKey("use_ai_cleaned_titles_playlists")
 
         // Sort options
         val SONGS_SORT_OPTION = stringPreferencesKey("songs_sort_option")
@@ -586,6 +588,29 @@ class UserPreferencesRepository @Inject constructor(
 
     suspend fun setFolderPlaylistSongOrder(folderPlaylistId: String, songIds: List<String>) {
         editJsonMap<List<String>>(PreferencesKeys.FOLDER_PLAYLIST_SONG_ORDERS) { put(folderPlaylistId, songIds) }
+    }
+
+    val aiCleanedTitlesByPlaylistFlow: Flow<Map<String, Map<String, String>>> =
+        pref { preferences ->
+            decodeJsonPref(preferences, PreferencesKeys.AI_CLEANED_TITLES_BY_PLAYLIST, emptyMap())
+        }
+
+    val useAiCleanedTitlesPlaylistsFlow: Flow<Set<String>> =
+        pref { it[PreferencesKeys.USE_AI_CLEANED_TITLES_PLAYLISTS] ?: emptySet() }.distinctUntilChanged()
+
+    suspend fun setAiCleanedTitles(playlistId: String, titles: Map<String, String>) {
+        editJsonMap<Map<String, String>>(PreferencesKeys.AI_CLEANED_TITLES_BY_PLAYLIST) { put(playlistId, titles) }
+    }
+
+    suspend fun setUseAiCleanedTitles(playlistId: String, enabled: Boolean) {
+        dataStore.edit { preferences ->
+            val current = preferences[PreferencesKeys.USE_AI_CLEANED_TITLES_PLAYLISTS] ?: emptySet()
+            preferences[PreferencesKeys.USE_AI_CLEANED_TITLES_PLAYLISTS] = if (enabled) {
+                current + playlistId
+            } else {
+                current - playlistId
+            }
+        }
     }
 
     // Legacy DataStore playlist payload kept only for one-time migration and old backup compatibility.

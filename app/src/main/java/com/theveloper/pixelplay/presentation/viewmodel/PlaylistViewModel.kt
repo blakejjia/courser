@@ -72,7 +72,9 @@ data class PlaylistUiState(
 
     // AI Reorder State
     val isAiReordering: Boolean = false,
-    val aiReorderMessage: String? = null
+    val aiReorderMessage: String? = null,
+    val hasAiCleanedTitles: Boolean = false,
+    val isUsingAiCleanedTitles: Boolean = false
 )
 
 sealed class PlaylistSongsOrderMode {
@@ -319,14 +321,22 @@ class PlaylistViewModel @Inject constructor(
                             lastPlayedSongTitle = progress?.currentSongTitle?.takeIf { it.isNotBlank() }
                         )
 
+                        val allCleanedTitles = playlistPreferencesRepository.aiCleanedTitlesByPlaylistFlow.first()
+                        val cleanedTitles = allCleanedTitles[playlistId].orEmpty()
+                        val useCleanedPlaylists = playlistPreferencesRepository.useAiCleanedTitlesPlaylistsFlow.first()
+                        val isUsingCleaned = playlistId in useCleanedPlaylists && cleanedTitles.isNotEmpty()
+                        val displaySongs = applyCleanedTitlesIfEnabled(orderedFolderSongs, cleanedTitles, isUsingCleaned)
+
                         _uiState.update {
                             it.copy(
                                 currentPlaylistDetails = pseudoPlaylist,
-                                currentPlaylistSongs = orderedFolderSongs,
+                                currentPlaylistSongs = displaySongs,
                                 playlistSongsOrderMode = orderMode,
                                 playlistOrderModes = it.playlistOrderModes + (playlistId to orderMode),
                                 isLoading = false,
-                                playlistNotFound = false
+                                playlistNotFound = false,
+                                hasAiCleanedTitles = cleanedTitles.isNotEmpty(),
+                                isUsingAiCleanedTitles = isUsingCleaned
                             )
                         }
                     } else {
@@ -360,17 +370,25 @@ class PlaylistViewModel @Inject constructor(
                             PlaylistSongsOrderMode.Manual -> songsList
                         }
 
+                        val allCleanedTitles = playlistPreferencesRepository.aiCleanedTitlesByPlaylistFlow.first()
+                        val cleanedTitles = allCleanedTitles[playlistId].orEmpty()
+                        val useCleanedPlaylists = playlistPreferencesRepository.useAiCleanedTitlesPlaylistsFlow.first()
+                        val isUsingCleaned = playlistId in useCleanedPlaylists && cleanedTitles.isNotEmpty()
+                        val displaySongs = applyCleanedTitlesIfEnabled(orderedSongs, cleanedTitles, isUsingCleaned)
+
                         // La actualización del UI se hace en el hilo principal
                         _uiState.update {
                             it.copy(
                                 currentPlaylistDetails = playlist,
-                                currentPlaylistSongs = orderedSongs,
+                                currentPlaylistSongs = displaySongs,
                                 currentPlaylistSongsSortOption = (orderMode as? PlaylistSongsOrderMode.Sorted)?.option
                                     ?: it.currentPlaylistSongsSortOption,
                                 playlistSongsOrderMode = orderMode,
                                 playlistOrderModes = it.playlistOrderModes + (playlistId to orderMode),
                                 isLoading = false,
-                                playlistNotFound = false
+                                playlistNotFound = false,
+                                hasAiCleanedTitles = cleanedTitles.isNotEmpty(),
+                                isUsingAiCleanedTitles = isUsingCleaned
                             )
                         }
                     } else {
@@ -856,20 +874,32 @@ class PlaylistViewModel @Inject constructor(
             _uiState.update { it.copy(isAiReordering = true, aiReorderMessage = null) }
 
             val result = aiPlaylistReorderService.reorderSongs(songs)
-            result.onSuccess { newSongOrderIds ->
+            result.onSuccess { reorderResult ->
+                val newSongOrderIds = reorderResult.orderedSongIds
+                val cleanedTitles = reorderResult.cleanedTitles
                 playlistPreferencesRepository.reorderSongsInPlaylist(playlistId, newSongOrderIds)
                 playlistPreferencesRepository.setPlaylistSongOrderMode(playlistId, MANUAL_ORDER_MODE)
 
+                if (cleanedTitles.isNotEmpty()) {
+                    playlistPreferencesRepository.setAiCleanedTitles(playlistId, cleanedTitles)
+                }
+
+                val useCleanedPlaylists = playlistPreferencesRepository.useAiCleanedTitlesPlaylistsFlow.first()
+                val isUsingCleaned = playlistId in useCleanedPlaylists && cleanedTitles.isNotEmpty()
+
                 val songMap = songs.associateBy { it.id }
                 val reorderedSongs = newSongOrderIds.mapNotNull { songMap[it] }
+                val displaySongs = applyCleanedTitlesIfEnabled(reorderedSongs, cleanedTitles, isUsingCleaned)
 
                 _uiState.update {
                     val updatedModes = it.playlistOrderModes + (playlistId to PlaylistSongsOrderMode.Manual)
                     it.copy(
-                        currentPlaylistSongs = reorderedSongs,
+                        currentPlaylistSongs = displaySongs,
                         playlistSongsOrderMode = PlaylistSongsOrderMode.Manual,
                         playlistOrderModes = updatedModes,
                         isAiReordering = false,
+                        hasAiCleanedTitles = cleanedTitles.isNotEmpty(),
+                        isUsingAiCleanedTitles = isUsingCleaned,
                         aiReorderMessage = context.getString(R.string.playlist_ai_reorder_success)
                     )
                 }
@@ -890,6 +920,38 @@ class PlaylistViewModel @Inject constructor(
 
     fun clearAiReorderMessage() {
         _uiState.update { it.copy(aiReorderMessage = null) }
+    }
+
+    fun toggleUseAiCleanedTitles(playlistId: String) {
+        viewModelScope.launch {
+            val useCleanedPlaylists = playlistPreferencesRepository.useAiCleanedTitlesPlaylistsFlow.first()
+            val currentlyUsing = playlistId in useCleanedPlaylists
+            val newUsing = !currentlyUsing
+            playlistPreferencesRepository.setUseAiCleanedTitles(playlistId, newUsing)
+
+            val allCleanedTitles = playlistPreferencesRepository.aiCleanedTitlesByPlaylistFlow.first()
+            val cleanedTitles = allCleanedTitles[playlistId].orEmpty()
+
+            _uiState.update {
+                it.copy(
+                    isUsingAiCleanedTitles = newUsing && cleanedTitles.isNotEmpty()
+                )
+            }
+            if (_uiState.value.currentPlaylistDetails?.id == playlistId) {
+                loadPlaylistDetails(playlistId)
+            }
+        }
+    }
+
+    private fun applyCleanedTitlesIfEnabled(
+        songs: List<Song>,
+        cleanedTitles: Map<String, String>,
+        isUsingCleaned: Boolean
+    ): List<Song> {
+        if (!isUsingCleaned || cleanedTitles.isEmpty()) return songs
+        return songs.map { song ->
+            cleanedTitles[song.id]?.let { clean -> song.copy(title = clean) } ?: song
+        }
     }
 
     fun reorderPlaylists(fromIndex: Int, toIndex: Int) {
