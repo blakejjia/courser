@@ -81,6 +81,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
 import com.theveloper.pixelplay.utils.formatTimeAgo
+import com.theveloper.pixelplay.presentation.components.subcomps.EnhancedSongListItem
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MediumExtendedFloatingActionButton
 import androidx.compose.material3.MediumFloatingActionButton
@@ -1875,41 +1876,18 @@ fun QueuePlaylistSongItem(
     isCurrentSong: Boolean,
     isPlaying: Boolean? = null,
     isDragging: Boolean,
-    onRemoveClick: () -> Unit,
+    onRemoveClick: () -> Unit = {},
     dragHandle: @Composable () -> Unit,
-    isReorderModeEnabled: Boolean,
-    onMoreOptionsClick: (song: Song) -> Unit,
-    isDragHandleVisible: Boolean,
-    isRemoveButtonVisible: Boolean,
+    isReorderModeEnabled: Boolean = false,
+    onMoreOptionsClick: ((song: Song) -> Unit)? = null,
+    isDragHandleVisible: Boolean = false,
+    isRemoveButtonVisible: Boolean = false,
     enableSwipeToDismiss: Boolean = false,
     swipeStateIdentity: Long = 0L,
     onDismissSong: () -> Unit = {},
-    isFromPlaylist: Boolean
+    isFromPlaylist: Boolean = false
 ) {
     val colors = MaterialTheme.colorScheme
-
-    val cornerRadius by animateDpAsState(
-        targetValue = if (isCurrentSong) 60.dp else 22.dp,
-        label = "cornerRadiusAnimation"
-    )
-
-    val itemShape = RoundedCornerShape(cornerRadius)
-
-    val albumCornerRadius by animateDpAsState(
-        targetValue = if (isCurrentSong) 60.dp else 8.dp,
-        label = "cornerRadiusAnimation"
-    )
-
-    val albumShape = RoundedCornerShape(albumCornerRadius)
-
-    val elevation by animateDpAsState(
-        targetValue = if (isDragging) 4.dp else 1.dp,
-        label = "elevationAnimation"
-    )
-
-    val backgroundColor = colors.surfaceContainerLowest
-    val mvContainerColor = if (isCurrentSong) colors.tertiaryContainer else colors.surfaceContainerHigh
-    val mvContentColor = if (isCurrentSong) colors.onTertiaryContainer else colors.onSurface
     val hapticView = LocalView.current
     val appHapticsConfig = LocalAppHapticsConfig.current
     val dismissScope = rememberCoroutineScope()
@@ -1994,176 +1972,54 @@ fun QueuePlaylistSongItem(
             }
         }
 
-        Surface(
+        val dismissGestureModifier = if (dismissEnabled && dismissHandler != null) {
+            Modifier.pointerInput(swipeStateIdentity, dismissHandler) {
+                detectHorizontalDragGestures(
+                    onDragStart = { dismissHandler.onDragStart() },
+                    onHorizontalDrag = { change, dragAmount ->
+                        change.consume()
+                        dismissHandler.onHorizontalDrag(dragAmount)
+                    },
+                    onDragEnd = { dismissHandler.onDragEnd() },
+                    onDragCancel = { dismissHandler.onDragCancel() }
+                )
+            }
+        } else Modifier
+
+        EnhancedSongListItem(
             modifier = Modifier
                 .graphicsLayer { translationX = currentOffsetPx }
                 .onGloballyPositioned { coordinates ->
                     val h = coordinates.size.height.toFloat()
                     if (h != surfaceHeightPx) surfaceHeightPx = h
                 }
-                .padding(horizontal = 12.dp)
-                .clip(itemShape)
-                .clickable(
-                    enabled = currentOffsetPx == 0f
-                ) {
+                .then(dismissGestureModifier),
+            song = song,
+            isCurrentSong = isCurrentSong,
+            isPlaying = isPlaying ?: false,
+            isDragging = isDragging,
+            showAlbumArt = false,
+            dragHandle = if (isDragHandleVisible) dragHandle else null,
+            trailingContent = if (isRemoveButtonVisible) {
+                {
+                    IconButton(
+                        onClick = onRemoveClick,
+                        modifier = Modifier.size(36.dp)
+                    ) {
+                        Icon(
+                            painter = painterResource(R.drawable.rounded_close_24),
+                            contentDescription = stringResource(R.string.queue_cd_remove_from_playlist),
+                            tint = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+            } else null,
+            onClick = {
+                if (currentOffsetPx == 0f) {
                     onClick()
-                },
-            shape = itemShape,
-            color = backgroundColor,
-            tonalElevation = elevation,
-            shadowElevation = elevation
-        ) {
-            Column {
-                Row(
-                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 16.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                AnimatedVisibility(visible = isDragHandleVisible) {
-                    dragHandle()
-                }
-
-                val dismissGestureModifier = if (dismissEnabled && dismissHandler != null) {
-                    Modifier.pointerInput(swipeStateIdentity, dismissHandler) {
-                        detectHorizontalDragGestures(
-                            onDragStart = { dismissHandler.onDragStart() },
-                            onHorizontalDrag = { change, dragAmount ->
-                                change.consume()
-                                dismissHandler.onHorizontalDrag(dragAmount)
-                            },
-                            onDragEnd = { dismissHandler.onDragEnd() },
-                            onDragCancel = { dismissHandler.onDragCancel() }
-                        )
-                    }
-                } else Modifier
-
-                Row(
-                    modifier = Modifier
-                        .weight(1f)
-                        .then(dismissGestureModifier),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Spacer(Modifier.width(12.dp))
-
-                    Column(Modifier.weight(1f)) {
-                        Text(
-                            song.title,
-                            maxLines = 2,
-                            overflow = TextOverflow.Clip,
-                            color = if (isCurrentSong) colors.primary else colors.onSurface,
-                            fontWeight = if (isCurrentSong) FontWeight.Bold else FontWeight.Normal,
-                            style = MaterialTheme.typography.bodyLarge
-                        )
-                        Text(
-                            song.displayArtist,
-                            maxLines = 2,
-                            overflow = TextOverflow.Clip,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = if (isCurrentSong) colors.primary.copy(alpha = 0.8f) else colors.onSurfaceVariant
-                        )
-                        if (song.isCompleted) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                                modifier = Modifier.padding(top = 2.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Rounded.CheckCircle,
-                                    contentDescription = "Finished",
-                                    tint = colors.primary,
-                                    modifier = Modifier.size(13.dp)
-                                )
-                                Text(
-                                    text = "Finished",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = colors.primary,
-                                    maxLines = 2,
-                                    overflow = TextOverflow.Clip
-                                )
-                            }
-                        } else if (song.playbackPercentage > 0f) {
-                            Text(
-                                text = "${song.playbackProgressPercent}% played",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = colors.secondary,
-                                maxLines = 2,
-                                overflow = TextOverflow.Clip,
-                                modifier = Modifier.padding(top = 2.dp)
-                            )
-                        }
-                    }
-
-                    if (isCurrentSong) {
-                        if (isPlaying != null) {
-                            PlayingEqIcon(
-                                modifier = Modifier
-                                    .padding(start = 8.dp)
-                                    .size(width = 18.dp, height = 16.dp),
-                                color = colors.secondary,
-                                isPlaying = isPlaying
-                            )
-                            Spacer(Modifier.width(4.dp))
-                            if (!isRemoveButtonVisible) {
-                                Spacer(Modifier.width(8.dp))
-                            }
-                        }
-                    } else {
-                        Spacer(Modifier.width(8.dp))
-                    }
-
-                    if (isFromPlaylist) {
-                        FilledIconButton(
-                            onClick = { onMoreOptionsClick(song) },
-                            colors = IconButtonDefaults.filledIconButtonColors(
-                                containerColor = mvContainerColor,
-                                contentColor = mvContentColor
-                            ),
-                            modifier = Modifier
-                                .size(36.dp)
-                                .padding(end = 14.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Rounded.MoreVert,
-                                contentDescription = stringResource(
-                                    R.string.queue_more_options_for_song,
-                                    song.title
-                                ),
-                                modifier = Modifier.size(24.dp)
-                            )
-                        }
-                    }
-
-                    AnimatedVisibility(visible = isRemoveButtonVisible && !enableSwipeToDismiss) {
-                        FilledIconButton(
-                            onClick = onRemoveClick,
-                            colors = IconButtonDefaults.filledIconButtonColors(
-                                containerColor = colors.surfaceContainer,
-                                contentColor = colors.onSurface
-                            ),
-                            modifier = Modifier
-                                .width(40.dp)
-                                .height(40.dp)
-                                .padding(start = 4.dp, end = 8.dp)
-                        ) {
-                            Icon(
-                                modifier = Modifier.size(18.dp),
-                                painter = painterResource(R.drawable.rounded_close_24),
-                                contentDescription = stringResource(R.string.queue_cd_remove_from_playlist),
-                            )
-                        }
-                    }
                 }
             }
-            if (song.playbackPercentage > 0f && !isCurrentSong) {
-                LinearProgressIndicator(
-                    progress = { song.playbackPercentage },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(2.5.dp),
-                    color = if (song.isCompleted) colors.primary else colors.secondary,
-                    trackColor = colors.surfaceContainerHighest.copy(alpha = 0.4f)
-                )
-            }
-        }
-        }
+        )
     }
 }

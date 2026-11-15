@@ -121,7 +121,7 @@ import com.theveloper.pixelplay.R
 import com.theveloper.pixelplay.data.model.Song
 import com.theveloper.pixelplay.presentation.components.MiniPlayerHeight
 import com.theveloper.pixelplay.presentation.components.PlaylistBottomSheet
-import com.theveloper.pixelplay.presentation.components.QueuePlaylistSongItem
+import com.theveloper.pixelplay.presentation.components.subcomps.EnhancedSongListItem
 import com.theveloper.pixelplay.presentation.components.SongPickerBottomSheet
 import com.theveloper.pixelplay.presentation.components.ExpressiveScrollBar
 import com.theveloper.pixelplay.ui.theme.LocalShowScrollbar
@@ -690,14 +690,68 @@ fun PlaylistEditScreen(
                                         label = "scale"
                                     )
 
-                                    QueuePlaylistSongItem(
+                                    EnhancedSongListItem(
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .padding(horizontal = 0.dp)
                                             .graphicsLayer {
                                                 scaleX = scale
                                                 scaleY = scale
                                             },
+                                        song = song,
+                                        isCurrentSong = playerStableState.currentSong?.id == song.id,
+                                        isPlaying = playerStableState.isPlaying,
+                                        isDragging = isDragging,
+                                        showAlbumArt = false,
+                                        dragHandle = if (isReorderModeEnabled) {
+                                            {
+                                                IconButton(
+                                                    onClick = {},
+                                                    modifier = Modifier
+                                                        .draggableHandle(
+                                                            onDragStarted = {
+                                                                performAppCompatHapticFeedback(
+                                                                    view,
+                                                                    appHapticsConfig,
+                                                                    HapticFeedbackConstantsCompat.GESTURE_START
+                                                                )
+                                                            },
+                                                            onDragStopped = {
+                                                                performAppCompatHapticFeedback(
+                                                                    view,
+                                                                    appHapticsConfig,
+                                                                    HapticFeedbackConstantsCompat.GESTURE_END
+                                                                )
+                                                            }
+                                                        )
+                                                        .size(36.dp)
+                                                ) {
+                                                    Icon(
+                                                        imageVector = Icons.Rounded.DragIndicator,
+                                                        contentDescription = reorderSongCd,
+                                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                                    )
+                                                }
+                                            }
+                                        } else null,
+                                        trailingContent = if (isRemoveModeEnabled && !isFolderPlaylist) {
+                                            {
+                                                IconButton(
+                                                    onClick = {
+                                                        currentPlaylist.let {
+                                                            playlistViewModel.removeSongFromPlaylist(it.id, song.id)
+                                                        }
+                                                    },
+                                                    modifier = Modifier.size(36.dp)
+                                                ) {
+                                                    Icon(
+                                                        painter = painterResource(R.drawable.rounded_close_24),
+                                                        contentDescription = stringResource(R.string.queue_cd_remove_from_playlist),
+                                                        tint = MaterialTheme.colorScheme.error,
+                                                        modifier = Modifier.size(20.dp)
+                                                    )
+                                                }
+                                            }
+                                        } else null,
                                         onClick = {
                                             playerViewModel.playSongs(
                                                 localReorderableSongs,
@@ -705,51 +759,6 @@ fun PlaylistEditScreen(
                                                 currentPlaylist.name,
                                                 currentPlaylist.id
                                             )
-                                        },
-                                        song = song,
-                                        isCurrentSong = playerStableState.currentSong?.id == song.id,
-                                        isPlaying = playerStableState.isPlaying,
-                                        isDragging = isDragging,
-                                        onRemoveClick = {
-                                            if (!isFolderPlaylist) {
-                                                currentPlaylist.let {
-                                                    playlistViewModel.removeSongFromPlaylist(it.id, song.id)
-                                                }
-                                            }
-                                        },
-                                        isFromPlaylist = true,
-                                        isReorderModeEnabled = isReorderModeEnabled,
-                                        isDragHandleVisible = isReorderModeEnabled,
-                                        isRemoveButtonVisible = isRemoveModeEnabled,
-                                        onMoreOptionsClick = stableOnMoreOptionsClick,
-                                        dragHandle = {
-                                            IconButton(
-                                                onClick = {},
-                                                modifier = Modifier
-                                                    .draggableHandle(
-                                                        onDragStarted = {
-                                                            performAppCompatHapticFeedback(
-                                                                view,
-                                                                appHapticsConfig,
-                                                                HapticFeedbackConstantsCompat.GESTURE_START
-                                                            )
-                                                        },
-                                                        onDragStopped = {
-                                                            performAppCompatHapticFeedback(
-                                                                view,
-                                                                appHapticsConfig,
-                                                                HapticFeedbackConstantsCompat.GESTURE_END
-                                                            )
-                                                        }
-                                                    )
-                                                    .size(40.dp)
-                                            ) {
-                                                Icon(
-                                                    imageVector = Icons.Rounded.DragIndicator,
-                                                    contentDescription = reorderSongCd,
-                                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                                                )
-                                            }
                                         }
                                     )
                                 }

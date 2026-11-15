@@ -1,6 +1,7 @@
 package com.theveloper.pixelplay.presentation.components.subcomps
 
 import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
@@ -101,6 +102,9 @@ fun EnhancedSongListItem(
     selectionIndex: Int? = null,
     isSelectionMode: Boolean = false,
     showMoreOptionsButton: Boolean = true,
+    isDragging: Boolean = false,
+    dragHandle: (@Composable () -> Unit)? = null,
+    trailingContent: (@Composable () -> Unit)? = null,
     onLongPress: () -> Unit = {},
     onMoreOptionsClick: ((Song) -> Unit)? = null,
     onClick: () -> Unit
@@ -248,6 +252,11 @@ fun EnhancedSongListItem(
             }
         }
     } else {
+        val dragElevation by animateDpAsState(
+            targetValue = if (isDragging) 6.dp else 0.dp,
+            label = "dragElevation"
+        )
+
         // Actual Song Item Layout
         Surface(
             modifier = modifier
@@ -282,7 +291,9 @@ fun EnhancedSongListItem(
                     )
                 },
             shape = surfaceShape,
-            color = containerColor,
+            color = if (isDragging) colors.surfaceContainerHigh else containerColor,
+            tonalElevation = dragElevation,
+            shadowElevation = dragElevation,
         ) {
             Column {
                 Row(
@@ -291,6 +302,10 @@ fun EnhancedSongListItem(
                         .padding(horizontal = 13.dp, vertical = 12.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
+                if (dragHandle != null) {
+                    dragHandle()
+                    Spacer(modifier = Modifier.width(4.dp))
+                }
                 if (showSelectionDecoration) {
                     Box(
                         modifier = Modifier
@@ -381,7 +396,9 @@ fun EnhancedSongListItem(
                      Spacer(modifier = Modifier.width(8.dp))
                 }
 
-                if (!isSelectionMode) {
+                if (trailingContent != null) {
+                    trailingContent()
+                } else if (!isSelectionMode) {
                     if (isCompleted) {
                         Box(
                             modifier = Modifier
