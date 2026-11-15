@@ -49,7 +49,7 @@ class GDriveApiService @Inject constructor(
         val urlBuilder = StringBuilder("${GDriveConstants.DRIVE_API_BASE}/files")
             .append("?q=").append(java.net.URLEncoder.encode(query, "UTF-8"))
             .append("&fields=").append(java.net.URLEncoder.encode(fields, "UTF-8"))
-            .append("&pageSize=100")
+            .append("&pageSize=1000")
             .append("&orderBy=name")
 
         if (pageToken != null) {
@@ -69,7 +69,7 @@ class GDriveApiService @Inject constructor(
         val urlBuilder = StringBuilder("${GDriveConstants.DRIVE_API_BASE}/files")
             .append("?q=").append(java.net.URLEncoder.encode(query, "UTF-8"))
             .append("&fields=").append(java.net.URLEncoder.encode(fields, "UTF-8"))
-            .append("&pageSize=100")
+            .append("&pageSize=1000")
             .append("&orderBy=name")
 
         if (pageToken != null) {
@@ -186,8 +186,11 @@ class GDriveApiService @Inject constructor(
         return executeGet("https://www.googleapis.com/oauth2/v2/userinfo")
     }
 
-    private suspend fun executeGet(url: String): String {
-        return withContext(Dispatchers.IO) {
+    private suspend fun executeGet(url: String): String = withContext(Dispatchers.IO) {
+        val maxAttempts = 3
+        var attempt = 0
+        var lastError: Exception? = null
+        while (attempt < maxAttempts) {
             val request = Request.Builder()
                 .url(url)
                 .header("Authorization", getAuthHeader())
@@ -195,13 +198,29 @@ class GDriveApiService @Inject constructor(
                 .build()
 
             val response = okHttpClient.newCall(request).execute()
+            val code = response.code
             val responseBody = response.body.string()
-            Timber.d("GDriveApi GET ${url.take(80)}: code=${response.code}")
+            Timber.d("GDriveApi GET ${url.take(80)}: code=$code (attempt ${attempt + 1})")
 
-            if (!response.isSuccessful) {
-                throw Exception("Drive API error ${response.code}: $responseBody")
+            if (response.isSuccessful) {
+                return@withContext responseBody
             }
-            responseBody
+
+            val isRateLimitOrUnavailable = code == 429 || code == 503 ||
+                    (code == 403 && (responseBody.contains("userRateLimitExceeded") || responseBody.contains("rateLimitExceeded")))
+
+            lastError = Exception("Drive API error $code: $responseBody")
+
+            if (isRateLimitOrUnavailable && attempt < maxAttempts - 1) {
+                attempt++
+                val delayMs = (1000L * (1L shl attempt)) + (0..300).random()
+                Timber.w("Drive API rate limited ($code). Backing off for ${delayMs}ms (attempt $attempt of $maxAttempts)")
+                kotlinx.coroutines.delay(delayMs)
+                continue
+            }
+
+            throw lastError
         }
+        throw (lastError ?: Exception("Drive API error: request failed"))
     }
 }
