@@ -287,7 +287,7 @@ fun HomeScreen(
                                 navController.navigateSafely(Screen.PlaylistDetail.createRoute(activeCourse.id))
                             },
                             onPlayClick = {
-                                dailyGoalViewModel.startLearning(playerViewModel)
+                                dailyGoalViewModel.playCourse(activeCourse.id, playerViewModel)
                             },
                             modifier = Modifier
                                 .fillMaxWidth()

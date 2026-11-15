@@ -98,7 +98,9 @@ import kotlin.math.roundToInt
 private data class PlayerUiSheetSliceV2(
     val currentQueueSourceName: String = "",
     val preparingSongId: String? = null,
-    val currentPlaylistCoverUri: String? = null
+    val currentPlaylistCoverUri: String? = null,
+    val currentCourseCoverColorArgb: Int? = null,
+    val currentCourseCoverIconName: String? = null
 )
 
 /**
@@ -198,7 +200,9 @@ fun UnifiedPlayerSheetV2(
                 PlayerUiSheetSliceV2(
                     currentQueueSourceName = state.currentQueueSourceName,
                     preparingSongId = state.preparingSongId,
-                    currentPlaylistCoverUri = state.currentPlaylistCoverUri
+                    currentPlaylistCoverUri = state.currentPlaylistCoverUri,
+                    currentCourseCoverColorArgb = state.currentCourseCoverColorArgb,
+                    currentCourseCoverIconName = state.currentCourseCoverIconName
                 )
             }
             .distinctUntilChanged()
@@ -206,6 +210,8 @@ fun UnifiedPlayerSheetV2(
     val currentQueueSourceName = playerUiSheetSlice.currentQueueSourceName
     val preparingSongId = playerUiSheetSlice.preparingSongId
     val currentPlaylistCoverUri = playerUiSheetSlice.currentPlaylistCoverUri
+    val currentCourseCoverColorArgb = playerUiSheetSlice.currentCourseCoverColorArgb
+    val currentCourseCoverIconName = playerUiSheetSlice.currentCourseCoverIconName
 
     val currentSheetContentState by playerViewModel.sheetState.collectAsStateWithLifecycle()
     val predictiveBackCollapseProgress by playerViewModel.predictiveBackCollapseFraction.collectAsStateWithLifecycle()
@@ -762,6 +768,8 @@ fun UnifiedPlayerSheetV2(
                             containerHeight = containerHeight,
                             currentQueueSourceName = currentQueueSourceName,
                             currentPlaylistCoverUri = currentPlaylistCoverUri,
+                            currentCourseCoverColorArgb = currentCourseCoverColorArgb,
+                            currentCourseCoverIconName = currentCourseCoverIconName,
                             currentSheetContentState = currentSheetContentState,
                             carouselStyle = carouselStyle,
                             fullPlayerLoadingTweaks = fullPlayerLoadingTweaks,

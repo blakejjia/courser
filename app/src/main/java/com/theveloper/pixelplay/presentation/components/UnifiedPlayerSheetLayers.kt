@@ -56,6 +56,8 @@ internal fun BoxScope.UnifiedPlayerMiniAndFullLayers(
     containerHeight: Dp,
     currentQueueSourceName: String,
     currentPlaylistCoverUri: String? = null,
+    currentCourseCoverColorArgb: Int? = null,
+    currentCourseCoverIconName: String? = null,
     currentSheetContentState: PlayerSheetState,
     carouselStyle: String,
     fullPlayerLoadingTweaks: FullPlayerLoadingTweaks,
@@ -130,6 +132,8 @@ internal fun BoxScope.UnifiedPlayerMiniAndFullLayers(
                         canScroll = isMiniPlayerVisible && infrequentPlayerState.isPlaying,
                         currentQueueSourceName = currentQueueSourceName,
                         courseCoverUri = currentPlaylistCoverUri,
+                        courseCoverColorArgb = currentCourseCoverColorArgb,
+                        courseCoverIconName = currentCourseCoverIconName,
                         modifier = Modifier.fillMaxSize()
                     )
                 }
@@ -233,6 +237,8 @@ internal fun BoxScope.UnifiedPlayerMiniAndFullLayers(
                         currentPlaybackQueue = currentPlaybackQueue,
                         currentQueueSourceName = currentQueueSourceName,
                         currentPlaylistCoverUri = currentPlaylistCoverUri,
+                        currentCourseCoverColorArgb = currentCourseCoverColorArgb,
+                        currentCourseCoverIconName = currentCourseCoverIconName,
                         currentMediaItemIndex = infrequentPlayerState.currentMediaItemIndex,
                         isShuffleEnabled = infrequentPlayerState.isShuffleEnabled,
                         shuffleTransitionInProgress = infrequentPlayerState.isShuffleTransitionInProgress,

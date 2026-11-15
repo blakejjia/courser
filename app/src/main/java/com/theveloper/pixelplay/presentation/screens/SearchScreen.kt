@@ -696,10 +696,17 @@ fun SearchScreen(
                 },
                 onDeleteFromDevice = playerViewModel::deleteFromDevice,
                 onNavigateToAlbum = {
-                    navController.navigateSafelyReplacing(
-                        route = Screen.PlaylistDetail.createRoute(currentSong.albumId.toString()),
-                        patternToPop = Screen.PlaylistDetail.route
-                    )
+                    scope.launch {
+                        val courseId = playerViewModel.resolveCourseIdForSong(currentSong)
+                        if (!courseId.isNullOrBlank()) {
+                            navController.navigateSafelyReplacing(
+                                route = Screen.PlaylistDetail.createRoute(courseId),
+                                patternToPop = Screen.PlaylistDetail.route
+                            )
+                        } else {
+                            playerViewModel.sendToast("Course not found")
+                        }
+                    }
                     showSongInfoBottomSheet = false
                 },
                 onNavigateToArtist = {
@@ -1081,6 +1088,7 @@ fun SearchResultsList(
 ) {
     val localDensity = LocalDensity.current
     val playerStableState by playerViewModel.stablePlayerState.collectAsStateWithLifecycle()
+    val scope = rememberCoroutineScope()
 
     if (results.isEmpty()) {
         Box(
@@ -1221,13 +1229,20 @@ fun SearchResultsList(
                                 }
                                 val onOpenClick = remember(
                                     item.album,
-                                    playerViewModel, onItemSelected
+                                    playerViewModel, onItemSelected, scope
                                 ) {
                                     {
-                                        navController.navigateSafelyReplacing(
-                                            route = Screen.PlaylistDetail.createRoute(item.album.id),
-                                            patternToPop = Screen.PlaylistDetail.route
-                                        )
+                                        scope.launch {
+                                            val courseId = playerViewModel.resolveCourseIdForAlbumId(item.album.id)
+                                            if (!courseId.isNullOrBlank()) {
+                                                navController.navigateSafelyReplacing(
+                                                    route = Screen.PlaylistDetail.createRoute(courseId),
+                                                    patternToPop = Screen.PlaylistDetail.route
+                                                )
+                                            } else {
+                                                playerViewModel.sendToast("Course not found")
+                                            }
+                                        }
                                         onItemSelected()
                                     }
                                 }
@@ -1283,9 +1298,11 @@ fun SearchResultsList(
                                         val songs = playerViewModel.getSongs(item.playlist.songIds)
                                         if (songs.isNotEmpty()) {
                                             playerViewModel.playSongs(
-                                                songs,
-                                                songs.first(),
-                                                item.playlist.name
+                                                songsToPlay = songs,
+                                                startSong = songs.first(),
+                                                queueName = item.playlist.name,
+                                                playlistId = item.playlist.id,
+                                                playlistCoverUri = item.playlist.coverImageUri
                                             )
                                             if (playerStableState.isShuffleEnabled) playerViewModel.toggleShuffle()
                                         } else {

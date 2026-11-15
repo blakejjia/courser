@@ -58,6 +58,7 @@ import com.theveloper.pixelplay.data.preferences.AlbumArtPaletteStyle
 import com.theveloper.pixelplay.data.preferences.ThemePreferencesRepository
 import com.theveloper.pixelplay.data.preferences.UserPreferencesRepository
 import com.theveloper.pixelplay.data.preferences.AlbumArtQuality
+import com.theveloper.pixelplay.data.preferences.PlaylistPreferencesRepository
 import com.theveloper.pixelplay.data.preferences.ThemePreference
 import com.theveloper.pixelplay.data.repository.LyricsSearchResult
 import com.theveloper.pixelplay.data.repository.MusicRepository
@@ -219,7 +220,8 @@ class PlayerViewModel @Inject constructor(
     private val mediaControllerSyncStateHolder: MediaControllerSyncStateHolder,
     private val sessionToken: SessionToken,
     private val mediaControllerFactory: com.theveloper.pixelplay.data.media.MediaControllerFactory,
-    private val courseFolderManager: CourseFolderManager? = null
+    private val courseFolderManager: CourseFolderManager? = null,
+    private val playlistPreferencesRepository: PlaylistPreferencesRepository? = null
 ) : ViewModel() {
 
     private val _playerUiState = MutableStateFlow(PlayerUiState())
@@ -664,6 +666,8 @@ class PlayerViewModel @Inject constructor(
 
     private val _albumNavigationRequests = MutableSharedFlow<Long>(extraBufferCapacity = 1)
     val albumNavigationRequests = _albumNavigationRequests.asSharedFlow()
+    private val _courseNavigationRequests = MutableSharedFlow<String>(extraBufferCapacity = 1)
+    val courseNavigationRequests = _courseNavigationRequests.asSharedFlow()
     private val _artistNavigationRequests = MutableSharedFlow<Long>(extraBufferCapacity = 1)
     val artistNavigationRequests = _artistNavigationRequests.asSharedFlow()
     private val _searchNavDoubleTapEvents = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
@@ -2135,6 +2139,73 @@ class PlayerViewModel @Inject constructor(
         }
     }
 
+    suspend fun resolveCourseIdForSong(song: Song?): String? {
+        if (song == null) return null
+        val currentPlayingSong = playbackStateHolder.stablePlayerState.value.currentSong
+        if (currentPlayingSong?.id == song.id) {
+            val currentCourseId = _playerUiState.value.currentPlaylistId
+            if (!currentCourseId.isNullOrBlank()) {
+                return currentCourseId
+            }
+        }
+        val allPlaylists = playlistPreferencesRepository?.userPlaylistsFlow?.first().orEmpty()
+        val matchingPlaylist = allPlaylists.find { it.songIds.contains(song.id) }
+        if (matchingPlaylist != null) {
+            return matchingPlaylist.id
+        }
+        if (song.path.isNotBlank()) {
+            val file = java.io.File(song.path)
+            val parent = file.parentFile?.canonicalPath
+            if (parent != null) {
+                val folderCourseId = CourseFolderManager.toLocalCoursePlaylistId(parent)
+                if (allPlaylists.any { it.id == folderCourseId }) {
+                    return folderCourseId
+                }
+            }
+        }
+        return null
+    }
+
+    suspend fun resolveCourseIdForAlbumId(albumId: Long): String? {
+        val songs = musicRepository.getSongsForAlbum(albumId).first()
+        val matchingSong = songs.firstOrNull() ?: return null
+        return resolveCourseIdForSong(matchingSong)
+    }
+
+    fun triggerCourseNavigationFromPlayer(courseId: String? = null, song: Song? = null) {
+        val existingJob = albumNavigationJob
+        if (existingJob != null && existingJob.isActive) {
+            Log.d("CourseDebug", "triggerCourseNavigationFromPlayer ignored; navigation already in progress")
+            return
+        }
+
+        albumNavigationJob?.cancel()
+        albumNavigationJob = viewModelScope.launch {
+            val targetSong = song ?: playbackStateHolder.stablePlayerState.value.currentSong
+            val targetCourseId = courseId
+                ?: _playerUiState.value.currentPlaylistId
+                ?: resolveCourseIdForSong(targetSong)
+
+            if (targetCourseId.isNullOrBlank()) {
+                Log.d("CourseDebug", "triggerCourseNavigationFromPlayer: No course found for song ${targetSong?.title}")
+                return@launch
+            }
+
+            Log.d(
+                "CourseDebug",
+                "triggerCourseNavigationFromPlayer: courseId=$targetCourseId, song=${targetSong?.title}"
+            )
+            collapsePlayerSheet()
+
+            withTimeoutOrNull(900) {
+                awaitSheetState(PlayerSheetState.COLLAPSED)
+                awaitPlayerCollapse()
+            }
+
+            _courseNavigationRequests.emit(targetCourseId)
+        }
+    }
+
     fun triggerAlbumNavigationFromPlayer(albumId: Long) {
         if (albumId == -1L) {
             Log.d("AlbumDebug", "triggerAlbumNavigationFromPlayer ignored invalid albumId=$albumId")
@@ -2154,6 +2225,9 @@ class PlayerViewModel @Inject constructor(
                 "AlbumDebug",
                 "triggerAlbumNavigationFromPlayer: albumId=$albumId, songId=${currentSong?.id}, title=${currentSong?.title}"
             )
+            val targetCourseId = _playerUiState.value.currentPlaylistId
+                ?: resolveCourseIdForSong(currentSong)
+
             collapsePlayerSheet()
 
             withTimeoutOrNull(900) {
@@ -2162,6 +2236,9 @@ class PlayerViewModel @Inject constructor(
             }
 
             _albumNavigationRequests.emit(albumId)
+            if (!targetCourseId.isNullOrBlank()) {
+                _courseNavigationRequests.emit(targetCourseId)
+            }
         }
     }
 

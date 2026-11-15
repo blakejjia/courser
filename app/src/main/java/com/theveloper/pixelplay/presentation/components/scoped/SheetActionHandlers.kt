@@ -78,16 +78,19 @@ internal fun rememberSheetActionHandlers(
         { song: Song ->
             scope.launch {
                 sheetMotionControllerState.value.snapCollapsed(sheetCollapsedTargetYState.value)
+                playerViewModelState.value.collapsePlayerSheet()
+                queueSheetControllerState.value.animate(false)
+                sheetModalOverlayControllerState.value.updateSelectedSongForInfo(null)
+                val courseId = playerViewModelState.value.playerUiState.value.currentPlaylistId
+                    ?: playerViewModelState.value.resolveCourseIdForSong(song)
+                if (!courseId.isNullOrBlank()) {
+                    navController.navigateSafelyReplacing(
+                        route = Screen.PlaylistDetail.createRoute(courseId),
+                        patternToPop = Screen.PlaylistDetail.route
+                    )
+                }
             }
-            playerViewModelState.value.collapsePlayerSheet()
-            queueSheetControllerState.value.animate(false)
-            sheetModalOverlayControllerState.value.updateSelectedSongForInfo(null)
-            if (song.albumId != -1L) {
-                navController.navigateSafelyReplacing(
-                    route = Screen.PlaylistDetail.createRoute(song.albumId.toString()),
-                    patternToPop = Screen.PlaylistDetail.route
-                )
-            }
+            Unit
         }
     }
     val onNavigateToArtist = remember(scope, navController) {

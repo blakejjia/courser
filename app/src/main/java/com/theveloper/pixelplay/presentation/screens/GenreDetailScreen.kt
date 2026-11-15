@@ -576,10 +576,17 @@ fun GenreDetailScreen(
                         },
                         onDeleteFromDevice = playerViewModel::deleteFromDevice,
                         onNavigateToAlbum = {
-                            navController.navigateSafelyReplacing(
-                                route = com.theveloper.pixelplay.presentation.navigation.Screen.PlaylistDetail.createRoute(song.albumId.toString()),
-                                patternToPop = com.theveloper.pixelplay.presentation.navigation.Screen.PlaylistDetail.route
-                            )
+                            coroutineScope.launch {
+                                val courseId = playerViewModel.resolveCourseIdForSong(song)
+                                if (!courseId.isNullOrBlank()) {
+                                    navController.navigateSafelyReplacing(
+                                        route = com.theveloper.pixelplay.presentation.navigation.Screen.PlaylistDetail.createRoute(courseId),
+                                        patternToPop = com.theveloper.pixelplay.presentation.navigation.Screen.PlaylistDetail.route
+                                    )
+                                } else {
+                                    playerViewModel.sendToast("Course not found")
+                                }
+                            }
                             showSongOptionsSheet = null
                         },
                         onNavigateToArtist = {

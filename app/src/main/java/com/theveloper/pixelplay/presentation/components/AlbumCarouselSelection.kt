@@ -24,19 +24,25 @@ import kotlinx.collections.immutable.ImmutableList
 import kotlinx.coroutines.flow.first
 
 import com.theveloper.pixelplay.data.preferences.AlbumArtQuality
+import androidx.compose.foundation.background
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import com.theveloper.pixelplay.R
 import com.theveloper.pixelplay.ui.theme.GoogleSansRounded
+import com.theveloper.pixelplay.utils.resolvePlaylistCoverContentColor
 
 // ====== TIPOS/STATE DEL CARRUSEL (wrapper para mantener compatibilidad) ======
 
@@ -64,7 +70,9 @@ fun AlbumCarouselSection(
     itemSpacing: Dp = 8.dp,
     albumArtQuality: AlbumArtQuality = AlbumArtQuality.MEDIUM,
     courseTitle: String = "",
-    courseCoverUri: String? = null
+    courseCoverUri: String? = null,
+    courseCoverColorArgb: Int? = null,
+    courseCoverIconName: String? = null
 ) {
     if (queue.isEmpty()) return
 
@@ -219,7 +227,7 @@ fun AlbumCarouselSection(
                         .fillMaxSize()
                         .aspectRatio(1f)
                         .clickable(
-                            enabled = isFocusedItem && song.albumId != -1L,
+                            enabled = isFocusedItem,
                             interactionSource = remember { MutableInteractionSource() },
                             indication = null,
                             onClick = { onAlbumClick(song) }
@@ -232,9 +240,41 @@ fun AlbumCarouselSection(
                             modifier = Modifier.fillMaxSize(),
                             targetSize = targetSize
                         )
+                    } else if (courseCoverIconName?.startsWith("text:") == true) {
+                        CourseGridCover(
+                            title = courseTitle.ifBlank { song.title },
+                            customText = courseCoverIconName.removePrefix("text:"),
+                            colorArgb = courseCoverColorArgb,
+                            shape = RoundedCornerShape(24.dp),
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    } else if (courseCoverColorArgb != null && !courseCoverIconName.isNullOrBlank()) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .clip(RoundedCornerShape(24.dp))
+                                .background(Color(courseCoverColorArgb)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = getCourseIconByName(courseCoverIconName) ?: Icons.Rounded.MusicNote,
+                                contentDescription = courseTitle,
+                                tint = resolvePlaylistCoverContentColor(courseCoverColorArgb, MaterialTheme.colorScheme),
+                                modifier = Modifier.size(64.dp)
+                            )
+                        }
+                    } else if (!song.albumArtUriString.isNullOrBlank()) {
+                        OptimizedAlbumArt(
+                            uri = song.albumArtUriString,
+                            title = song.title,
+                            modifier = Modifier.fillMaxSize(),
+                            targetSize = targetSize
+                        )
                     } else {
-                        CourseTitleCoverCard(
-                            courseTitle = courseTitle.ifBlank { "Course" },
+                        CourseGridCover(
+                            title = courseTitle.ifBlank { song.title.ifBlank { "Courser" } },
+                            colorArgb = courseCoverColorArgb,
+                            shape = RoundedCornerShape(24.dp),
                             modifier = Modifier.fillMaxSize()
                         )
                     }

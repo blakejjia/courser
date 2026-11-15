@@ -48,8 +48,10 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -121,6 +123,7 @@ fun RecentlyPlayedScreen(
 
     var selectedRange by rememberSaveable { mutableStateOf(StatsTimeRange.WEEK) }
     val lazyListState = rememberLazyListState()
+    val coroutineScope = rememberCoroutineScope()
     var showSongInfoBottomSheet by remember { mutableStateOf(false) }
     var showPlaylistBottomSheet by remember { mutableStateOf(false) }
     val bottomBarHeightDp = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
@@ -291,7 +294,14 @@ fun RecentlyPlayedScreen(
                 },
                 onDeleteFromDevice = playerViewModel::deleteFromDevice,
                 onNavigateToAlbum = {
-                    navController.navigateSafely(Screen.PlaylistDetail.createRoute(song.albumId.toString()))
+                    coroutineScope.launch {
+                        val courseId = playerViewModel.resolveCourseIdForSong(song)
+                        if (!courseId.isNullOrBlank()) {
+                            navController.navigateSafely(Screen.PlaylistDetail.createRoute(courseId))
+                        } else {
+                            playerViewModel.sendToast("Course not found")
+                        }
+                    }
                     showSongInfoBottomSheet = false
                 },
                 onNavigateToArtist = {

@@ -314,7 +314,7 @@ fun CourseTile(
     }
 }
 
-private fun getCourseIconByName(name: String?): ImageVector? {
+internal fun getCourseIconByName(name: String?): ImageVector? {
     return when (name) {
         "MusicNote" -> Icons.Rounded.MusicNote
         "Headphones" -> Icons.Rounded.Headphones

@@ -42,7 +42,9 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -123,6 +125,7 @@ fun DailyMixScreen(
     val aiError by playerViewModel.aiError.collectAsStateWithLifecycle()
     val aiSuccess by playerViewModel.aiSuccess.collectAsStateWithLifecycle()
     val lazyListState = rememberLazyListState()
+    val coroutineScope = rememberCoroutineScope()
 
     var showSongInfoSheet by remember { mutableStateOf(false) }
     var showDailyMixMenu by remember { mutableStateOf(false) }
@@ -193,7 +196,14 @@ fun DailyMixScreen(
             },
             onDeleteFromDevice = playerViewModel::deleteFromDevice,
             onNavigateToAlbum = {
-                navController.navigateSafely(Screen.PlaylistDetail.createRoute(song.albumId.toString()))
+                coroutineScope.launch {
+                    val courseId = playerViewModel.resolveCourseIdForSong(song)
+                    if (!courseId.isNullOrBlank()) {
+                        navController.navigateSafely(Screen.PlaylistDetail.createRoute(courseId))
+                    } else {
+                        playerViewModel.sendToast("Course not found")
+                    }
+                }
                 showSongInfoSheet = false
             },
             onNavigateToArtist = {

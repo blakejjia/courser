@@ -19,6 +19,9 @@ data class PlayerUiState(
     val currentPlaybackQueue: ImmutableList<Song> = persistentListOf(),
     val currentQueueSourceName: String = "All Songs",
     val currentPlaylistCoverUri: String? = null,
+    val currentPlaylistId: String? = null,
+    val currentCourseCoverColorArgb: Int? = null,
+    val currentCourseCoverIconName: String? = null,
     // val albums: ImmutableList<Album> = persistentListOf(), // REMOVED
     // val artists: ImmutableList<Artist> = persistentListOf(), // REMOVED
     val searchResults: ImmutableList<SearchResultItem> = persistentListOf(),

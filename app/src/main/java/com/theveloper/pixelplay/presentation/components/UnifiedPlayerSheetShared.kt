@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.SkipNext
@@ -40,6 +41,7 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
@@ -76,7 +78,9 @@ internal fun MiniPlayerContentInternal(
     modifier: Modifier = Modifier,
     canScroll: Boolean = true,
     currentQueueSourceName: String = "",
-    courseCoverUri: String? = null
+    courseCoverUri: String? = null,
+    courseCoverColorArgb: Int? = null,
+    courseCoverIconName: String? = null
 ) {
     val hapticFeedback = LocalHapticFeedback.current
     val controlsEnabled = !isCastConnecting && !isPreparingPlayback
@@ -94,19 +98,39 @@ internal fun MiniPlayerContentInternal(
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box(contentAlignment = Alignment.Center) {
-            val hasCustomCover = !courseCoverUri.isNullOrBlank()
-            if (hasCustomCover) {
+            val titleForCover = currentQueueSourceName.ifBlank { song.title }
+            if (!courseCoverUri.isNullOrBlank()) {
                 SmartImage(
                     model = courseCoverUri,
-                    contentDescription = currentQueueSourceName.ifBlank { song.title },
+                    contentDescription = titleForCover,
                     shape = CircleShape,
                     targetSize = Size(150, 150),
                     modifier = Modifier.size(44.dp)
                 )
-            } else {
+            } else if (!song.albumArtUriString.isNullOrBlank()) {
+                SmartImage(
+                    model = song.albumArtUriString,
+                    contentDescription = titleForCover,
+                    shape = CircleShape,
+                    targetSize = Size(150, 150),
+                    modifier = Modifier.size(44.dp)
+                )
+            } else if (courseCoverIconName?.startsWith("text:") == true) {
                 Surface(
                     shape = CircleShape,
-                    color = LocalMaterialTheme.current.surfaceContainerHighest,
+                    modifier = Modifier.size(44.dp)
+                ) {
+                    CourseGridCover(
+                        title = titleForCover,
+                        customText = courseCoverIconName.removePrefix("text:"),
+                        colorArgb = courseCoverColorArgb,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
+            } else if (courseCoverColorArgb != null && !courseCoverIconName.isNullOrBlank()) {
+                Surface(
+                    shape = CircleShape,
+                    color = Color(courseCoverColorArgb),
                     modifier = Modifier.size(44.dp)
                 ) {
                     Box(
@@ -114,12 +138,23 @@ internal fun MiniPlayerContentInternal(
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
-                            painter = painterResource(R.drawable.ic_music_placeholder),
-                            contentDescription = currentQueueSourceName,
-                            tint = LocalMaterialTheme.current.onSurfaceVariant,
+                            imageVector = getCourseIconByName(courseCoverIconName) ?: Icons.Rounded.MusicNote,
+                            contentDescription = null,
+                            tint = Color.White,
                             modifier = Modifier.size(22.dp)
                         )
                     }
+                }
+            } else {
+                Surface(
+                    shape = CircleShape,
+                    modifier = Modifier.size(44.dp)
+                ) {
+                    CourseGridCover(
+                        title = titleForCover,
+                        colorArgb = courseCoverColorArgb,
+                        modifier = Modifier.fillMaxSize()
+                    )
                 }
             }
             if (isCastConnecting) {
