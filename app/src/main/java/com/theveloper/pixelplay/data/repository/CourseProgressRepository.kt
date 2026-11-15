@@ -162,13 +162,15 @@ class CourseProgressRepository @Inject constructor(
     /**
      * Save just the per-track resume bookmark in [EngagementDao].
      */
-    suspend fun saveTrackResumePosition(songId: String, positionMs: Long) {
+    suspend fun saveTrackResumePosition(songId: String, positionMs: Long, durationMs: Long = 0L) {
         val nowMs = System.currentTimeMillis()
+        val isCompleted = durationMs > 0L && isCompletionThresholdReached(positionMs, durationMs)
         try {
             engagementDao.updateResumePosition(
                 songId = songId,
                 positionMs = positionMs,
                 timestamp = nowMs,
+                isCompleted = isCompleted,
             )
         } catch (e: Exception) {
             Timber.tag(TAG).e(e, "Failed to save track resume position for songId=%s", songId)
@@ -212,10 +214,12 @@ class CourseProgressRepository @Inject constructor(
             )
 
             // Update the per-track resume bookmark
+            val isCompleted = songDurationMs > 0L && isCompletionThresholdReached(positionMs, songDurationMs)
             engagementDao.updateResumePosition(
                 songId = songId,
                 positionMs = positionMs,
                 timestamp = nowMs,
+                isCompleted = isCompleted,
             )
 
             // If we have the full song list, refresh the completed count

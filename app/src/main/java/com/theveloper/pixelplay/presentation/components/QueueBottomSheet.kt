@@ -2073,7 +2073,7 @@ fun QueuePlaylistSongItem(
                                     modifier = Modifier.size(13.dp)
                                 )
                                 Text(
-                                    text = "Finished" + (song.lastPlayedAt?.let { " • ${formatTimeAgo(it)}" } ?: ""),
+                                    text = "Finished",
                                     style = MaterialTheme.typography.labelSmall,
                                     color = colors.primary,
                                     maxLines = 2,
@@ -2082,7 +2082,7 @@ fun QueuePlaylistSongItem(
                             }
                         } else if (song.playbackPercentage > 0f) {
                             Text(
-                                text = "${song.playbackProgressPercent}% played" + (song.lastPlayedAt?.let { " • ${formatTimeAgo(it)}" } ?: ""),
+                                text = "${song.playbackProgressPercent}% played",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = colors.secondary,
                                 maxLines = 2,

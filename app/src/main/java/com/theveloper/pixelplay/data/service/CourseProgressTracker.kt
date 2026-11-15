@@ -218,7 +218,7 @@ class CourseProgressTracker @Inject constructor(
                     songIds = currentCourseSongIds,
                 )
             } else {
-                courseProgressRepository.saveTrackResumePosition(songId, finalPosition)
+                courseProgressRepository.saveTrackResumePosition(songId, finalPosition, currentSongDurationMs)
             }
         }
     }
