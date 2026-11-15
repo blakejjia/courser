@@ -35,9 +35,24 @@ import kotlinx.coroutines.withContext
 import timber.log.Timber
 import java.io.File
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicInteger
+import kotlinx.coroutines.channels.Channel
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.math.absoluteValue
+
+sealed interface CourseSyncRequest {
+    data class Batch(
+        val addedLocalFolders: List<File>,
+        val removedLocalPaths: List<String>,
+        val addedDriveFolders: List<Pair<String, String>>,
+        val removedDriveIds: List<String>
+    ) : CourseSyncRequest
+
+    data class SyncSingleDriveFolder(val folderId: String) : CourseSyncRequest
+
+    data object SyncAllDriveFolders : CourseSyncRequest
+}
 
 data class LocalFolderEntry(
     val file: File,
@@ -86,9 +101,12 @@ class CourseFolderManager @Inject constructor(
     val isSyncing: StateFlow<Boolean> = _isSyncing.asStateFlow()
 
     private val isLocalSyncing = AtomicBoolean(false)
+    private val syncChannel = Channel<CourseSyncRequest>(Channel.UNLIMITED)
+    private val activeSyncJobsCount = AtomicInteger(0)
 
     init {
-        appScope.launch(Dispatchers.IO) {
+        // Collect GDrive progress into overall course sync progress
+        appScope.launch {
             gdriveRepository.syncProgressFlow.collect { gdriveProgress ->
                 if (gdriveProgress.isSyncing) {
                     _syncProgress.value = CourseSyncProgress(
@@ -98,9 +116,30 @@ class CourseFolderManager @Inject constructor(
                         message = if (gdriveProgress.total > 0) null else "Syncing ${gdriveProgress.currentFolderName ?: "Google Drive"}..."
                     )
                     _isSyncing.value = true
-                } else if (!isLocalSyncing.get()) {
+                } else if (activeSyncJobsCount.get() <= 0 && !isLocalSyncing.get()) {
                     _syncProgress.value = CourseSyncProgress(isSyncing = false)
                     _isSyncing.value = false
+                }
+            }
+        }
+
+        // Single global consumer loop: strictly one sync execution at any time
+        appScope.launch {
+            for (request in syncChannel) {
+                try {
+                    processSyncRequest(request)
+                } catch (e: Exception) {
+                    Timber.e(e, "Error processing sync request: $request")
+                } finally {
+                    val remaining = activeSyncJobsCount.decrementAndGet()
+                    if (remaining <= 0) {
+                        activeSyncJobsCount.set(0)
+                        isLocalSyncing.set(false)
+                        if (!gdriveRepository.syncProgressFlow.value.isSyncing) {
+                            _isSyncing.value = false
+                            _syncProgress.value = CourseSyncProgress(isSyncing = false)
+                        }
+                    }
                 }
             }
         }
@@ -468,44 +507,69 @@ class CourseFolderManager @Inject constructor(
 
     // --- Batch Apply ---
 
+    private suspend fun processSyncRequest(request: CourseSyncRequest) {
+        when (request) {
+            is CourseSyncRequest.Batch -> {
+                applyBatchChanges(
+                    addedLocalFolders = request.addedLocalFolders,
+                    removedLocalPaths = request.removedLocalPaths,
+                    addedDriveFolders = request.addedDriveFolders,
+                    removedDriveIds = request.removedDriveIds
+                )
+            }
+            is CourseSyncRequest.SyncSingleDriveFolder -> {
+                gdriveRepository.syncFolderSongs(request.folderId)
+            }
+            is CourseSyncRequest.SyncAllDriveFolders -> {
+                gdriveRepository.syncAllFoldersAndSongs()
+            }
+        }
+    }
+
     fun applyBatchChangesInBackground(
         addedLocalFolders: List<File>,
         removedLocalPaths: List<String>,
         addedDriveFolders: List<Pair<String, String>>,
         removedDriveIds: List<String>
     ) {
-        appScope.launch(Dispatchers.IO) {
-            try {
-                isLocalSyncing.set(true)
-                _isSyncing.value = true
-                _syncProgress.value = CourseSyncProgress(
-                    isSyncing = true,
-                    current = 0,
-                    total = 0,
-                    message = "Syncing course folders..."
-                )
-                // Immediately update allowedDirectories so library and whitelist reflect the choice at once
-                val currentAllowed = userPreferencesRepository.allowedDirectoriesFlow.first().map(::normalizePath).toMutableSet()
-                removedLocalPaths.forEach { currentAllowed.remove(normalizePath(it)) }
-                addedLocalFolders.forEach { currentAllowed.add(normalizePath(it.path)) }
-                userPreferencesRepository.updateAllowedDirectories(currentAllowed)
+        activeSyncJobsCount.incrementAndGet()
+        isLocalSyncing.set(true)
+        _isSyncing.value = true
+        _syncProgress.value = CourseSyncProgress(
+            isSyncing = true,
+            current = 0,
+            total = 0,
+            message = "Syncing course folders..."
+        )
 
-                applyBatchChanges(
-                    addedLocalFolders = addedLocalFolders,
-                    removedLocalPaths = removedLocalPaths,
-                    addedDriveFolders = addedDriveFolders,
-                    removedDriveIds = removedDriveIds
-                )
-            } catch (e: Exception) {
-                Timber.e(e, "Background course sync failed")
-            } finally {
-                isLocalSyncing.set(false)
-                if (!gdriveRepository.syncProgressFlow.value.isSyncing) {
-                    _isSyncing.value = false
-                    _syncProgress.value = CourseSyncProgress(isSyncing = false)
-                }
-            }
+        // Immediately update allowedDirectories so library and whitelist reflect the choice at once
+        appScope.launch {
+            val currentAllowed = userPreferencesRepository.allowedDirectoriesFlow.first().map(::normalizePath).toMutableSet()
+            removedLocalPaths.forEach { currentAllowed.remove(normalizePath(it)) }
+            addedLocalFolders.forEach { currentAllowed.add(normalizePath(it.path)) }
+            userPreferencesRepository.updateAllowedDirectories(currentAllowed)
         }
+
+        syncChannel.trySend(
+            CourseSyncRequest.Batch(
+                addedLocalFolders = addedLocalFolders,
+                removedLocalPaths = removedLocalPaths,
+                addedDriveFolders = addedDriveFolders,
+                removedDriveIds = removedDriveIds
+            )
+        )
+    }
+
+    fun enqueueSyncDriveFolder(folderId: String) {
+        activeSyncJobsCount.incrementAndGet()
+        _isSyncing.value = true
+        syncChannel.trySend(CourseSyncRequest.SyncSingleDriveFolder(folderId))
+    }
+
+    fun enqueueSyncAllDriveFolders() {
+        activeSyncJobsCount.incrementAndGet()
+        _isSyncing.value = true
+        syncChannel.trySend(CourseSyncRequest.SyncAllDriveFolders)
     }
 
     suspend fun applyBatchChanges(

@@ -379,6 +379,7 @@ dependencies {
     testRuntimeOnly(libs.junitplatformlauncher)
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.mockk)
+    testImplementation("org.json:json:20240303")
     testImplementation(libs.turbine)
     testImplementation(libs.truth)
     testImplementation(libs.androidx.test.core)

@@ -11,7 +11,9 @@ import com.google.android.gms.common.api.Scope
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.tasks.await
@@ -74,6 +76,8 @@ class GDriveRepository @Inject constructor(
 
     private val _syncProgressFlow = MutableStateFlow(GDriveSyncProgress())
     val syncProgressFlow: StateFlow<GDriveSyncProgress> = _syncProgressFlow.asStateFlow()
+
+    private val syncMutex = Mutex()
 
     private companion object {
         const val GDRIVE_SONG_ID_OFFSET = 6_000_000_000_000L
@@ -465,6 +469,12 @@ class GDriveRepository @Inject constructor(
     // --- Sync ---
 
     suspend fun syncFolderSongs(folderId: String, resetOnComplete: Boolean = true): Result<Int> {
+        return syncMutex.withLock {
+            syncFolderSongsInternal(folderId, resetOnComplete)
+        }
+    }
+
+    private suspend fun syncFolderSongsInternal(folderId: String, resetOnComplete: Boolean = true): Result<Int> {
         return withContext(Dispatchers.IO) {
             val currentFolder = dao.getAllFoldersList().find { it.id == folderId }
             val rootFolderName = currentFolder?.name ?: "Drive Folder"
@@ -476,61 +486,87 @@ class GDriveRepository @Inject constructor(
                     currentFolderName = rootFolderName
                 )
 
-                // Breadth-first search for audio files across this folder and all nested subfolders
+                // Concurrent level-by-level breadth-first search for audio files across this folder and all nested subfolders
                 data class FolderWalkItem(val id: String, val pathPrefix: String)
+                data class FolderScanResult(
+                    val audioEntities: List<Pair<String, GDriveSongEntity>>,
+                    val subfolders: List<FolderWalkItem>
+                )
+
+                val crawlSemaphore = Semaphore(6)
 
                 val allEntitiesWithPaths = withTokenRetry {
-                    val folderQueue = ArrayDeque<FolderWalkItem>()
                     val visitedFolderIds = mutableSetOf<String>()
-                    val entitiesWithPaths = mutableListOf<Pair<String, GDriveSongEntity>>()
-
-                    folderQueue.add(FolderWalkItem(folderId, ""))
+                    val allEntities = mutableListOf<Pair<String, GDriveSongEntity>>()
+                    var currentLevel = listOf(FolderWalkItem(folderId, ""))
                     visitedFolderIds.add(folderId)
 
-                    while (folderQueue.isNotEmpty()) {
-                        val (currentId, currentPrefix) = folderQueue.removeFirst()
+                    while (currentLevel.isNotEmpty()) {
+                        val levelResults = coroutineScope {
+                            currentLevel.map { item ->
+                                async(Dispatchers.IO) {
+                                    crawlSemaphore.withPermit {
+                                        val localEntities = mutableListOf<Pair<String, GDriveSongEntity>>()
+                                        val localSubfolders = mutableListOf<FolderWalkItem>()
 
-                        // 1. Fetch audio files in current folder
-                        var audioPageToken: String? = null
-                        do {
-                            val raw = api.listAudioFiles(currentId, audioPageToken)
-                            val root = JSONObject(raw)
-                            val files = root.optJSONArray("files")
+                                        // 1. Fetch audio files in current folder
+                                        var audioPageToken: String? = null
+                                        do {
+                                            val raw = api.listAudioFiles(item.id, audioPageToken)
+                                            val root = JSONObject(raw)
+                                            val files = root.optJSONArray("files")
 
-                            if (files != null) {
-                                for (i in 0 until files.length()) {
-                                    val file = files.optJSONObject(i) ?: continue
-                                    val fileName = file.optString("name", "Unknown")
-                                    val relativePath = if (currentPrefix.isEmpty()) fileName else "$currentPrefix$fileName"
-                                    val entity = parseFileToEntity(file, folderId, rootFolderName)
-                                    entitiesWithPaths.add(relativePath to entity)
-                                }
-                            }
-                            audioPageToken = root.optString("nextPageToken").takeIf { it.isNotBlank() }
-                        } while (audioPageToken != null)
+                                            if (files != null) {
+                                                for (i in 0 until files.length()) {
+                                                    val file = files.optJSONObject(i) ?: continue
+                                                    val fileName = file.optString("name", "Unknown")
+                                                    val relativePath = if (item.pathPrefix.isEmpty()) fileName else "${item.pathPrefix}$fileName"
+                                                    val entity = parseFileToEntity(file, folderId, rootFolderName)
+                                                    localEntities.add(relativePath to entity)
+                                                }
+                                            }
+                                            audioPageToken = root.optString("nextPageToken", "").takeIf { it.isNotBlank() }
+                                        } while (audioPageToken != null)
 
-                        // 2. Fetch subfolders in current folder
-                        var folderPageToken: String? = null
-                        do {
-                            val rawFolders = api.listFolders(currentId, folderPageToken)
-                            val rootFolders = JSONObject(rawFolders)
-                            val subfolders = rootFolders.optJSONArray("files")
+                                        // 2. Fetch subfolders in current folder
+                                        var folderPageToken: String? = null
+                                        do {
+                                            val rawFolders = api.listFolders(item.id, folderPageToken)
+                                            val rootFolders = JSONObject(rawFolders)
+                                            val subfolders = rootFolders.optJSONArray("files")
 
-                            if (subfolders != null) {
-                                for (j in 0 until subfolders.length()) {
-                                    val sub = subfolders.optJSONObject(j) ?: continue
-                                    val subId = sub.optString("id")
-                                    val subName = sub.optString("name")
-                                    if (subId.isNotBlank() && visitedFolderIds.add(subId)) {
-                                        val nextPrefix = if (currentPrefix.isEmpty()) "$subName/" else "$currentPrefix$subName/"
-                                        folderQueue.add(FolderWalkItem(subId, nextPrefix))
+                                            if (subfolders != null) {
+                                                for (j in 0 until subfolders.length()) {
+                                                    val sub = subfolders.optJSONObject(j) ?: continue
+                                                    val subId = sub.optString("id")
+                                                    val subName = sub.optString("name")
+                                                    if (subId.isNotBlank()) {
+                                                        val nextPrefix = if (item.pathPrefix.isEmpty()) "$subName/" else "${item.pathPrefix}$subName/"
+                                                        localSubfolders.add(FolderWalkItem(subId, nextPrefix))
+                                                    }
+                                                }
+                                            }
+                                            folderPageToken = rootFolders.optString("nextPageToken", "").takeIf { it.isNotBlank() }
+                                        } while (folderPageToken != null)
+
+                                        FolderScanResult(localEntities, localSubfolders)
                                     }
                                 }
+                            }.awaitAll()
+                        }
+
+                        val nextLevel = mutableListOf<FolderWalkItem>()
+                        for (res in levelResults) {
+                            allEntities.addAll(res.audioEntities)
+                            for (sub in res.subfolders) {
+                                if (visitedFolderIds.add(sub.id)) {
+                                    nextLevel.add(sub)
+                                }
                             }
-                            folderPageToken = rootFolders.optString("nextPageToken").takeIf { it.isNotBlank() }
-                        } while (folderPageToken != null)
+                        }
+                        currentLevel = nextLevel
                     }
-                    entitiesWithPaths
+                    allEntities
                 }
 
                 // Natural sort by relative path so files in subfolders follow logical course/chapter order
@@ -626,27 +662,29 @@ class GDriveRepository @Inject constructor(
     }
 
     suspend fun syncAllFoldersAndSongs(): Result<BulkSyncResult> {
-        return withContext(Dispatchers.IO) {
-            val folders = dao.getAllFoldersList()
-            if (folders.isEmpty()) {
-                return@withContext Result.success(BulkSyncResult(0, 0, 0))
-            }
-
-            var totalSongs = 0
-            var failedCount = 0
-
-            try {
-                _syncProgressFlow.value = GDriveSyncProgress(isSyncing = true, current = 0, total = 0)
-                folders.forEach { folder ->
-                    val result = syncFolderSongs(folder.id, resetOnComplete = false)
-                    result.fold(
-                        onSuccess = { count -> totalSongs += count },
-                        onFailure = { failedCount++ }
-                    )
+        return syncMutex.withLock {
+            withContext(Dispatchers.IO) {
+                val folders = dao.getAllFoldersList()
+                if (folders.isEmpty()) {
+                    return@withContext Result.success(BulkSyncResult(0, 0, 0))
                 }
-                Result.success(BulkSyncResult(folders.size, totalSongs, failedCount))
-            } finally {
-                _syncProgressFlow.value = GDriveSyncProgress(isSyncing = false)
+
+                var totalSongs = 0
+                var failedCount = 0
+
+                try {
+                    _syncProgressFlow.value = GDriveSyncProgress(isSyncing = true, current = 0, total = 0)
+                    folders.forEach { folder ->
+                        val result = syncFolderSongsInternal(folder.id, resetOnComplete = false)
+                        result.fold(
+                            onSuccess = { count -> totalSongs += count },
+                            onFailure = { failedCount++ }
+                        )
+                    }
+                    Result.success(BulkSyncResult(folders.size, totalSongs, failedCount))
+                } finally {
+                    _syncProgressFlow.value = GDriveSyncProgress(isSyncing = false)
+                }
             }
         }
     }

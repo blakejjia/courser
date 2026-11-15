@@ -30,10 +30,7 @@ class GDriveDashboardViewModel @Inject constructor(
     val userEmail: String? get() = repository.userEmail
     val isLoggedIn: StateFlow<Boolean> = repository.isLoggedInFlow
 
-    init {
-        // Auto-sync folders when dashboard opens
-        syncAllFoldersAndSongs()
-    }
+    // Do not auto-sync in init. Sync must be user-intent driven (folder selection or manual refresh).
 
     fun syncAllFoldersAndSongs() {
         viewModelScope.launch {
