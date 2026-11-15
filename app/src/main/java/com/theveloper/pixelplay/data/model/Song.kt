@@ -47,13 +47,26 @@ data class Song(
     val isCompleted: Boolean = false, // Whether the lesson/song was listened to >= 90%
 ) : Parcelable {
     /**
+     * Whether this track is treated as completed/already played based on latest playback state.
+     * Over 90% played means it has already been played.
+     * If the user re-listens to it and the latest record is under 90%, it reverts to in-progress.
+     */
+    val isCompletedTrack: Boolean
+        get() = when {
+            duration > 0L && resumePositionMs > 0L -> (resumePositionMs.toFloat() / duration) >= 0.90f
+            isCompleted -> true
+            else -> false
+        }
+
+    /**
      * Playback progress ratio in range [0.0f, 1.0f].
-     * Returns 1.0f if completed, or (resumePositionMs / duration) if duration > 0.
+     * Returns 1.0f if completed (>= 90%), or (resumePositionMs / duration) if duration > 0.
      */
     val playbackPercentage: Float
         get() = when {
+            isCompletedTrack -> 1.0f
+            duration > 0L && resumePositionMs > 0L -> (resumePositionMs.toFloat() / duration).coerceIn(0f, 1f)
             isCompleted -> 1.0f
-            duration > 0L -> (resumePositionMs.toFloat() / duration).coerceIn(0f, 1f)
             else -> 0f
         }
 
@@ -61,7 +74,15 @@ data class Song(
      * Integer percentage [0..100] for UI display.
      */
     val playbackProgressPercent: Int
-        get() = (playbackPercentage * 100).toInt()
+        get() = when {
+            isCompletedTrack -> 100
+            duration > 0L && resumePositionMs > 0L -> {
+                val ratio = (resumePositionMs.toFloat() / duration).coerceIn(0f, 1f)
+                if (ratio >= 0.90f) 100 else (ratio * 100).toInt().coerceIn(0, 100)
+            }
+            isCompleted -> 100
+            else -> 0
+        }
 
     /**
      * Returns the display string for artists.

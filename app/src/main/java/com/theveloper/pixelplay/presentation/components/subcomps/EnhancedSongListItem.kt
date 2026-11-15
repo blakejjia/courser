@@ -57,6 +57,7 @@ import com.theveloper.pixelplay.presentation.components.ShimmerBox
 import androidx.compose.ui.res.stringResource
 import com.theveloper.pixelplay.R
 import com.theveloper.pixelplay.presentation.components.SmartImage
+import com.theveloper.pixelplay.ui.theme.GoogleSansRounded
 
 @Immutable
 private data class EnhancedSongAnimationTarget(
@@ -101,11 +102,14 @@ fun EnhancedSongListItem(
     isSelectionMode: Boolean = false,
     showMoreOptionsButton: Boolean = true,
     onLongPress: () -> Unit = {},
-    onMoreOptionsClick: (Song) -> Unit,
+    onMoreOptionsClick: ((Song) -> Unit)? = null,
     onClick: () -> Unit
 ) {
     val albumArtTargetSizePx = with(LocalDensity.current) { albumArtSize.roundToPx() }
     val isHighlighted = isCurrentSong && !isLoading
+    val isCompleted = song.isCompletedTrack
+    val isMuted = isCompleted && !isHighlighted && !isSelected
+
     val transition = updateTransition(
         targetState = EnhancedSongAnimationTarget(
             isHighlighted = isHighlighted,
@@ -158,11 +162,15 @@ fun EnhancedSongListItem(
     }
 
     val colors = MaterialTheme.colorScheme
-    val baseContainerColor = containerColorOverride ?: colors.surfaceContainerLow
+    val baseContainerColor = containerColorOverride ?: if (isMuted) {
+        colors.surfaceContainerLowest
+    } else {
+        colors.surfaceContainerLow
+    }
     val playbackContainerColor = lerpColor(baseContainerColor, colors.primaryContainer, highlightProgress)
     val containerColor = lerpColor(playbackContainerColor, colors.secondaryContainer, selectionVisualProgress)
 
-    val baseContentColor = colors.onSurface
+    val baseContentColor = if (isMuted) colors.onSurfaceVariant.copy(alpha = 0.6f) else colors.onSurface
     val playbackContentColor = lerpColor(baseContentColor, colors.onPrimaryContainer, highlightProgress)
     val contentColor = lerpColor(playbackContentColor, colors.onSecondaryContainer, selectionVisualProgress)
 
@@ -354,44 +362,13 @@ fun EnhancedSongListItem(
                     Text(
                         text = song.displayArtist,
                         style = MaterialTheme.typography.bodyMedium,
-                        color = contentColor.copy(alpha = 0.7f),
+                        color = if (isMuted) colors.onSurfaceVariant.copy(alpha = 0.5f) else contentColor.copy(alpha = 0.7f),
                         maxLines = 2,
                         overflow = TextOverflow.Clip
                     )
-                    if (song.isCompleted) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp),
-                            modifier = Modifier.padding(top = 2.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Rounded.CheckCircle,
-                                contentDescription = "Finished",
-                                tint = colors.primary,
-                                modifier = Modifier.size(13.dp)
-                            )
-                            Text(
-                                text = "Finished" + (song.lastPlayedAt?.let { " • ${formatTimeAgo(it)}" } ?: ""),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = colors.primary,
-                                maxLines = 2,
-                                overflow = TextOverflow.Clip
-                            )
-                        }
-                    } else if (song.playbackPercentage > 0f) {
-                        Text(
-                            text = "${song.playbackProgressPercent}% played" + (song.lastPlayedAt?.let { " • ${formatTimeAgo(it)}" } ?: ""),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = colors.secondary,
-                            maxLines = 2,
-                            overflow = TextOverflow.Clip,
-                            modifier = Modifier.padding(top = 2.dp)
-                        )
-                    }
                 }
                 
                 val showPlayingIndicator = isCurrentSong && !isSelectionMode
-                val showTrailingAction = showMoreOptionsButton && !isSelectionMode
 
                 if (showPlayingIndicator) {
                      PlayingEqIcon(
@@ -401,40 +378,42 @@ fun EnhancedSongListItem(
                          color = contentColor,
                          isPlaying = isPlaying
                      )
+                     Spacer(modifier = Modifier.width(8.dp))
                 }
 
-                if (showPlayingIndicator || showTrailingAction) {
-                    Spacer(modifier = Modifier.width(12.dp))
-                }
-
-                if (showTrailingAction) {
-                    FilledIconButton(
-                        onClick = { onMoreOptionsClick(song) },
-                        colors = IconButtonDefaults.filledIconButtonColors(
-                            containerColor = mvContentColor,
-                            contentColor = mvContainerColor
-                        ),
-                        modifier = Modifier
-                            .size(36.dp)
-                            .padding(end = 4.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.MoreVert,
-                            contentDescription = stringResource(R.string.common_more_options_for, song.title),
-                            modifier = Modifier.size(24.dp)
-                        )
+                if (!isSelectionMode) {
+                    if (isCompleted) {
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .padding(end = 4.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.CheckCircle,
+                                contentDescription = "Completed",
+                                tint = if (isHighlighted) colors.onPrimaryContainer.copy(alpha = 0.7f) else colors.onSurfaceVariant.copy(alpha = 0.45f),
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    } else if (song.playbackPercentage > 0f) {
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .padding(end = 4.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "${song.playbackProgressPercent}%",
+                                style = MaterialTheme.typography.labelMedium.copy(fontFamily = GoogleSansRounded),
+                                fontWeight = FontWeight.Bold,
+                                color = if (isHighlighted) colors.onPrimaryContainer else colors.secondary
+                            )
+                        }
+                    } else {
+                        Spacer(modifier = Modifier.width(4.dp))
                     }
                 }
-            }
-            if (song.playbackPercentage > 0f && !isCurrentSong) {
-                LinearProgressIndicator(
-                    progress = { song.playbackPercentage },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(2.5.dp),
-                    color = if (song.isCompleted) colors.primary else colors.secondary,
-                    trackColor = colors.surfaceContainerHighest.copy(alpha = 0.4f)
-                )
             }
         }
     }

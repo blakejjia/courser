@@ -65,16 +65,18 @@ interface EngagementDao {
 
     /**
      * Atomically updates resume position for a track (called on pause / track-change).
+     * If isCompleted is passed, updates completion status to match latest position.
      */
     @Query("""
         INSERT INTO song_engagements (song_id, play_count, total_play_duration_ms, last_played_timestamp,
             last_resume_position_ms, is_completed, completion_count, last_completed_timestamp, net_listened_ms)
-        VALUES (:songId, 0, 0, 0, :positionMs, 0, 0, 0, 0)
+        VALUES (:songId, 0, 0, 0, :positionMs, :isCompleted, 0, 0, 0)
         ON CONFLICT(song_id) DO UPDATE SET
             last_resume_position_ms = :positionMs,
+            is_completed = :isCompleted,
             last_played_timestamp = MAX(last_played_timestamp, :timestamp)
     """)
-    suspend fun updateResumePosition(songId: String, positionMs: Long, timestamp: Long)
+    suspend fun updateResumePosition(songId: String, positionMs: Long, timestamp: Long, isCompleted: Boolean)
 
     /**
      * Mark a track as completed. Increments completion_count, clears resume position.
