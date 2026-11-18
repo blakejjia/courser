@@ -40,6 +40,8 @@ import com.theveloper.pixelplay.data.repository.CourseProgressRepository
 import com.theveloper.pixelplay.data.ai.AiPlaylistGenerator
 import com.theveloper.pixelplay.data.ai.AiPlaylistReorderService
 import com.theveloper.pixelplay.data.ai.provider.AiProvider
+import com.theveloper.pixelplay.data.download.CourseDownloadManager
+import com.theveloper.pixelplay.data.download.DownloadStatus
 import com.theveloper.pixelplay.R
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
@@ -93,8 +95,23 @@ class PlaylistViewModel @Inject constructor(
     private val aiPlaylistReorderService: AiPlaylistReorderService,
     private val aiPreferencesRepository: AiPreferencesRepository,
     private val m3uManager: M3uManager,
+    private val courseDownloadManager: CourseDownloadManager,
     @ApplicationContext private val context: Context
 ) : ViewModel() {
+
+    val downloadStatusMap: StateFlow<Map<String, DownloadStatus>> = courseDownloadManager.downloadStatusMap
+
+    fun downloadAllSongs(songs: List<Song>): Int {
+        val eligibleSongs = songs.filter { !it.isLocal && !courseDownloadManager.isDownloaded(it) }
+        if (eligibleSongs.isNotEmpty()) {
+            courseDownloadManager.downloadSongs(eligibleSongs)
+        }
+        return eligibleSongs.size
+    }
+
+    fun isSongDownloaded(song: Song): Boolean {
+        return courseDownloadManager.isDownloaded(song)
+    }
 
     private val _uiState = MutableStateFlow(PlaylistUiState())
     val uiState: StateFlow<PlaylistUiState> = _uiState.asStateFlow()

@@ -185,6 +185,7 @@
     <string name="song_info_delete_offline_action">删除</string>
     <string name="playlist_action_download_all">下载全部课程音频</string>
     <string name="playlist_download_all_started">已加入下载队列 (共 %1$d 首)</string>
+    <string name="playlist_download_all_already_local">当前课程所有音频均已下载或已在本地。</string>
     <string name="song_info_tab_options">选项</string>
     <string name="song_info_tab_options_badge">选项</string>
     <string name="song_info_tab_info">信息</string>

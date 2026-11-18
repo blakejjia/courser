@@ -49,6 +49,7 @@ import androidx.compose.material.icons.filled.RemoveCircleOutline
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.AutoAwesome
+import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.DragIndicator
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.PushPin
@@ -824,6 +825,20 @@ fun PlaylistEditScreen(
                         )
                     }
                 }
+                PlaylistActionItem(
+                    icon = rememberVectorPainter(Icons.Rounded.Download),
+                    label = stringResource(R.string.playlist_action_download_all),
+                    onClick = {
+                        showPlaylistOptionsSheet = false
+                        val queuedCount = playlistViewModel.downloadAllSongs(songsInPlaylist)
+                        val message = when {
+                            songsInPlaylist.isEmpty() -> context.getString(R.string.playlist_empty_title)
+                            queuedCount > 0 -> context.getString(R.string.playlist_download_all_started, queuedCount)
+                            else -> context.getString(R.string.playlist_download_all_already_local)
+                        }
+                        playerViewModel.sendToast(message)
+                    }
+                )
                 PlaylistActionItem(
                     icon = rememberVectorPainter(Icons.Rounded.AutoAwesome),
                     label = stringResource(R.string.playlist_action_ai_reorder),
