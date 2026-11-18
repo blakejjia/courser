@@ -209,6 +209,7 @@
     <string name="multi_selection_genres_queue_hint">对这些流派中的所有歌曲进行批量操作。</string>
 
     <!-- Sort Option Display Names -->
+    <string name="sort_display_ai_order">AI 智能排序</string>
     <string name="sort_display_default_order">默认顺序</string>
     <string name="sort_display_title_az">标题 (A-Z)</string>
     <string name="sort_display_title_za">标题 (Z-A)</string>

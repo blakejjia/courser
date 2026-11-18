@@ -136,8 +136,8 @@
     <string name="playlist_ai_reorder_success">Playlist successfully reordered by AI</string>
     <string name="playlist_ai_reorder_error_no_key">Please configure an AI API key in Settings first</string>
     <string name="playlist_ai_reorder_error_failed">AI reorder failed: %1$s</string>
-    <string name="playlist_action_use_ai_cleaned_title">Use AI Cleaned Titles</string>
-    <string name="playlist_action_use_ai_cleaned_title_desc">Display normalized lesson titles without platform tags</string>
+    <string name="playlist_action_use_ai_cleaned_title">AI Rename</string>
+    <string name="playlist_action_use_ai_cleaned_title_desc">Display AI-cleaned lesson titles</string>
     <string name="playlist_action_rerun_ai_reorder">Rerun AI Reorder</string>
     <string name="playlist_action_rerun_ai_reorder_desc">Re-analyze course tracks to refresh order and titles</string>
     <string name="playlist_ai_first_time_hint">Enable AI Reorder to analyze lesson tracks and generate optimized titles.</string>

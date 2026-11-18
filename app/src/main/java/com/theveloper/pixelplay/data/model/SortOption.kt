@@ -22,6 +22,14 @@ sealed class SortOption(
     val direction: SortDirection? = null
 ) {
     // Song Sort Options
+    object SongAiOrder : SortOption(
+        storageKey = "song_ai_order",
+        displayName = "AI Order",
+        displayNameRes = R.string.sort_display_ai_order,
+        methodLabel = "AI Order",
+        methodLabelRes = R.string.sort_display_ai_order,
+        methodKey = "song_ai_order"
+    )
     object SongDefaultOrder : SortOption(
         storageKey = "song_default_order",
         displayName = "Default Order",

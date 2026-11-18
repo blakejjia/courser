@@ -834,17 +834,13 @@ fun PlaylistEditScreen(
                     }
                 )
                 currentPlaylist?.let { playlist ->
-                    AiCourseReorderSection(
-                        uiState = uiState,
-                        playlistId = playlist.id,
-                        onToggleUseAiReorder = {
-                            playlistViewModel.toggleUseAiReorder(playlist.id)
-                        },
-                        onToggleUseAiTitles = {
+                    PlaylistSwitchItem(
+                        icon = rememberVectorPainter(Icons.Rounded.DriveFileRenameOutline),
+                        label = stringResource(R.string.playlist_action_use_ai_cleaned_title),
+                        description = stringResource(R.string.playlist_action_use_ai_cleaned_title_desc),
+                        checked = uiState.isUsingAiCleanedTitles,
+                        onCheckedChange = {
                             playlistViewModel.toggleUseAiCleanedTitles(playlist.id)
-                        },
-                        onRerunAiReorder = {
-                            playlistViewModel.rerunAiReorder(playlist.id)
                         }
                     )
                 }
@@ -1085,31 +1081,17 @@ fun PlaylistEditScreen(
     val isSortSheetVisible by playerViewModel.isSortingSheetVisible.collectAsStateWithLifecycle()
 
     if (isSortSheetVisible) {
-        // Check if playlist is in Manual mode (which corresponds to Default Order)
-        val isManualMode = uiState.playlistSongsOrderMode is PlaylistSongsOrderMode.Manual
-        val rawOption = uiState.currentPlaylistSongsSortOption
-        // If in Manual mode, show SongDefaultOrder as selected; otherwise use the stored sort option
-        val currentSortOption = if (isManualMode) {
-            SortOption.SongDefaultOrder
-        } else if (currentPlaylist != null) {
-            rawOption
+        val currentSortOption = if (uiState.isUsingAiReorder) {
+            SortOption.SongAiOrder
         } else {
-            SortOption.SongTitleAZ
+            uiState.currentPlaylistSongsSortOption
         }
 
-        // Build options list inline to avoid potential static initialization issues
+        // Only keep AI Order and Title sort options for courses/playlists
         val songSortOptions = listOf(
-            SortOption.SongDefaultOrder,
+            SortOption.SongAiOrder,
             SortOption.SongTitleAZ,
-            SortOption.SongTitleZA,
-            SortOption.SongArtist,
-            SortOption.SongArtistDesc,
-            SortOption.SongAlbum,
-            SortOption.SongAlbumDesc,
-            SortOption.SongDateAdded,
-            SortOption.SongDateAddedAsc,
-            SortOption.SongDuration,
-            SortOption.SongDurationAsc
+            SortOption.SongTitleZA
         )
 
         LibrarySortBottomSheet(
@@ -1139,259 +1121,6 @@ fun PlaylistEditScreen(
 }
 
 
-@Composable
-private fun AiCourseReorderSection(
-    uiState: PlaylistUiState,
-    playlistId: String,
-    onToggleUseAiReorder: () -> Unit,
-    onToggleUseAiTitles: () -> Unit,
-    onRerunAiReorder: () -> Unit
-) {
-    var isExpanded by remember { mutableStateOf(true) }
-    val chevronRotation by animateFloatAsState(
-        targetValue = if (isExpanded) 180f else 0f,
-        label = "chevron_rotation"
-    )
-
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 6.dp)
-            .clip(RoundedCornerShape(18.dp))
-            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-            .animateContentSize()
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable { isExpanded = !isExpanded }
-                .padding(horizontal = 16.dp, vertical = 14.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.surfaceContainerHighest),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Rounded.AutoAwesome,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(22.dp)
-                )
-            }
-            Spacer(modifier = Modifier.width(14.dp))
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.Center
-            ) {
-                Text(
-                    text = stringResource(R.string.playlist_action_ai_course_group_title),
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Text(
-                    text = stringResource(R.string.playlist_action_ai_course_group_desc),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            Spacer(modifier = Modifier.width(8.dp))
-            Icon(
-                imageVector = Icons.Rounded.KeyboardArrowDown,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.graphicsLayer { rotationZ = chevronRotation }
-            )
-        }
-
-        AnimatedVisibility(
-            visible = isExpanded,
-            enter = expandVertically() + fadeIn(),
-            exit = shrinkVertically() + fadeOut()
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(start = 4.dp, end = 4.dp, bottom = 10.dp)
-            ) {
-                if (!uiState.hasAiReorderData) {
-                    Surface(
-                        color = MaterialTheme.colorScheme.surfaceContainerHighest,
-                        shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 12.dp, vertical = 4.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(12.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Rounded.Info,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.secondary,
-                                modifier = Modifier.size(20.dp)
-                            )
-                            Text(
-                                text = stringResource(R.string.playlist_ai_first_time_hint),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-                }
-
-                PlaylistNestedSwitchItem(
-                    icon = rememberVectorPainter(Icons.AutoMirrored.Rounded.Sort),
-                    label = stringResource(R.string.playlist_action_use_ai_reorder),
-                    description = stringResource(R.string.playlist_action_use_ai_reorder_desc),
-                    checked = uiState.isUsingAiReorder,
-                    onCheckedChange = { onToggleUseAiReorder() }
-                )
-
-                if (uiState.hasAiCleanedTitles) {
-                    PlaylistNestedSwitchItem(
-                        icon = rememberVectorPainter(Icons.Rounded.DriveFileRenameOutline),
-                        label = stringResource(R.string.playlist_action_use_ai_cleaned_title),
-                        description = stringResource(R.string.playlist_action_use_ai_cleaned_title_desc),
-                        checked = uiState.isUsingAiCleanedTitles,
-                        onCheckedChange = { onToggleUseAiTitles() }
-                    )
-                }
-
-                PlaylistNestedActionItem(
-                    icon = rememberVectorPainter(Icons.Rounded.Refresh),
-                    label = stringResource(R.string.playlist_action_rerun_ai_reorder),
-                    description = stringResource(R.string.playlist_action_rerun_ai_reorder_desc),
-                    onClick = onRerunAiReorder
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun PlaylistNestedSwitchItem(
-    icon: Painter,
-    label: String,
-    description: String? = null,
-    checked: Boolean,
-    enabled: Boolean = true,
-    onCheckedChange: (Boolean) -> Unit
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 4.dp)
-            .clip(RoundedCornerShape(14.dp))
-            .background(MaterialTheme.colorScheme.surfaceContainerHighest)
-            .clickable(enabled = enabled) { onCheckedChange(!checked) }
-            .padding(horizontal = 14.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Box(
-            modifier = Modifier
-                .size(36.dp)
-                .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.surfaceContainer),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                painter = icon,
-                contentDescription = label,
-                tint = if (enabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                modifier = Modifier.size(20.dp)
-            )
-        }
-        Spacer(modifier = Modifier.width(12.dp))
-        Column(
-            modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.Center
-        ) {
-            Text(
-                text = label,
-                style = MaterialTheme.typography.titleSmall,
-                color = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-            )
-            if (!description.isNullOrBlank()) {
-                Text(
-                    text = description,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = if (enabled) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                )
-            }
-        }
-        Spacer(modifier = Modifier.width(8.dp))
-        Switch(
-            checked = checked,
-            enabled = enabled,
-            onCheckedChange = onCheckedChange
-        )
-    }
-}
-
-@Composable
-private fun PlaylistNestedActionItem(
-    icon: Painter,
-    label: String,
-    description: String? = null,
-    onClick: () -> Unit
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 4.dp)
-            .clip(RoundedCornerShape(14.dp))
-            .background(MaterialTheme.colorScheme.surfaceContainerHighest)
-            .clickable(onClick = onClick)
-            .padding(horizontal = 14.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Box(
-            modifier = Modifier
-                .size(36.dp)
-                .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.surfaceContainer),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                painter = icon,
-                contentDescription = label,
-                tint = MaterialTheme.colorScheme.secondary,
-                modifier = Modifier.size(20.dp)
-            )
-        }
-        Spacer(modifier = Modifier.width(12.dp))
-        Column(
-            modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.Center
-        ) {
-            Text(
-                text = label,
-                style = MaterialTheme.typography.titleSmall,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-            if (!description.isNullOrBlank()) {
-                Text(
-                    text = description,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        }
-        Spacer(modifier = Modifier.width(8.dp))
-        Icon(
-            imageVector = Icons.Rounded.ChevronRight,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.size(20.dp)
-        )
-    }
-}
 
 @Composable
 private fun PlaylistActionItem(
