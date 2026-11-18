@@ -1369,7 +1369,7 @@ class MusicService : MediaLibraryService() {
                     oldPosition.positionMs.coerceAtLeast(0L)
                 }
                 courseProgressTracker.onTrackLeaving(
-                    songId = oldMediaId!!,
+                    songId = oldMediaId,
                     finalPositionMs = finalPos,
                     durationMs = oldDuration,
                     songTitle = oldPosition.mediaItem?.mediaMetadata?.title?.toString() ?: "",
