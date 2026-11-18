@@ -199,6 +199,7 @@ class DualPlayerEngine @Inject constructor(
     private val gdriveStreamProxy: com.theveloper.pixelplay.data.gdrive.GDriveStreamProxy,
     private val telegramCacheManager: com.theveloper.pixelplay.data.telegram.TelegramCacheManager,
     private val mediaCacheManager: com.theveloper.pixelplay.data.cache.MediaCacheManager,
+    private val courseDownloadManager: com.theveloper.pixelplay.data.download.CourseDownloadManager,
     private val connectivityStateHolder: com.theveloper.pixelplay.presentation.viewmodel.ConnectivityStateHolder
 ) {
     private companion object {
@@ -1072,6 +1073,14 @@ class DualPlayerEngine @Inject constructor(
     }
 
     private suspend fun resolveGDriveUriAsync(uriString: String): Uri? = withContext(Dispatchers.IO) {
+        val driveFileId = com.theveloper.pixelplay.data.download.CourseDownloadManager.extractDriveFileId(uriString)
+        if (driveFileId != null) {
+            val offlineFile = courseDownloadManager.getOfflineFileByDriveId(driveFileId)
+            if (offlineFile != null && offlineFile.exists() && offlineFile.length() > 0) {
+                Timber.tag("PlayerEngine").d("resolveGDriveUriAsync: Using offline download file for %s", driveFileId)
+                return@withContext Uri.fromFile(offlineFile)
+            }
+        }
         if (!connectivityStateHolder.isOnline.value) {
             connectivityStateHolder.triggerOfflineBlockedEvent()
             return@withContext null
