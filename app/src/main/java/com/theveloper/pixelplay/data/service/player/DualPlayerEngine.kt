@@ -169,7 +169,7 @@ internal fun loadControlBufferProfileFor(isLowRamDevice: Boolean): LoadControlBu
         LoadControlBufferProfile(
             minBufferMs = 15_000,
             maxBufferMs = 30_000,
-            bufferForPlaybackMs = 1_000,
+            bufferForPlaybackMs = 2_500,
             bufferForPlaybackAfterRebufferMs = 5_000,
             backBufferMs = 10_000
         )
