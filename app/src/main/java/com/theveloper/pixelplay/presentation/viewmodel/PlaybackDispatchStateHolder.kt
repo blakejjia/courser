@@ -12,15 +12,16 @@ import androidx.media3.session.MediaController
 import com.google.android.gms.cast.framework.media.RemoteMediaClient
 import com.theveloper.pixelplay.R
 import com.theveloper.pixelplay.data.database.CourseProgressEntity
-import com.theveloper.pixelplay.data.preferences.PlaylistPreferencesRepository
 import com.theveloper.pixelplay.data.service.CourseProgressTracker
 import com.theveloper.pixelplay.data.service.cast.CastRemotePlaybackState
 import com.theveloper.pixelplay.data.model.Song
+import com.theveloper.pixelplay.data.preferences.PlaylistPreferencesRepository
 import com.theveloper.pixelplay.data.preferences.UserPreferencesRepository
 import com.theveloper.pixelplay.data.repository.MusicRepository
 import com.theveloper.pixelplay.data.service.player.DualPlayerEngine
 import com.theveloper.pixelplay.data.worker.SyncManager
 import com.theveloper.pixelplay.utils.AppShortcutManager
+import com.theveloper.pixelplay.utils.CourseResolutionUtils
 import com.theveloper.pixelplay.utils.MediaItemBuilder
 import com.theveloper.pixelplay.utils.QueueUtils
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -419,24 +420,29 @@ class PlaybackDispatchStateHolder @Inject constructor(
             null
         }
 
+        val resolvedPlaylistId = playlistId?.takeIf { it.isNotBlank() }
+            ?: cb.getUiState().currentPlaylistId
+            ?: song.resolveCoursePlaylistId()
+
         if (controller != null && reusableTargetIndex != null) {
             cancelPendingDirectPlaybackBuild()
             playLoadedControllerItem(controller, reusableTargetIndex)
             if (isVoluntaryPlay) {
                 cb.incrementSongScore(song)
-                if (playlistId != null && queueName != "None") {
-                    appShortcutManager.updateLastPlaylistShortcut(playlistId, queueName)
+                if (resolvedPlaylistId != CourseProgressEntity.DEFAULT_PLAYLIST_ID && queueName != "None") {
+                    appShortcutManager.updateLastPlaylistShortcut(resolvedPlaylistId, queueName)
                 }
             }
         } else {
             if (isVoluntaryPlay) cb.incrementSongScore(song)
-            playSongs(playbackContext, song, queueName, playlistId)
+            playSongs(playbackContext, song, queueName, resolvedPlaylistId)
         }
         cb.resetPredictiveBackState()
     }
 
     fun showAndPlaySong(song: Song) {
         Timber.tag("ShuffleDebug").d("showAndPlaySong (single song overload) called for '${song.title}'")
+        val resolvedPlaylistId = cb.getUiState().currentPlaylistId ?: song.resolveCoursePlaylistId()
         val castSession = castStateHolder.castSession.value
         val contextSongs = if (castSession != null && castSession.remoteMediaClient != null) {
             libraryStateHolder.allSongs.value.takeIf { songs ->
@@ -445,7 +451,7 @@ class PlaybackDispatchStateHolder @Inject constructor(
         } else {
             listOf(song)
         }
-        showAndPlaySong(song, contextSongs, "Library")
+        showAndPlaySong(song, contextSongs, "Library", playlistId = resolvedPlaylistId)
     }
 
     private fun List<Song>.matchesSongOrder(contextSongs: List<Song>): Boolean {
@@ -830,53 +836,50 @@ class PlaybackDispatchStateHolder @Inject constructor(
         }
         val effectiveStartSong = songsToPlay.firstOrNull { it.id == startSong.id } ?: songsToPlay.first()
 
-        // Resolve course/playlist details if playing within a course or matching song to course
-        val allPlaylists = playlistPreferencesRepository?.userPlaylistsFlow?.first().orEmpty()
-        val matchedPlaylist = if (!playlistId.isNullOrBlank()) {
-            allPlaylists.find { it.id == playlistId }
-        } else {
-            allPlaylists.find { it.songIds.contains(effectiveStartSong.id) }
+        val effectivePlaylistId = when {
+            !playlistId.isNullOrBlank() -> playlistId
+            else -> effectiveStartSong.resolveCoursePlaylistId()
         }
-        val resolvedPlaylistId = playlistId ?: matchedPlaylist?.id
-        val resolvedQueueName = if (queueName.isBlank() || queueName == "None" || queueName == "All Songs" || queueName == "Library") {
-            matchedPlaylist?.name ?: queueName
-        } else {
-            queueName
-        }
-        val resolvedCoverUri = playlistCoverUri ?: matchedPlaylist?.coverImageUri
-        val resolvedColorArgb = matchedPlaylist?.coverColorArgb
-        val resolvedIconName = matchedPlaylist?.coverIconName
+
+        val allPlaylists = runCatching { playlistPreferencesRepository?.userPlaylistsFlow?.first() }.getOrNull().orEmpty()
+        val resolvedCourse = CourseResolutionUtils.resolveCourseDetails(
+            song = effectiveStartSong,
+            playlistId = effectivePlaylistId,
+            allPlaylists = allPlaylists,
+            explicitQueueName = queueName
+        )
+        val finalQueueName = resolvedCourse.title
+        val finalCoverUri = resolvedCourse.coverImageUri ?: playlistCoverUri
+        val finalCoverColor = resolvedCourse.coverColorArgb
+        val finalCoverIcon = resolvedCourse.coverIconName
 
         // Update dynamic shortcut for last played playlist
-        if (resolvedPlaylistId != null && resolvedQueueName != "None") {
-            appShortcutManager.updateLastPlaylistShortcut(resolvedPlaylistId, resolvedQueueName)
+        if (effectivePlaylistId != CourseProgressEntity.DEFAULT_PLAYLIST_ID && finalQueueName.isNotBlank()) {
+            appShortcutManager.updateLastPlaylistShortcut(effectivePlaylistId, finalQueueName)
         }
 
         // Keep CourseProgressTracker aligned with active course/playlist context
-        if (!resolvedPlaylistId.isNullOrBlank()) {
-            val courseId = when {
-                resolvedPlaylistId.startsWith("playlist:") || resolvedPlaylistId.startsWith("local:") || resolvedPlaylistId.startsWith("gdrive:") || resolvedPlaylistId.startsWith("telegram:") -> resolvedPlaylistId
-                resolvedPlaylistId.startsWith("folder_") -> {
-                    val folderPath = Uri.decode(resolvedPlaylistId.removePrefix("folder_"))
-                    CourseProgressEntity.localFolderCourseId(folderPath)
-                }
-                else -> CourseProgressEntity.playlistCourseId(resolvedPlaylistId)
+        val courseId = when {
+            effectivePlaylistId.startsWith("playlist:") || effectivePlaylistId.startsWith("local:") || effectivePlaylistId.startsWith("gdrive:") || effectivePlaylistId.startsWith("telegram:") -> effectivePlaylistId
+            effectivePlaylistId.startsWith("folder_") -> {
+                val folderPath = Uri.decode(effectivePlaylistId.removePrefix("folder_"))
+                CourseProgressEntity.localFolderCourseId(folderPath)
             }
-            val courseType = when {
-                courseId.startsWith("local:") -> CourseProgressEntity.TYPE_LOCAL_FOLDER
-                courseId.startsWith("gdrive:") -> CourseProgressEntity.TYPE_GDRIVE_FOLDER
-                courseId.startsWith("telegram:") -> CourseProgressEntity.TYPE_TELEGRAM_TOPIC
-                else -> CourseProgressEntity.TYPE_PLAYLIST
-            }
-            courseProgressTracker.setCourseContext(
-                courseId = courseId,
-                courseType = courseType,
-                courseName = resolvedQueueName,
-                songIds = songsToPlay.map { it.id }
-            )
-        } else {
-            courseProgressTracker.clearCourseContext()
+            else -> CourseProgressEntity.playlistCourseId(effectivePlaylistId)
         }
+        val courseType = when {
+            courseId.startsWith("local:") -> CourseProgressEntity.TYPE_LOCAL_FOLDER
+            courseId.startsWith("gdrive:") -> CourseProgressEntity.TYPE_GDRIVE_FOLDER
+            courseId.startsWith("telegram:") -> CourseProgressEntity.TYPE_TELEGRAM_TOPIC
+            else -> CourseProgressEntity.TYPE_PLAYLIST
+        }
+        val effectiveCourseName = finalQueueName.ifBlank { "Course" }
+        courseProgressTracker.setCourseContext(
+            courseId = courseId,
+            courseType = courseType,
+            courseName = effectiveCourseName,
+            songIds = songsToPlay.map { it.id }
+        )
 
         val castSession = castStateHolder.castSession.value
         if (castSession != null && castSession.remoteMediaClient != null) {
@@ -900,11 +903,11 @@ class PlaybackDispatchStateHolder @Inject constructor(
             cb.updateUiState {
                 it.copy(
                     currentPlaybackQueue = songsToPlay.toPlaybackQueue(),
-                    currentQueueSourceName = resolvedQueueName,
-                    currentPlaylistCoverUri = resolvedCoverUri,
-                    currentPlaylistId = resolvedPlaylistId,
-                    currentCourseCoverColorArgb = resolvedColorArgb,
-                    currentCourseCoverIconName = resolvedIconName
+                    currentQueueSourceName = finalQueueName,
+                    currentPlaylistCoverUri = finalCoverUri,
+                    currentPlaylistCoverColor = finalCoverColor,
+                    currentPlaylistCoverIcon = finalCoverIcon,
+                    currentPlaylistId = resolvedCourse.courseId
                 )
             }
             playbackStateHolder.updateStablePlayerState {
@@ -921,11 +924,11 @@ class PlaybackDispatchStateHolder @Inject constructor(
             cb.updateUiState {
                 it.copy(
                     currentPlaybackQueue = songsToPlay.toPlaybackQueue(),
-                    currentQueueSourceName = resolvedQueueName,
-                    currentPlaylistCoverUri = resolvedCoverUri,
-                    currentPlaylistId = resolvedPlaylistId,
-                    currentCourseCoverColorArgb = resolvedColorArgb,
-                    currentCourseCoverIconName = resolvedIconName
+                    currentQueueSourceName = finalQueueName,
+                    currentPlaylistCoverUri = finalCoverUri,
+                    currentPlaylistCoverColor = finalCoverColor,
+                    currentPlaylistCoverIcon = finalCoverIcon,
+                    currentPlaylistId = resolvedCourse.courseId
                 )
             }
             playbackStateHolder.setCurrentPosition(startPositionMs)
@@ -940,7 +943,7 @@ class PlaybackDispatchStateHolder @Inject constructor(
             }
             cb.showSheet()
 
-            val startMediaItem = buildResolvedPlaybackMediaItem(effectiveStartSong)
+            val startMediaItem = buildResolvedPlaybackMediaItem(effectiveStartSong, effectivePlaylistId)
 
             val playSongsAction = {
                 // Use Direct Engine Access to avoid TransactionTooLargeException on Binder
@@ -961,7 +964,7 @@ class PlaybackDispatchStateHolder @Inject constructor(
                         val preparedSegments = preparePlaybackQueueSegments(
                             songsToPlay = songsToPlay,
                             startSongId = effectiveStartSong.id,
-                            playlistId = playlistId
+                            playlistId = effectivePlaylistId
                         )
                         withContext(Dispatchers.Main.immediate) {
                             attachPreparedQueueSegmentsIfCurrent(
@@ -985,8 +988,8 @@ class PlaybackDispatchStateHolder @Inject constructor(
         }
     }
 
-    suspend fun buildResolvedPlaybackMediaItem(song: Song): MediaItem {
-        val mediaItem = MediaItemBuilder.build(song)
+    suspend fun buildResolvedPlaybackMediaItem(song: Song, playlistId: String? = null): MediaItem {
+        val mediaItem = buildPlaybackMediaItem(song, playlistId)
         val originalUri = mediaItem.localConfiguration?.uri ?: return mediaItem
         val scheme = originalUri.scheme
         if (
@@ -1069,13 +1072,12 @@ class PlaybackDispatchStateHolder @Inject constructor(
 
     private fun buildPlaybackMediaItem(song: Song, playlistId: String? = null): MediaItem {
         val baseItem = MediaItemBuilder.build(song)
-        val targetPlaylistId = playlistId ?: cb.getUiState().currentPlaylistId
-        if (targetPlaylistId == null) {
+        if (playlistId == null) {
             return baseItem
         }
 
         val mergedExtras = Bundle(baseItem.mediaMetadata.extras ?: Bundle()).apply {
-            putString("playlistId", targetPlaylistId)
+            putString("playlistId", playlistId)
         }
 
         return baseItem.buildUpon()

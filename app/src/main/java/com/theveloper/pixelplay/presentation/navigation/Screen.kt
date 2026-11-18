@@ -19,11 +19,13 @@ sealed class Screen(val route: String) {
     object Experimental : Screen("experimental_settings")
     object NavBarCrRad : Screen("nav_bar_corner_radius")
     object PlaylistDetail : Screen("playlist_detail/{playlistId}") {
-        fun createRoute(playlistId: String) = "playlist_detail/$playlistId"
+        fun createRoute(playlistId: String) = "playlist_detail/${android.net.Uri.encode(playlistId)}"
+        @Deprecated("Use createRoute(playlistId: String) instead", ReplaceWith("createRoute(playlistId.toString())"))
         fun createRoute(playlistId: Long) = createRoute(playlistId.toString())
     }
     object PlaylistEdit : Screen("playlist_edit/{playlistId}") {
-        fun createRoute(playlistId: String) = "playlist_edit/$playlistId"
+        fun createRoute(playlistId: String) = "playlist_edit/${android.net.Uri.encode(playlistId)}"
+        @Deprecated("Use createRoute(playlistId: String) instead", ReplaceWith("createRoute(playlistId.toString())"))
         fun createRoute(playlistId: Long) = createRoute(playlistId.toString())
     }
 

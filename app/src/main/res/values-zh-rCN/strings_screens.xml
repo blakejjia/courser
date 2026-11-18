@@ -113,6 +113,7 @@
     <string name="playlist_more_options_title">更多选项</string>
     <string name="playlist_options_title">播放列表选项</string>
     <string name="playlist_action_edit_playlist">编辑播放列表</string>
+    <string name="playlist_action_edit_cover">编辑封面</string>
     <string name="playlist_action_delete_playlist">删除播放列表</string>
     <string name="playlist_dialog_delete_title">删除播放列表？</string>
     <string name="playlist_dialog_delete_body">您确定要删除此播放列表吗？</string>
@@ -127,12 +128,19 @@
     <string name="playlist_action_reorder_songs">重新排序</string>
     <string name="playlist_cd_reorder_songs">重新排序歌曲</string>
     <string name="playlist_action_ai_reorder">AI 智能排序</string>
+    <string name="playlist_action_ai_course_group_title">AI 课程智能编排</string>
+    <string name="playlist_action_ai_course_group_desc">理解课程逻辑并优化播放顺序与名称</string>
+    <string name="playlist_action_use_ai_reorder">使用 AI 排序结果</string>
+    <string name="playlist_action_use_ai_reorder_desc">开启应用推荐课节顺序；关闭恢复默认文件名排序</string>
     <string name="playlist_ai_reorder_loading">AI 正在分析并排序曲目…</string>
     <string name="playlist_ai_reorder_success">AI 排序已完成并应用</string>
     <string name="playlist_ai_reorder_error_no_key">请先在设置中配置 AI API Key</string>
     <string name="playlist_ai_reorder_error_failed">AI 排序失败：%1$s</string>
-    <string name="playlist_action_use_ai_cleaned_title">使用 AI 整理的课程名称</string>
+    <string name="playlist_action_use_ai_cleaned_title">使用 AI 命名结果</string>
     <string name="playlist_action_use_ai_cleaned_title_desc">显示去除冗余标签的优化标题</string>
+    <string name="playlist_action_rerun_ai_reorder">让 AI 重新排序</string>
+    <string name="playlist_action_rerun_ai_reorder_desc">重新分析当前课程所有音轨，刷新排序与标题结果</string>
+    <string name="playlist_ai_first_time_hint">点击开启「使用 AI 排序结果」，AI 将自动梳理章节顺序并规范小节名称。</string>
 
     <!-- EditTransitionScreen -->
     <string name="transition_title_global">全局过渡效果</string>

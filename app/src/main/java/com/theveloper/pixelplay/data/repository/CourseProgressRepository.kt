@@ -197,6 +197,7 @@ class CourseProgressRepository @Inject constructor(
         songTitle: String,
         totalSongs: Int,
         songIds: List<String> = emptyList(), // pass to refresh completedCount
+        refreshCompleted: Boolean = true,
     ) {
         val nowMs = System.currentTimeMillis()
         try {
@@ -223,7 +224,7 @@ class CourseProgressRepository @Inject constructor(
             )
 
             // If we have the full song list, refresh the completed count
-            if (songIds.isNotEmpty()) {
+            if (refreshCompleted && songIds.isNotEmpty()) {
                 refreshCompletedCount(courseId, songIds)
             }
         } catch (e: Exception) {

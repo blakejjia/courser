@@ -19,33 +19,14 @@ internal fun PlayerAlbumNavigationEffect(
 ) {
     val latestSheetCollapsedTargetY by rememberUpdatedState(sheetCollapsedTargetY)
     LaunchedEffect(navController) {
-        playerViewModel.courseNavigationRequests.collectLatest { courseId ->
+        playerViewModel.playlistNavigationRequests.collectLatest { playlistId ->
             sheetMotionController.snapCollapsed(latestSheetCollapsedTargetY)
             playerViewModel.collapsePlayerSheet()
 
             navController.navigateSafelyReplacing(
-                route = Screen.PlaylistDetail.createRoute(courseId),
+                route = Screen.PlaylistDetail.createRoute(playlistId),
                 patternToPop = Screen.PlaylistDetail.route
             )
-        }
-    }
-    LaunchedEffect(navController) {
-        playerViewModel.albumNavigationRequests.collectLatest { albumId ->
-            sheetMotionController.snapCollapsed(latestSheetCollapsedTargetY)
-            playerViewModel.collapsePlayerSheet()
-
-            val currentSong = playerViewModel.stablePlayerState.value.currentSong
-            val courseId = playerViewModel.playerUiState.value.currentPlaylistId
-                ?: playerViewModel.resolveCourseIdForSong(currentSong)
-                ?: playerViewModel.resolveCourseIdForAlbumId(albumId)
-            if (!courseId.isNullOrBlank()) {
-                navController.navigateSafelyReplacing(
-                    route = Screen.PlaylistDetail.createRoute(courseId),
-                    patternToPop = Screen.PlaylistDetail.route
-                )
-            } else {
-                playerViewModel.sendToast("Course not found")
-            }
         }
     }
 }

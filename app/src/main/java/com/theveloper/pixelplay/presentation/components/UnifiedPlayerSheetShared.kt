@@ -21,7 +21,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.SkipNext
@@ -41,7 +40,6 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
@@ -49,7 +47,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.graphics.Color
 import coil.size.Size
+import com.theveloper.pixelplay.utils.CourseResolutionUtils
 import com.theveloper.pixelplay.R
 import com.theveloper.pixelplay.data.model.Song
 import com.theveloper.pixelplay.ui.theme.GoogleSansRounded
@@ -98,35 +98,28 @@ internal fun MiniPlayerContentInternal(
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box(contentAlignment = Alignment.Center) {
-            val titleForCover = currentQueueSourceName.ifBlank { song.title }
-            if (!courseCoverUri.isNullOrBlank()) {
+            val hasCustomCover = !courseCoverUri.isNullOrBlank()
+            val displayTitle = currentQueueSourceName.takeIf {
+                it.isNotBlank() && it != "All Songs" && it != "Library" && it != "None"
+            } ?: song.album.takeIf { it.isNotBlank() && it != "Unknown" && it != "All Songs" }
+            ?: "Course"
+
+            if (hasCustomCover) {
                 SmartImage(
                     model = courseCoverUri,
-                    contentDescription = titleForCover,
-                    shape = CircleShape,
-                    targetSize = Size(150, 150),
-                    modifier = Modifier.size(44.dp)
-                )
-            } else if (!song.albumArtUriString.isNullOrBlank()) {
-                SmartImage(
-                    model = song.albumArtUriString,
-                    contentDescription = titleForCover,
+                    contentDescription = displayTitle,
                     shape = CircleShape,
                     targetSize = Size(150, 150),
                     modifier = Modifier.size(44.dp)
                 )
             } else if (courseCoverIconName?.startsWith("text:") == true) {
-                Surface(
+                CourseGridCover(
+                    title = displayTitle,
+                    customText = courseCoverIconName.removePrefix("text:"),
+                    colorArgb = courseCoverColorArgb,
                     shape = CircleShape,
                     modifier = Modifier.size(44.dp)
-                ) {
-                    CourseGridCover(
-                        title = titleForCover,
-                        customText = courseCoverIconName.removePrefix("text:"),
-                        colorArgb = courseCoverColorArgb,
-                        modifier = Modifier.fillMaxSize()
-                    )
-                }
+                )
             } else if (courseCoverColorArgb != null && !courseCoverIconName.isNullOrBlank()) {
                 Surface(
                     shape = CircleShape,
@@ -138,24 +131,20 @@ internal fun MiniPlayerContentInternal(
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
-                            imageVector = getCourseIconByName(courseCoverIconName) ?: Icons.Rounded.MusicNote,
-                            contentDescription = null,
-                            tint = Color.White,
+                            imageVector = CourseResolutionUtils.resolveCourseIcon(courseCoverIconName),
+                            contentDescription = displayTitle,
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
                             modifier = Modifier.size(22.dp)
                         )
                     }
                 }
             } else {
-                Surface(
+                CourseGridCover(
+                    title = displayTitle,
+                    colorArgb = courseCoverColorArgb,
                     shape = CircleShape,
                     modifier = Modifier.size(44.dp)
-                ) {
-                    CourseGridCover(
-                        title = titleForCover,
-                        colorArgb = courseCoverColorArgb,
-                        modifier = Modifier.fillMaxSize()
-                    )
-                }
+                )
             }
             if (isCastConnecting) {
                 CircularProgressIndicator(

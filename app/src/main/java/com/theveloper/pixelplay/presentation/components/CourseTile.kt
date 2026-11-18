@@ -54,6 +54,7 @@ import com.theveloper.pixelplay.data.database.CourseProgressEntity
 import com.theveloper.pixelplay.data.model.Playlist
 import com.theveloper.pixelplay.presentation.components.subcomps.PlayingEqIcon
 import com.theveloper.pixelplay.ui.theme.GoogleSansRounded
+import com.theveloper.pixelplay.utils.CourseResolutionUtils
 
 /**
  * Unified course card component for Courser.
@@ -185,7 +186,7 @@ fun CourseTile(
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
-                                imageVector = getCourseIconByName(playlist.coverIconName) ?: Icons.Rounded.MusicNote,
+                                imageVector = CourseResolutionUtils.resolveCourseIcon(playlist.coverIconName),
                                 contentDescription = null,
                                 tint = MaterialTheme.colorScheme.onPrimaryContainer,
                                 modifier = Modifier.size(24.dp)
@@ -314,16 +315,4 @@ fun CourseTile(
     }
 }
 
-internal fun getCourseIconByName(name: String?): ImageVector? {
-    return when (name) {
-        "MusicNote" -> Icons.Rounded.MusicNote
-        "Headphones" -> Icons.Rounded.Headphones
-        "Album" -> Icons.Rounded.Album
-        "Mic" -> Icons.Rounded.MicExternalOn
-        "Speaker" -> Icons.Rounded.Speaker
-        "Favorite" -> Icons.Rounded.Favorite
-        "Piano" -> Icons.Rounded.Piano
-        "Queue" -> Icons.AutoMirrored.Rounded.QueueMusic
-        else -> Icons.Rounded.MusicNote
-    }
-}
+

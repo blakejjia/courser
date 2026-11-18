@@ -56,10 +56,11 @@ import com.theveloper.pixelplay.data.preferences.FullPlayerLoadingTweaks
 import com.theveloper.pixelplay.data.preferences.AiPreferencesRepository
 import com.theveloper.pixelplay.data.preferences.AlbumArtPaletteStyle
 import com.theveloper.pixelplay.data.preferences.ThemePreferencesRepository
-import com.theveloper.pixelplay.data.preferences.UserPreferencesRepository
-import com.theveloper.pixelplay.data.preferences.AlbumArtQuality
 import com.theveloper.pixelplay.data.preferences.PlaylistPreferencesRepository
 import com.theveloper.pixelplay.data.preferences.ThemePreference
+import com.theveloper.pixelplay.data.preferences.UserPreferencesRepository
+import com.theveloper.pixelplay.data.preferences.AlbumArtQuality
+import com.theveloper.pixelplay.utils.CourseResolutionUtils
 import com.theveloper.pixelplay.data.repository.LyricsSearchResult
 import com.theveloper.pixelplay.data.repository.MusicRepository
 import com.theveloper.pixelplay.data.service.MusicNotificationProvider
@@ -666,8 +667,8 @@ class PlayerViewModel @Inject constructor(
 
     private val _albumNavigationRequests = MutableSharedFlow<Long>(extraBufferCapacity = 1)
     val albumNavigationRequests = _albumNavigationRequests.asSharedFlow()
-    private val _courseNavigationRequests = MutableSharedFlow<String>(extraBufferCapacity = 1)
-    val courseNavigationRequests = _courseNavigationRequests.asSharedFlow()
+    private val _playlistNavigationRequests = MutableSharedFlow<String>(extraBufferCapacity = 1)
+    val playlistNavigationRequests = _playlistNavigationRequests.asSharedFlow()
     private val _artistNavigationRequests = MutableSharedFlow<Long>(extraBufferCapacity = 1)
     val artistNavigationRequests = _artistNavigationRequests.asSharedFlow()
     private val _searchNavDoubleTapEvents = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
@@ -678,6 +679,7 @@ class PlayerViewModel @Inject constructor(
     val scrollToIndexEvent = _scrollToIndexEvent.asSharedFlow()
     
     private var albumNavigationJob: Job? = null
+    private var playlistNavigationJob: Job? = null
     private var artistNavigationJob: Job? = null
 
     fun requestLocateCurrentSong() {
@@ -821,6 +823,37 @@ class PlayerViewModel @Inject constructor(
                 )
             }
             .launchIn(viewModelScope)
+
+        // Dynamically reconcile active course identity and cover so the player cover
+        // always reflects the playing course and never defaults to "All Songs".
+        val playlistsFlow = playlistPreferencesRepository?.userPlaylistsFlow ?: flowOf(emptyList())
+        viewModelScope.launch {
+            combine(
+                stablePlayerState.map { it.currentSong }.distinctUntilChanged(),
+                _playerUiState.map { it.currentPlaylistId }.distinctUntilChanged(),
+                playlistsFlow
+            ) { song, playlistId, allPlaylists ->
+                Triple(song, playlistId, allPlaylists)
+            }.collect { (song, playlistId, allPlaylists) ->
+                if (song != null && song.id != "-1") {
+                    val resolvedCourse = CourseResolutionUtils.resolveCourseDetails(
+                        song = song,
+                        playlistId = playlistId,
+                        allPlaylists = allPlaylists,
+                        explicitQueueName = _playerUiState.value.currentQueueSourceName
+                    )
+                    _playerUiState.update { current ->
+                        current.copy(
+                            currentQueueSourceName = resolvedCourse.title,
+                            currentPlaylistCoverUri = resolvedCourse.coverImageUri,
+                            currentPlaylistCoverColor = resolvedCourse.coverColorArgb,
+                            currentPlaylistCoverIcon = resolvedCourse.coverIconName,
+                            currentPlaylistId = resolvedCourse.courseId
+                        )
+                    }
+                }
+            }
+        }
 
         // Preload neighbor album-art palettes so a skip lands on an already-cached color scheme
         // (instant memory-cache hit) and the color animation starts in step with the carousel
@@ -2139,61 +2172,24 @@ class PlayerViewModel @Inject constructor(
         }
     }
 
-    suspend fun resolveCourseIdForSong(song: Song?): String? {
-        if (song == null) return null
-        val currentPlayingSong = playbackStateHolder.stablePlayerState.value.currentSong
-        if (currentPlayingSong?.id == song.id) {
-            val currentCourseId = _playerUiState.value.currentPlaylistId
-            if (!currentCourseId.isNullOrBlank()) {
-                return currentCourseId
-            }
-        }
-        val allPlaylists = playlistPreferencesRepository?.userPlaylistsFlow?.first().orEmpty()
-        val matchingPlaylist = allPlaylists.find { it.songIds.contains(song.id) }
-        if (matchingPlaylist != null) {
-            return matchingPlaylist.id
-        }
-        if (song.path.isNotBlank()) {
-            val file = java.io.File(song.path)
-            val parent = file.parentFile?.canonicalPath
-            if (parent != null) {
-                val folderCourseId = CourseFolderManager.toLocalCoursePlaylistId(parent)
-                if (allPlaylists.any { it.id == folderCourseId }) {
-                    return folderCourseId
-                }
-            }
-        }
-        return null
-    }
-
-    suspend fun resolveCourseIdForAlbumId(albumId: Long): String? {
-        val songs = musicRepository.getSongsForAlbum(albumId).first()
-        val matchingSong = songs.firstOrNull() ?: return null
-        return resolveCourseIdForSong(matchingSong)
-    }
-
-    fun triggerCourseNavigationFromPlayer(courseId: String? = null, song: Song? = null) {
-        val existingJob = albumNavigationJob
-        if (existingJob != null && existingJob.isActive) {
-            Log.d("CourseDebug", "triggerCourseNavigationFromPlayer ignored; navigation already in progress")
+    fun triggerPlaylistNavigationFromPlayer(playlistId: String) {
+        if (playlistId.isBlank()) {
+            Log.d("PlaylistDebug", "triggerPlaylistNavigationFromPlayer ignored invalid playlistId")
             return
         }
 
-        albumNavigationJob?.cancel()
-        albumNavigationJob = viewModelScope.launch {
-            val targetSong = song ?: playbackStateHolder.stablePlayerState.value.currentSong
-            val targetCourseId = courseId
-                ?: _playerUiState.value.currentPlaylistId
-                ?: resolveCourseIdForSong(targetSong)
+        val existingJob = playlistNavigationJob
+        if (existingJob != null && existingJob.isActive) {
+            Log.d("PlaylistDebug", "triggerPlaylistNavigationFromPlayer ignored; navigation already in progress for playlistId=$playlistId")
+            return
+        }
 
-            if (targetCourseId.isNullOrBlank()) {
-                Log.d("CourseDebug", "triggerCourseNavigationFromPlayer: No course found for song ${targetSong?.title}")
-                return@launch
-            }
-
+        playlistNavigationJob?.cancel()
+        playlistNavigationJob = viewModelScope.launch {
+            val currentSong = playbackStateHolder.stablePlayerState.value.currentSong
             Log.d(
-                "CourseDebug",
-                "triggerCourseNavigationFromPlayer: courseId=$targetCourseId, song=${targetSong?.title}"
+                "PlaylistDebug",
+                "triggerPlaylistNavigationFromPlayer: playlistId=$playlistId, songId=${currentSong?.id}, title=${currentSong?.title}"
             )
             collapsePlayerSheet()
 
@@ -2202,7 +2198,7 @@ class PlayerViewModel @Inject constructor(
                 awaitPlayerCollapse()
             }
 
-            _courseNavigationRequests.emit(targetCourseId)
+            _playlistNavigationRequests.emit(playlistId)
         }
     }
 
@@ -2225,9 +2221,6 @@ class PlayerViewModel @Inject constructor(
                 "AlbumDebug",
                 "triggerAlbumNavigationFromPlayer: albumId=$albumId, songId=${currentSong?.id}, title=${currentSong?.title}"
             )
-            val targetCourseId = _playerUiState.value.currentPlaylistId
-                ?: resolveCourseIdForSong(currentSong)
-
             collapsePlayerSheet()
 
             withTimeoutOrNull(900) {
@@ -2236,9 +2229,10 @@ class PlayerViewModel @Inject constructor(
             }
 
             _albumNavigationRequests.emit(albumId)
-            if (!targetCourseId.isNullOrBlank()) {
-                _courseNavigationRequests.emit(targetCourseId)
-            }
+            val targetPlaylistId = playerUiState.value.currentPlaylistId
+                ?: currentSong?.resolveCoursePlaylistId()
+                ?: albumId.toString()
+            _playlistNavigationRequests.emit(targetPlaylistId)
         }
     }
 
