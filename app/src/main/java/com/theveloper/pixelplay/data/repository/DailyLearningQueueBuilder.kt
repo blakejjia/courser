@@ -175,7 +175,7 @@ class DailyLearningQueueBuilder @Inject constructor(
             songs = songs,
             startSong = startSong,
             startPositionMs = startPos,
-            sessionTitle = "Continue: ${targetPlaylist.name}",
+            sessionTitle = targetPlaylist.name,
             sourceCourseId = targetPlaylist.id
         )
     }

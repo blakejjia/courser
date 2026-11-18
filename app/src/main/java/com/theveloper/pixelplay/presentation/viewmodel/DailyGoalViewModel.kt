@@ -107,18 +107,22 @@ class DailyGoalViewModel @Inject constructor(
             val session = dailyLearningQueueBuilder.buildLearningQueue() ?: return@launch
             if (session.songs.isNotEmpty()) {
                 val allPlaylists = playlistPreferencesRepository.userPlaylistsFlow.first()
-                val courseCoverUri = session.sourceCourseId?.let { courseId ->
-                    allPlaylists.find { it.id == courseId }?.coverImageUri
+                val targetPlaylist = session.sourceCourseId?.let { courseId ->
+                    allPlaylists.find { it.id == courseId }
+                } ?: session.songs.firstOrNull()?.let { firstSong ->
+                    allPlaylists.find { firstSong.id in it.songIds }
                 }
+
+                val courseTitle = targetPlaylist?.name ?: session.sessionTitle
                 playerViewModel.playSongs(
                     songsToPlay = session.songs,
                     startSong = session.startSong,
-                    queueName = session.sessionTitle,
-                    playlistId = session.sourceCourseId,
+                    queueName = courseTitle,
+                    playlistId = targetPlaylist?.id ?: session.sourceCourseId,
                     startPositionMs = session.startPositionMs,
-                    playlistCoverUri = courseCoverUri
+                    playlistCoverUri = targetPlaylist?.coverImageUri
                 )
-                onSessionStarted?.invoke(session.sessionTitle)
+                onSessionStarted?.invoke(courseTitle)
             }
         }
     }

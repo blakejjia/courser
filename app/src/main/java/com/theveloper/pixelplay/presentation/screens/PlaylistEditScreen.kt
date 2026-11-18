@@ -665,17 +665,10 @@ fun PlaylistEditScreen(
                             verticalArrangement = Arrangement.spacedBy(8.dp),
                             contentPadding = PaddingValues(
                                 top = 12.dp,
-                                bottom = MiniPlayerHeight + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 16.dp,
-                                end = 0.dp
-                            ).let {
-                                val showScrollBar = LocalShowScrollbar.current && (listState.canScrollForward || listState.canScrollBackward)
-                                PaddingValues(
-                                    top = it.calculateTopPadding(),
-                                    bottom = it.calculateBottomPadding(),
-                                    start = it.calculateLeftPadding(androidx.compose.ui.unit.LayoutDirection.Ltr),
-                                    end = if (showScrollBar) 24.dp else 0.dp
-                                )
-                            }
+                                start = 16.dp,
+                                end = 16.dp,
+                                bottom = MiniPlayerHeight + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 16.dp
+                            )
                         ) {
                             itemsIndexed(
                                 localReorderableSongs,
@@ -752,6 +745,7 @@ fun PlaylistEditScreen(
                                                 }
                                             }
                                         } else null,
+                                        onMoreOptionsClick = if (!isRemoveModeEnabled) stableOnMoreOptionsClick else null,
                                         onClick = {
                                             playerViewModel.playSongs(
                                                 localReorderableSongs,
@@ -771,7 +765,7 @@ fun PlaylistEditScreen(
                                 .align(Alignment.CenterEnd)
                                 .padding(
                                     bottom = if (playerStableState.currentSong != null) MiniPlayerHeight + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 20.dp else WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 16.dp,
-                                    end = 14.dp,
+                                    end = 6.dp,
                                     top = 18.dp // Increased to 16.dp as requested
                                 )
                         )
@@ -998,7 +992,13 @@ fun PlaylistEditScreen(
                 },
                 onDismiss = { showSongInfoBottomSheet = false },
                 onPlaySong = {
-                    playerViewModel.showAndPlaySong(currentSong)
+                    playerViewModel.playSongs(
+                        songsToPlay = songsInPlaylist,
+                        startSong = currentSong,
+                        queueName = currentPlaylist?.name ?: "Course",
+                        playlistId = playlistId,
+                        playlistCoverUri = currentPlaylist?.coverImageUri
+                    )
                 },
                 onAddToQueue = {
                     playerViewModel.addSongToQueue(currentSong) // Assumes such a method exists or will be added
@@ -1013,17 +1013,10 @@ fun PlaylistEditScreen(
                 },
                 onDeleteFromDevice = playerViewModel::deleteFromDevice,
                 onNavigateToAlbum = {
-                    scope.launch {
-                        val courseId = playerViewModel.resolveCourseIdForSong(currentSong)
-                        if (!courseId.isNullOrBlank()) {
-                            navController.navigateSafelyReplacing(
-                                route = Screen.PlaylistDetail.createRoute(courseId),
-                                patternToPop = Screen.PlaylistDetail.route
-                            )
-                        } else {
-                            playerViewModel.sendToast("Course not found")
-                        }
-                    }
+                    navController.navigateSafelyReplacing(
+                        route = Screen.PlaylistDetail.createRoute(currentSong.resolveCoursePlaylistId(playlistId)),
+                        patternToPop = Screen.PlaylistDetail.route
+                    )
                     showSongInfoBottomSheet = false
                 },
                 onNavigateToArtist = {

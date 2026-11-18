@@ -488,17 +488,10 @@ fun ArtistDetailScreen(
                 },
                 onDeleteFromDevice = playerViewModel::deleteFromDevice,
                 onNavigateToAlbum = {
-                    coroutineScope.launch {
-                        val courseId = playerViewModel.resolveCourseIdForSong(currentSong)
-                        if (!courseId.isNullOrBlank()) {
-                            navController.navigateSafelyReplacing(
-                                route = Screen.PlaylistDetail.createRoute(courseId),
-                                patternToPop = Screen.PlaylistDetail.route
-                            )
-                        } else {
-                            playerViewModel.sendToast("Course not found")
-                        }
-                    }
+                    navController.navigateSafelyReplacing(
+                        route = Screen.PlaylistDetail.createRoute(currentSong.resolveCoursePlaylistId()),
+                        patternToPop = Screen.PlaylistDetail.route
+                    )
                     showSongInfoBottomSheet = false
                 },
                 onNavigateToArtist = {

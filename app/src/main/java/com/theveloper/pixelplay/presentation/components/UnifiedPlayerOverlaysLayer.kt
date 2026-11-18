@@ -352,10 +352,12 @@ internal fun UnifiedPlayerQueueAndSongInfoHost(
             }
             val onPlayQueueSong = remember(playerViewModel) {
                 { song: Song, index: Int ->
+                    val activePlaylistId = playerViewModel.playerUiState.value.currentPlaylistId ?: song.resolveCoursePlaylistId()
                     playerViewModel.showAndPlaySong(
                         song = song,
                         contextSongs = latestPlaybackQueue.value,
                         queueName = latestQueueSourceName.value,
+                        playlistId = activePlaylistId,
                         indexInQueue = index
                     )
                 }

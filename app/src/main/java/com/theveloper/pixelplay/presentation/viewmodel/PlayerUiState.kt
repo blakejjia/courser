@@ -17,11 +17,11 @@ import kotlinx.collections.immutable.persistentListOf
 data class PlayerUiState(
     // val allSongs: ImmutableList<Song> = persistentListOf(), // REMOVED
     val currentPlaybackQueue: ImmutableList<Song> = persistentListOf(),
-    val currentQueueSourceName: String = "All Songs",
+    val currentQueueSourceName: String = "",
     val currentPlaylistCoverUri: String? = null,
+    val currentPlaylistCoverColor: Int? = null,
+    val currentPlaylistCoverIcon: String? = null,
     val currentPlaylistId: String? = null,
-    val currentCourseCoverColorArgb: Int? = null,
-    val currentCourseCoverIconName: String? = null,
     // val albums: ImmutableList<Album> = persistentListOf(), // REMOVED
     // val artists: ImmutableList<Artist> = persistentListOf(), // REMOVED
     val searchResults: ImmutableList<SearchResultItem> = persistentListOf(),

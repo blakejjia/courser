@@ -391,6 +391,26 @@ class PlaylistViewModel @Inject constructor(
                                 isUsingAiCleanedTitles = isUsingCleaned
                             )
                         }
+                    } else if (playlistId == CourseProgressEntity.DEFAULT_PLAYLIST_ID || playlistId == "default") {
+                        val allSongs = withContext(Dispatchers.IO) {
+                            musicRepository.getAllSongsOnce()
+                        }
+                        val enriched = courseProgressRepository.enrichSongsWithProgress(allSongs)
+                        val defaultPlaylist = Playlist(
+                            id = CourseProgressEntity.DEFAULT_PLAYLIST_ID,
+                            name = "Default Course",
+                            songIds = enriched.map { it.id },
+                            lastPlayedAt = null,
+                            completionPercentage = 0f
+                        )
+                        _uiState.update {
+                            it.copy(
+                                isLoading = false,
+                                playlistNotFound = false,
+                                currentPlaylistDetails = defaultPlaylist,
+                                currentPlaylistSongs = enriched
+                            )
+                        }
                     } else {
                         Log.w("PlaylistVM", "Playlist with id $playlistId not found.")
                         _uiState.update {

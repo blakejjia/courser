@@ -76,6 +76,9 @@ data class CourseProgressEntity(
         get() = totalSongs > 0 && completedSongsCount >= totalSongs
 
     companion object {
+        const val DEFAULT_PLAYLIST_ID = "default"
+        const val DEFAULT_COURSE_ID = "playlist:default"
+
         const val TYPE_LOCAL_FOLDER = "LOCAL_FOLDER"
         const val TYPE_GDRIVE_FOLDER = "GDRIVE_FOLDER"
         const val TYPE_PLAYLIST = "PLAYLIST"

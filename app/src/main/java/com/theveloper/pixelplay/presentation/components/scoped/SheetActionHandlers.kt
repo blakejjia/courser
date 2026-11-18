@@ -78,18 +78,15 @@ internal fun rememberSheetActionHandlers(
         { song: Song ->
             scope.launch {
                 sheetMotionControllerState.value.snapCollapsed(sheetCollapsedTargetYState.value)
-                playerViewModelState.value.collapsePlayerSheet()
-                queueSheetControllerState.value.animate(false)
-                sheetModalOverlayControllerState.value.updateSelectedSongForInfo(null)
-                val courseId = playerViewModelState.value.playerUiState.value.currentPlaylistId
-                    ?: playerViewModelState.value.resolveCourseIdForSong(song)
-                if (!courseId.isNullOrBlank()) {
-                    navController.navigateSafelyReplacing(
-                        route = Screen.PlaylistDetail.createRoute(courseId),
-                        patternToPop = Screen.PlaylistDetail.route
-                    )
-                }
             }
+            playerViewModelState.value.collapsePlayerSheet()
+            queueSheetControllerState.value.animate(false)
+            sheetModalOverlayControllerState.value.updateSelectedSongForInfo(null)
+            val coursePlaylistId = song.resolveCoursePlaylistId(playerViewModelState.value.playerUiState.value.currentPlaylistId)
+            navController.navigateSafelyReplacing(
+                route = Screen.PlaylistDetail.createRoute(coursePlaylistId),
+                patternToPop = Screen.PlaylistDetail.route
+            )
             Unit
         }
     }
