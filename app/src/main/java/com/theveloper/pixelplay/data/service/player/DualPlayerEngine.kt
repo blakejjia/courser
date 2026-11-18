@@ -24,6 +24,8 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DataSpec
 import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.ResolvingDataSource
+import androidx.media3.datasource.cache.CacheDataSource
+import androidx.media3.datasource.cache.CacheKeyFactory
 import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
@@ -158,7 +160,8 @@ internal data class LoadControlBufferProfile(
     val minBufferMs: Int,
     val maxBufferMs: Int,
     val bufferForPlaybackMs: Int,
-    val bufferForPlaybackAfterRebufferMs: Int
+    val bufferForPlaybackAfterRebufferMs: Int,
+    val backBufferMs: Int = 0
 )
 
 internal fun loadControlBufferProfileFor(isLowRamDevice: Boolean): LoadControlBufferProfile {
@@ -167,14 +170,16 @@ internal fun loadControlBufferProfileFor(isLowRamDevice: Boolean): LoadControlBu
             minBufferMs = 15_000,
             maxBufferMs = 30_000,
             bufferForPlaybackMs = 1_000,
-            bufferForPlaybackAfterRebufferMs = 5_000
+            bufferForPlaybackAfterRebufferMs = 5_000,
+            backBufferMs = 10_000
         )
     } else {
         LoadControlBufferProfile(
-            minBufferMs = 30_000,
-            maxBufferMs = 60_000,
-            bufferForPlaybackMs = 1_000,
-            bufferForPlaybackAfterRebufferMs = 5_000
+            minBufferMs = 60_000,
+            maxBufferMs = 240_000,
+            bufferForPlaybackMs = 2_500,
+            bufferForPlaybackAfterRebufferMs = 5_000,
+            backBufferMs = 30_000
         )
     }
 }
@@ -193,6 +198,7 @@ class DualPlayerEngine @Inject constructor(
     private val jellyfinStreamProxy: com.theveloper.pixelplay.data.jellyfin.JellyfinStreamProxy,
     private val gdriveStreamProxy: com.theveloper.pixelplay.data.gdrive.GDriveStreamProxy,
     private val telegramCacheManager: com.theveloper.pixelplay.data.telegram.TelegramCacheManager,
+    private val mediaCacheManager: com.theveloper.pixelplay.data.cache.MediaCacheManager,
     private val connectivityStateHolder: com.theveloper.pixelplay.presentation.viewmodel.ConnectivityStateHolder
 ) {
     private companion object {
@@ -831,27 +837,20 @@ class DualPlayerEngine @Inject constructor(
     private fun buildAdaptiveLoadControl(): DefaultLoadControl {
         val isLowRam = (context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager)
             .isLowRamDevice
-        return if (isLowRam) {
-            DefaultLoadControl.Builder()
-                .setBufferDurationsMs(
-                    /* minBufferMs                      */ 15_000,
-                    /* maxBufferMs                      */ 30_000,
-                    /* bufferForPlaybackMs              */  2_500,
-                    /* bufferForPlaybackAfterRebufferMs */  5_000
-                )
-                .setPrioritizeTimeOverSizeThresholds(true)
-                .build()
-        } else {
-            DefaultLoadControl.Builder()
-                .setBufferDurationsMs(
-                    /* minBufferMs                      */ 30_000,
-                    /* maxBufferMs                      */ 60_000,
-                    /* bufferForPlaybackMs              */  2_500,
-                    /* bufferForPlaybackAfterRebufferMs */  5_000
-                )
-                .setPrioritizeTimeOverSizeThresholds(true)
-                .build()
-        }
+        val profile = loadControlBufferProfileFor(isLowRam)
+        return DefaultLoadControl.Builder()
+            .setBufferDurationsMs(
+                /* minBufferMs                      */ profile.minBufferMs,
+                /* maxBufferMs                      */ profile.maxBufferMs,
+                /* bufferForPlaybackMs              */ profile.bufferForPlaybackMs,
+                /* bufferForPlaybackAfterRebufferMs */ profile.bufferForPlaybackAfterRebufferMs
+            )
+            .setBackBuffer(
+                /* backBufferDurationMs             */ profile.backBufferMs,
+                /* retainBackBufferFromKeyframe     */ true
+            )
+            .setPrioritizeTimeOverSizeThresholds(true)
+            .build()
     }
 
     private fun buildPlayer(): ExoPlayer {
@@ -934,6 +933,11 @@ class DualPlayerEngine @Inject constructor(
 
         val dataSourceFactory = DefaultDataSource.Factory(context)
         val resolvingFactory = ResolvingDataSource.Factory(dataSourceFactory, resolver)
+        val cacheDataSourceFactory = CacheDataSource.Factory()
+            .setCache(mediaCacheManager.cache)
+            .setUpstreamDataSourceFactory(resolvingFactory)
+            .setFlags(CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR)
+            .setCacheKeyFactory(CacheKeyFactory { dataSpec -> mediaCacheManager.resolveCacheKey(dataSpec.uri) })
         val extractorsFactory = DefaultExtractorsFactory()
             .setMp3ExtractorFlags(Mp3Extractor.FLAG_ENABLE_CONSTANT_BITRATE_SEEKING)
             .setFlacExtractorFlags(FlacExtractor.FLAG_DISABLE_ID3_METADATA)
@@ -941,7 +945,7 @@ class DualPlayerEngine @Inject constructor(
         val loadControl = buildAdaptiveLoadControl()
 
         return ExoPlayer.Builder(context, renderersFactory)
-            .setMediaSourceFactory(DefaultMediaSourceFactory(resolvingFactory, extractorsFactory))
+            .setMediaSourceFactory(DefaultMediaSourceFactory(cacheDataSourceFactory, extractorsFactory))
             .setLoadControl(loadControl)
             .build().apply {
             setAudioAttributes(audioAttributes, false)
