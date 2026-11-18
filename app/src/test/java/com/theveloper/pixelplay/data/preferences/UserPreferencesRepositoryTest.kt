@@ -129,4 +129,40 @@ class UserPreferencesRepositoryTest {
             tempDir.toFile().deleteRecursively()
         }
     }
+
+    @Test
+    fun `aiReorderedSongIdsByPlaylistFlow and useAiReorderPlaylistsFlow persist and toggle correctly`() = runTest {
+        val tempDir = Files.createTempDirectory("user-preferences-repository-test")
+        try {
+            val repository = UserPreferencesRepository(
+                dataStore = PreferenceDataStoreFactory.create(
+                    scope = backgroundScope,
+                    produceFile = { tempDir.resolve("settings.preferences_pb").toFile() }
+                ),
+                json = Json
+            )
+
+            assertEquals(emptyMap<String, List<String>>(), repository.aiReorderedSongIdsByPlaylistFlow.first())
+            assertEquals(emptySet<String>(), repository.useAiReorderPlaylistsFlow.first())
+
+            repository.setAiReorderedSongIds("course_1", listOf("song3", "song1", "song2"))
+            assertEquals(
+                mapOf("course_1" to listOf("song3", "song1", "song2")),
+                repository.aiReorderedSongIdsByPlaylistFlow.first()
+            )
+
+            repository.setUseAiReorder("course_1", true)
+            assertTrue("course_1" in repository.useAiReorderPlaylistsFlow.first())
+
+            repository.setUseAiReorder("course_1", false)
+            assertTrue("course_1" !in repository.useAiReorderPlaylistsFlow.first())
+
+            assertEquals(
+                mapOf("course_1" to listOf("song3", "song1", "song2")),
+                repository.aiReorderedSongIdsByPlaylistFlow.first()
+            )
+        } finally {
+            tempDir.toFile().deleteRecursively()
+        }
+    }
 }

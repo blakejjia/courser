@@ -2,6 +2,7 @@ package com.theveloper.pixelplay.presentation.screens.search.components
 
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.ExperimentalTextApi
+import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextStyle
@@ -9,6 +10,7 @@ import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontVariation
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.sp
@@ -41,6 +43,12 @@ object GenreTypography {
         val secondLineWidthFraction = secondLineWidthFraction(profile, isGridView)
         val secondLineWidthPx = (fullLineWidthPx * secondLineWidthFraction).roundToInt().coerceAtLeast(0)
         val words = normalizedName.split(" ").filter { it.isNotBlank() }
+        val effectiveWords = if (words.size == 1 && normalizedName.length in 4..8 && normalizedName.any { Character.UnicodeScript.of(it.code) == Character.UnicodeScript.HAN }) {
+            val mid = if (normalizedName.length == 4) 2 else (normalizedName.length + 1) / 2
+            listOf(normalizedName.substring(0, mid), normalizedName.substring(mid))
+        } else {
+            words
+        }
         val styleCandidates = buildStyleCandidates(hash = hash, profile = profile, isGridView = isGridView)
 
         styleCandidates.forEach { style ->
@@ -53,9 +61,9 @@ object GenreTypography {
                 )
             }
 
-            if (words.size > 1) {
+            if (effectiveWords.size > 1) {
                 val bestBreak = findBestBreak(
-                    words = words,
+                    words = effectiveWords,
                     style = style,
                     firstLineWidthPx = fullLineWidthPx,
                     secondLineWidthPx = secondLineWidthPx,
@@ -75,9 +83,9 @@ object GenreTypography {
         }
 
         val fallbackStyle = styleCandidates.last()
-        val fallbackBreak = if (words.size > 1) {
+        val fallbackBreak = if (effectiveWords.size > 1) {
             findBestBreak(
-                words = words,
+                words = effectiveWords,
                 style = fallbackStyle,
                 firstLineWidthPx = fullLineWidthPx,
                 secondLineWidthPx = secondLineWidthPx,
@@ -131,10 +139,12 @@ object GenreTypography {
         textMeasurer: TextMeasurer,
         allowSecondLineOverflow: Boolean
     ): BreakCandidate? {
+        val isCjk = words.any { word -> word.any { Character.UnicodeScript.of(it.code) == Character.UnicodeScript.HAN } }
+        val joinDelimiter = if (isCjk) "" else " "
         return (1 until words.size)
             .mapNotNull { breakIndex ->
-                val firstLine = words.take(breakIndex).joinToString(" ")
-                val secondLine = words.drop(breakIndex).joinToString(" ")
+                val firstLine = words.take(breakIndex).joinToString(joinDelimiter)
+                val secondLine = words.drop(breakIndex).joinToString(joinDelimiter)
 
                 val firstLayout = textMeasurer.measure(
                     text = AnnotatedString(firstLine),
@@ -172,7 +182,8 @@ object GenreTypography {
                         secondLayout = secondLayout,
                         firstLineWidthPx = firstLineWidthPx,
                         secondLineWidthPx = secondLineWidthPx,
-                        secondLineOverflowAllowed = allowSecondLineOverflow
+                        secondLineOverflowAllowed = allowSecondLineOverflow,
+                        isCjk = isCjk
                     )
                 )
             }
@@ -186,14 +197,15 @@ object GenreTypography {
         secondLayout: TextLayoutResult,
         firstLineWidthPx: Int,
         secondLineWidthPx: Int,
-        secondLineOverflowAllowed: Boolean
+        secondLineOverflowAllowed: Boolean,
+        isCjk: Boolean = false
     ): Float {
         val firstUsage = firstLayout.size.width.toFloat() / firstLineWidthPx.coerceAtLeast(1)
         val secondUsage = secondLayout.size.width.toFloat() / secondLineWidthPx.coerceAtLeast(1)
         val firstLineBonus = firstUsage * 1.8f
         val secondLineBonus = secondUsage.coerceAtMost(1f) * 0.8f
-        val orphanPenalty = listOf(firstLine, secondLine).count { it.length <= 3 } * 0.35f
-        val tinyLastWordPenalty = secondLine
+        val orphanPenalty = if (isCjk) 0f else listOf(firstLine, secondLine).count { it.length <= 3 } * 0.35f
+        val tinyLastWordPenalty = if (isCjk) 0f else secondLine
             .substringAfterLast(' ', secondLine)
             .takeIf { it.length <= 2 }
             ?.let { 0.25f }
@@ -367,12 +379,17 @@ object GenreTypography {
             ),
             fontWeight = FontWeight(weight),
             fontSize = fontSize.sp,
-            lineHeight = (fontSize * 0.92f).sp,
+            lineHeight = (fontSize * 0.85f).sp,
             letterSpacing = when {
                 width >= 136f -> (-0.7).sp
                 width >= 118f -> (-0.45).sp
                 else -> (-0.18).sp
-            }
+            },
+            platformStyle = PlatformTextStyle(includeFontPadding = false),
+            lineHeightStyle = LineHeightStyle(
+                alignment = LineHeightStyle.Alignment.Center,
+                trim = LineHeightStyle.Trim.Both
+            )
         )
     }
 

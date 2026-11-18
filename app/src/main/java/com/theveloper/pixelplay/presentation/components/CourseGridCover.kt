@@ -25,7 +25,9 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -196,12 +198,17 @@ fun CoursePosterCover(
             )
         }
 
-        // Apply optical scale to font size and line height
+        // Apply optical scale to font size and line height, tightening vertical metrics
         val scaledStyle = remember(titlePresentation.style, scale) {
             titlePresentation.style.copy(
                 fontSize = (titlePresentation.style.fontSize.value * scale).sp,
-                lineHeight = (titlePresentation.style.lineHeight.value * scale).sp,
-                letterSpacing = (titlePresentation.style.letterSpacing.value * scale).sp
+                lineHeight = (titlePresentation.style.fontSize.value * 0.85f * scale).sp,
+                letterSpacing = (titlePresentation.style.letterSpacing.value * scale).sp,
+                platformStyle = PlatformTextStyle(includeFontPadding = false),
+                lineHeightStyle = LineHeightStyle(
+                    alignment = LineHeightStyle.Alignment.Center,
+                    trim = LineHeightStyle.Trim.Both
+                )
             )
         }
 
@@ -210,7 +217,7 @@ fun CoursePosterCover(
                 .align(Alignment.TopStart)
                 .fillMaxWidth()
                 .padding(start = startPadding, top = topPadding, end = endPadding),
-            verticalArrangement = Arrangement.spacedBy(0.dp)
+            verticalArrangement = Arrangement.spacedBy((-6).dp * scale)
         ) {
             Text(
                 text = titlePresentation.firstLine,
