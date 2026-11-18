@@ -1357,7 +1357,24 @@ class MusicService : MediaLibraryService() {
             newPosition: Player.PositionInfo,
             reason: Int
         ) {
-            if (reason == Player.DISCONTINUITY_REASON_SEEK) {
+            val oldMediaId = oldPosition.mediaItem?.mediaId?.takeIf { it.isNotBlank() }
+            val newMediaId = newPosition.mediaItem?.mediaId?.takeIf { it.isNotBlank() }
+            val isItemChange = oldMediaId != null && oldMediaId != newMediaId
+
+            if (isItemChange) {
+                val oldDuration = oldPosition.mediaItem?.mediaMetadata?.extras?.getLong(MediaItemBuilder.EXTERNAL_EXTRA_DURATION, 0L) ?: 0L
+                val finalPos = if (reason == Player.DISCONTINUITY_REASON_AUTO_TRANSITION && oldDuration > 0L) {
+                    oldDuration.coerceAtLeast(oldPosition.positionMs)
+                } else {
+                    oldPosition.positionMs.coerceAtLeast(0L)
+                }
+                courseProgressTracker.onTrackLeaving(
+                    songId = oldMediaId!!,
+                    finalPositionMs = finalPos,
+                    durationMs = oldDuration,
+                    songTitle = oldPosition.mediaItem?.mediaMetadata?.title?.toString() ?: "",
+                )
+            } else if (reason == Player.DISCONTINUITY_REASON_SEEK) {
                 courseProgressTracker.onSeek(newPosition.positionMs)
                 val state = if (engine.masterPlayer.isPlaying) "playing" else "paused"
                 reportNavidromePlayback(state)
@@ -1380,8 +1397,6 @@ class MusicService : MediaLibraryService() {
                 reason == Player.DISCONTINUITY_REASON_SEEK
             ) {
                 val currentItem = mediaSession?.player?.currentMediaItem
-                val oldMediaId = oldPosition.mediaItem?.mediaId
-                val newMediaId = newPosition.mediaItem?.mediaId
                 if (oldMediaId != null && oldMediaId == newMediaId) {
                     // Same track (e.g. repeat, seek) — no IO needed, apply last known RG volume
                     // immediately to avoid a spike while the coroutine reads tags again.
@@ -2547,6 +2562,7 @@ class MusicService : MediaLibraryService() {
         }
 
         listeningStatsTracker.finalizeCurrentSession(forceSynchronousPersistence = true)
+        courseProgressTracker.flushImmediate(player)
 
         player.playWhenReady = false
         player.stop()
