@@ -111,4 +111,32 @@ class AiPlaylistReorderServiceTest {
         assertThat(result.isSuccess).isTrue()
         assertThat(result.getOrNull()!!.orderedSongIds).containsExactly("id1")
     }
+
+    @Test
+    fun `cleanSongTitles parses titles and preserves order`() = runBlocking {
+        val song1 = createMockSong(id = "id1", title = "[Bilibili] 01 - Basics.mp3")
+        val song2 = createMockSong(id = "id2", title = "[Bilibili] 02 - Intermediate.mp3")
+
+        coEvery { aiHandler.generateContent(any(), AiSystemPromptType.COURSE_RENAME, any()) } returns
+            """{
+                "id1": "01 - Basics",
+                "id2": "02 - Intermediate"
+            }"""
+
+        val result = service.cleanSongTitles(listOf(song1, song2))
+
+        assertThat(result.isSuccess).isTrue()
+        val titleMap = result.getOrNull()!!
+        assertThat(titleMap["id1"]).isEqualTo("01 - Basics")
+        assertThat(titleMap["id2"]).isEqualTo("02 - Intermediate")
+    }
+
+    @Test
+    fun `parseCleanedTitlesOnly handles object format`() {
+        val raw = """{"song1": {"cleaned_title": "Lesson 1"}, "song2": {"title": "Lesson 2"}}"""
+        val result = service.parseCleanedTitlesOnly(raw)
+
+        assertThat(result["song1"]).isEqualTo("Lesson 1")
+        assertThat(result["song2"]).isEqualTo("Lesson 2")
+    }
 }

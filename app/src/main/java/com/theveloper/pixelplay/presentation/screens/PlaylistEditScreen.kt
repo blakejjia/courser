@@ -865,7 +865,13 @@ fun PlaylistEditScreen(
         }
     }
 
-    if (uiState.isAiReordering) {
+    val aiLoadingText = when {
+        uiState.isAiRenaming -> stringResource(R.string.playlist_ai_rename_loading)
+        uiState.isAiReordering -> stringResource(R.string.playlist_ai_reorder_loading)
+        else -> null
+    }
+
+    if (aiLoadingText != null) {
         Dialog(
             onDismissRequest = { /* Non-dismissible while processing */ }
         ) {
@@ -885,7 +891,7 @@ fun PlaylistEditScreen(
                         strokeWidth = 3.dp
                     )
                     Text(
-                        text = stringResource(R.string.playlist_ai_reorder_loading),
+                        text = aiLoadingText,
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurface
                     )

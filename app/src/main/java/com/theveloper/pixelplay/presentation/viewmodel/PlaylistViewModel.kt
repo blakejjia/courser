@@ -72,6 +72,7 @@ data class PlaylistUiState(
 
     // AI Reorder State
     val isAiReordering: Boolean = false,
+    val isAiRenaming: Boolean = false,
     val aiReorderMessage: String? = null,
     val hasAiReorderData: Boolean = false,
     val isUsingAiReorder: Boolean = false,
@@ -968,13 +969,62 @@ class PlaylistViewModel @Inject constructor(
         reorderPlaylistWithAi(playlistId)
     }
 
+    fun fetchAiCleanedTitles(playlistId: String) {
+        viewModelScope.launch {
+            val songs = _uiState.value.currentPlaylistSongs
+            if (songs.isEmpty()) return@launch
+
+            val providerStr = aiPreferencesRepository.aiProvider.first()
+            val provider = AiProvider.fromString(providerStr)
+            val apiKey = aiPreferencesRepository.getApiKey(provider).first()
+
+            if (apiKey.isBlank() && provider.requiresApiKey) {
+                _uiState.update {
+                    it.copy(aiReorderMessage = context.getString(R.string.playlist_ai_reorder_error_no_key))
+                }
+                return@launch
+            }
+
+            _uiState.update { it.copy(isAiRenaming = true, aiReorderMessage = null) }
+
+            val result = aiPlaylistReorderService.cleanSongTitles(songs)
+            result.onSuccess { cleanedTitles ->
+                if (cleanedTitles.isNotEmpty()) {
+                    playlistPreferencesRepository.setAiCleanedTitles(playlistId, cleanedTitles)
+                    playlistPreferencesRepository.setUseAiCleanedTitles(playlistId, true)
+                }
+
+                _uiState.update {
+                    it.copy(
+                        isAiRenaming = false,
+                        hasAiCleanedTitles = cleanedTitles.isNotEmpty(),
+                        isUsingAiCleanedTitles = cleanedTitles.isNotEmpty(),
+                        aiReorderMessage = context.getString(R.string.playlist_ai_rename_success)
+                    )
+                }
+                loadPlaylistDetails(playlistId)
+            }.onFailure { error ->
+                val errorMsg = context.getString(
+                    R.string.playlist_ai_rename_error_failed,
+                    error.localizedMessage ?: error.message ?: "Unknown error"
+                )
+                _uiState.update {
+                    it.copy(
+                        isAiRenaming = false,
+                        aiReorderMessage = errorMsg
+                    )
+                }
+            }
+        }
+    }
+
     fun toggleUseAiCleanedTitles(playlistId: String) {
         viewModelScope.launch {
             val allCleanedTitles = playlistPreferencesRepository.aiCleanedTitlesByPlaylistFlow.first()
             val cleanedTitles = allCleanedTitles[playlistId].orEmpty()
             if (cleanedTitles.isEmpty()) {
-                // First-time toggle: auto-fetch AI reorder & cleaned titles
-                reorderPlaylistWithAi(playlistId)
+                // First-time toggle: auto-fetch AI cleaned titles via dedicated rename API
+                fetchAiCleanedTitles(playlistId)
                 return@launch
             }
 
