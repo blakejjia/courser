@@ -198,6 +198,7 @@
     <string name="multi_selection_genres_queue_hint">Perform batch operations on all songs within these genres.</string>
 
     <!-- Sort Option Display Names -->
+    <string name="sort_display_ai_order">AI Order</string>
     <string name="sort_display_default_order">Default Order</string>
     <string name="sort_display_title_az">Title (A-Z)</string>
     <string name="sort_display_title_za">Title (Z-A)</string>
