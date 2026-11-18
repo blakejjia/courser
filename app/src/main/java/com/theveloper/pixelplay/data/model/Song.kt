@@ -58,6 +58,16 @@ data class Song(
             else -> false
         }
 
+    val isLocal: Boolean
+        get() = telegramFileId == null &&
+            neteaseId == null &&
+            gdriveFileId == null &&
+            qqMusicMid == null &&
+            navidromeId == null &&
+            jellyfinId == null &&
+            !contentUriString.startsWith("http://") &&
+            !contentUriString.startsWith("https://")
+
     /**
      * Playback progress ratio in range [0.0f, 1.0f].
      * Returns 1.0f if completed (>= 90%), or (resumePositionMs / duration) if duration > 0.

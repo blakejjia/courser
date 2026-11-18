@@ -175,6 +175,16 @@
     <string name="song_info_ringtone_local_only">只有本地歌曲才能设为铃声。</string>
     <string name="song_info_ringtone_missing_file">无法将此音频文件准备为铃声。</string>
     <string name="song_info_ringtone_failed">无法设置铃声：%1$s</string>
+    <string name="song_info_download_to_local">下载到本地</string>
+    <string name="song_info_downloading_progress">下载中 %1$d%%</string>
+    <string name="song_info_downloaded_to_local">已下载到本地</string>
+    <string name="song_info_already_local">已在本地</string>
+    <string name="song_info_download_failed">下载失败，点击重试</string>
+    <string name="song_info_delete_offline_title">删除本地离线音频？</string>
+    <string name="song_info_delete_offline_desc">删除后将恢复为在线播放，不影响云端文件。</string>
+    <string name="song_info_delete_offline_action">删除</string>
+    <string name="playlist_action_download_all">下载全部课程音频</string>
+    <string name="playlist_download_all_started">已加入下载队列 (共 %1$d 首)</string>
     <string name="song_info_tab_options">选项</string>
     <string name="song_info_tab_options_badge">选项</string>
     <string name="song_info_tab_info">信息</string>
