@@ -113,6 +113,7 @@
     <string name="playlist_more_options_title">More Options</string>
     <string name="playlist_options_title">Playlist options</string>
     <string name="playlist_action_edit_playlist">Edit playlist</string>
+    <string name="playlist_action_edit_cover">Edit Cover</string>
     <string name="playlist_action_delete_playlist">Delete playlist</string>
     <string name="playlist_dialog_delete_title">Delete playlist?</string>
     <string name="playlist_dialog_delete_body">Are you sure you want to delete this playlist?</string>
@@ -127,12 +128,19 @@
     <string name="playlist_action_reorder_songs">Reorder</string>
     <string name="playlist_cd_reorder_songs">Reorder songs</string>
     <string name="playlist_action_ai_reorder">AI Reorder</string>
+    <string name="playlist_action_ai_course_group_title">AI Course Assistant</string>
+    <string name="playlist_action_ai_course_group_desc">Sequential lesson reordering and naming</string>
+    <string name="playlist_action_use_ai_reorder">Use AI Reorder</string>
+    <string name="playlist_action_use_ai_reorder_desc">Apply AI sequential order; disable to restore natural order</string>
     <string name="playlist_ai_reorder_loading">AI is analyzing and reordering tracks…</string>
     <string name="playlist_ai_reorder_success">Playlist successfully reordered by AI</string>
     <string name="playlist_ai_reorder_error_no_key">Please configure an AI API key in Settings first</string>
     <string name="playlist_ai_reorder_error_failed">AI reorder failed: %1$s</string>
     <string name="playlist_action_use_ai_cleaned_title">Use AI Cleaned Titles</string>
-    <string name="playlist_action_use_ai_cleaned_title_desc">Display AI-optimized lesson titles</string>
+    <string name="playlist_action_use_ai_cleaned_title_desc">Display normalized lesson titles without platform tags</string>
+    <string name="playlist_action_rerun_ai_reorder">Rerun AI Reorder</string>
+    <string name="playlist_action_rerun_ai_reorder_desc">Re-analyze course tracks to refresh order and titles</string>
+    <string name="playlist_ai_first_time_hint">Enable AI Reorder to analyze lesson tracks and generate optimized titles.</string>
 
     <!-- EditTransitionScreen -->
     <string name="transition_title_global">Global transitions</string>
