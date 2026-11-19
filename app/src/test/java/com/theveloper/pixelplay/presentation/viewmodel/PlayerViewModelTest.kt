@@ -469,6 +469,27 @@ class PlayerViewModelTest {
     }
 
     @Test
+    fun `playlist navigation from player emits valid playlist id`() = runTest {
+        playerViewModel.playlistNavigationRequests.test {
+            playerViewModel.triggerPlaylistNavigationFromPlayer("folder_playlist:%2Ftest%2Fpath")
+            advanceUntilIdle()
+
+            assertEquals("folder_playlist:%2Ftest%2Fpath", awaitItem())
+            cancelAndConsumeRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `playlist navigation from player ignores blank playlist id`() = runTest {
+        playerViewModel.playlistNavigationRequests.test {
+            playerViewModel.triggerPlaylistNavigationFromPlayer("")
+            advanceUntilIdle()
+
+            expectNoEvents()
+        }
+    }
+
+    @Test
     fun `toggleFavorite resolves external current song to MediaStore favorite id`() = runTest {
         val externalSong = Song(
             id = "external:content://media/external/audio/media/42",

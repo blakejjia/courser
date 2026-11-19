@@ -76,12 +76,12 @@ class AiHandler @Inject constructor(
 
     private suspend fun getGenerationParams(): GenerationParams {
         return GenerationParams(
-            temperature = preferencesRepo.aiTemperature.first(),
-            topP = preferencesRepo.aiTopP.first(),
-            topK = preferencesRepo.aiTopK.first(),
-            maxTokens = preferencesRepo.aiMaxTokens.first(),
-            presencePenalty = preferencesRepo.aiPresencePenalty.first(),
-            frequencyPenalty = preferencesRepo.aiFrequencyPenalty.first(),
+            temperature = 0.0f,
+            topP = 0.1f,
+            topK = 1,
+            maxTokens = 4096,
+            presencePenalty = 0.0f,
+            frequencyPenalty = 0.0f,
         )
     }
 
@@ -163,18 +163,8 @@ class AiHandler @Inject constructor(
         context: String = ""
     ): String {
         val params = getGenerationParams()
-        val effectiveTemperature = if (params.temperature == 0.7f) {
-            if (temperature == 0.7f) {
-                when (type) {
-                    AiSystemPromptType.METADATA, AiSystemPromptType.COURSE_REORDER -> 0.1f
-                    AiSystemPromptType.MOOD_ANALYSIS -> 0.2f
-                    AiSystemPromptType.TAGGING -> 0.4f
-                    AiSystemPromptType.PLAYLIST, AiSystemPromptType.DAILY_MIX -> 0.6f
-                    AiSystemPromptType.PERSONA -> 0.85f
-                    AiSystemPromptType.GENERAL -> 0.7f
-                }
-            } else temperature
-        } else params.temperature
+        // Deterministic execution: maximize mechanical certainty
+        val effectiveTemperature = 0.0f
 
         val userProviderStr = preferencesRepo.aiProvider.first()
         val userProvider = AiProvider.fromString(userProviderStr)

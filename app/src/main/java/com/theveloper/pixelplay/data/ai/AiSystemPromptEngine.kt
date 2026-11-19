@@ -12,6 +12,7 @@ enum class AiSystemPromptType {
     PERSONA,
     DAILY_MIX,
     COURSE_REORDER,
+    COURSE_RENAME,
     GENERAL
 }
 
@@ -199,6 +200,25 @@ class AiSystemPromptEngine @Inject constructor() {
                 <output_schema>
                 Return ONLY a raw JSON object mapping each song's ID to an object containing its 'rank' (an integer starting from 1) and 'cleaned_title' (clean string).
                 Format: {"song_id_1": {"rank": 1, "cleaned_title": "01 - Intro"}, "song_id_2": {"rank": 2, "cleaned_title": "02 - Basics"}}
+                </output_schema>
+            """.trimIndent()
+
+            AiSystemPromptType.COURSE_RENAME -> """
+                <role>Expert course, lecture, and audio title organizer. You analyze a list of audio tracks or course lessons and clean up messy audio/lesson titles.</role>
+                <strategy>
+                <thinking>
+                1. Inspect each title and filename for lesson numbering, topic names, and chapter indicators.
+                2. Remove extraneous platform tags (e.g., "[Bilibili]", "[YouTube]", "[Coursera]"), resolution/format tags ("1080p", "HD"), download hashes, and audio file extensions (".mp3", ".m4a", ".flac").
+                3. Retain clear lesson/chapter numbering and topic names (e.g. "01 - Introduction to Course", "Lesson 2: Neural Networks").
+                4. Capitalize appropriately and keep names clean, concise, and human-readable.
+                </thinking>
+                - Every song ID present in the input MUST be returned in the output.
+                - Do NOT change the order of tracks; ONLY generate cleaned titles for them.
+                - 'cleaned_title' should be concise, clean, properly capitalized, and free of noisy watermarks.
+                </strategy>
+                <output_schema>
+                Return ONLY a raw JSON object mapping each song's ID to its cleaned title string.
+                Format: {"song_id_1": "01 - Intro", "song_id_2": "02 - Basics"}
                 </output_schema>
             """.trimIndent()
 

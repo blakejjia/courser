@@ -307,7 +307,7 @@ private fun CreatePlaylistContent(
     
     // Step 1: Info State
     var currentStep by remember { mutableStateOf(0) } // 0: Info, 1: Songs
-    var selectedTab by remember { mutableStateOf(0) } // 0: Default, 1: Image, 2: Icon, 3: TextGrid
+    var selectedTab by remember { mutableStateOf(0) } // 0: Default (TextGrid/Card Cover), 1: Image, 2: Icon
     var customCoverText by remember { mutableStateOf("") }
     var creationMode by remember { mutableStateOf(PlaylistCreationMode.MANUAL) }
     var selectedSmartRule by remember { mutableStateOf(SmartPlaylistRule.TOP_PLAYED) }
@@ -466,10 +466,10 @@ private fun CreatePlaylistContent(
                                     currentStep = 1
                                 } else {
                                     val imageUriString = if(selectedTab == 1) selectedImageUri?.toString() else null
-                                    val color = if(selectedTab == 2 || selectedTab == 3) selectedColor else null
+                                    val color = if(selectedTab == 0 || selectedTab == 2) selectedColor else null
                                     val icon = when (selectedTab) {
+                                        0 -> "text:${customCoverText.ifBlank { extractCourseFourChars(playlistName) }}"
                                         2 -> selectedIconName
-                                        3 -> "text:${customCoverText.ifBlank { extractCourseFourChars(playlistName) }}"
                                         else -> null
                                     }
 
@@ -503,10 +503,10 @@ private fun CreatePlaylistContent(
                             }
                         } else {
                             val imageUriString = if(selectedTab == 1) selectedImageUri?.toString() else null
-                            val color = if(selectedTab == 2 || selectedTab == 3) selectedColor else null
+                            val color = if(selectedTab == 0 || selectedTab == 2) selectedColor else null
                             val icon = when (selectedTab) {
+                                0 -> "text:${customCoverText.ifBlank { extractCourseFourChars(playlistName) }}"
                                 2 -> selectedIconName
-                                3 -> "text:${customCoverText.ifBlank { extractCourseFourChars(playlistName) }}"
                                 else -> null
                             }
                             
@@ -616,10 +616,10 @@ private fun CreatePlaylistContent(
                     FilledIconButton(
                         onClick = {
                             val imageUriString = if(selectedTab == 1) selectedImageUri?.toString() else null
-                            val color = if(selectedTab == 2 || selectedTab == 3) selectedColor else null
+                            val color = if(selectedTab == 0 || selectedTab == 2) selectedColor else null
                             val icon = when (selectedTab) {
+                                0 -> "text:${customCoverText.ifBlank { extractCourseFourChars(playlistName) }}"
                                 2 -> selectedIconName
-                                3 -> "text:${customCoverText.ifBlank { extractCourseFourChars(playlistName) }}"
                                 else -> null
                             }
                             
@@ -758,15 +758,14 @@ fun EditPlaylistContent(
     var playlistName by remember { mutableStateOf(initialName) }
     
     // Determine initial tab
-    // 0=Default, 1=Image, 2=Icon, 3=TextGrid
-    // Logic: If imageUri present -> Image. If Icon starts with "text:" -> TextGrid. If Color/Icon present -> Icon. Else Default.
+    // 0=Default (TextGrid/Card Cover), 1=Image, 2=Icon
+    // Logic: If imageUri present -> Image. If shape or non-text icon present -> Icon. Else Default.
     var selectedTab by remember { 
         mutableStateOf(
             when {
                 // If it's a file path or content URI
                 initialImageUri != null -> 1 
-                initialIconName?.startsWith("text:") == true -> 3
-                initialColor != null || initialIconName != null -> 2
+                initialShapeType != null || (initialIconName != null && !initialIconName.startsWith("text:")) -> 2
                 else -> 0
             }
         )
@@ -852,7 +851,7 @@ fun EditPlaylistContent(
             CenterAlignedTopAppBar(
                 title = {
                     Text(
-                        stringResource(R.string.playlist_creation_edit),
+                        stringResource(R.string.playlist_creation_edit_cover),
                         style = MaterialTheme.typography.titleMedium.copy(
                             fontSize = 24.sp,
                             textGeometricTransform = TextGeometricTransform(scaleX = 1.2f),
@@ -890,10 +889,10 @@ fun EditPlaylistContent(
                     icon = { Icon(Icons.Rounded.Check, contentDescription = null) },
                     onClick = {
                         val imageUriString = if(selectedTab == 1) selectedImageUri?.toString() else null
-                        val color = if(selectedTab == 2 || selectedTab == 3) selectedColor else null
+                        val color = if(selectedTab == 0 || selectedTab == 2) selectedColor else null
                         val icon = when (selectedTab) {
+                            0 -> "text:${customCoverText.ifBlank { extractCourseFourChars(playlistName) }}"
                             2 -> selectedIconName
-                            3 -> "text:${customCoverText.ifBlank { extractCourseFourChars(playlistName) }}"
                             else -> null
                         }
                         
@@ -1116,27 +1115,18 @@ private fun PlaylistFormContent(
                 contentAlignment = Alignment.Center
             ) {
                 when (targetTab) {
-                    0 -> { // Default
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Box(
-                                modifier = Modifier
-                                    .size(180.dp)
-                                    .clip(RoundedCornerShape(32.dp))
-                                    .background(MaterialTheme.colorScheme.surfaceContainerHighest),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                 Icon(
-                                    Icons.Rounded.GridView,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(80.dp),
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-                                )
-                            }
-                            Spacer(Modifier.height(16.dp))
-                            Text(
-                                stringResource(R.string.playlist_creation_auto_collage),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                    0 -> { // Default: Text Grid / Card Cover
+                        Box(
+                            modifier = Modifier
+                                .size(180.dp)
+                                .clip(RoundedCornerShape(32.dp)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            CourseGridCover(
+                                title = playlistName.ifBlank { "Courser" },
+                                customText = customCoverText.ifBlank { null },
+                                colorArgb = selectedColor,
+                                modifier = Modifier.fillMaxSize()
                             )
                         }
                     }
@@ -1276,21 +1266,6 @@ private fun PlaylistFormContent(
                              }
                          }
                     }
-                    3 -> { // Text Grid
-                        Box(
-                            modifier = Modifier
-                                .size(180.dp)
-                                .clip(RoundedCornerShape(32.dp)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            CourseGridCover(
-                                title = playlistName.ifBlank { "Courser" },
-                                customText = customCoverText.ifBlank { null },
-                                colorArgb = selectedColor,
-                                modifier = Modifier.fillMaxSize()
-                            )
-                        }
-                    }
                 }
             }
         }
@@ -1387,8 +1362,7 @@ private fun PlaylistFormContent(
             val tabs = listOf(
                 stringResource(R.string.playlist_creation_tab_default),
                 stringResource(R.string.playlist_creation_tab_image),
-                stringResource(R.string.playlist_creation_tab_icon),
-                stringResource(R.string.playlist_creation_tab_text)
+                stringResource(R.string.playlist_creation_tab_icon)
             )
             ExpressiveButtonGroup(
                 items = tabs,
@@ -1587,10 +1561,10 @@ private fun PlaylistFormContent(
                  }
             }
 
-            AnimatedVisibility(visible = selectedTab == 3) {
+            AnimatedVisibility(visible = selectedTab == 0) {
                 Column(
-                    modifier = Modifier.padding(top = 14.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                    modifier = Modifier.padding(top = 10.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     Text(
                         modifier = Modifier.padding(horizontal = 22.dp),
@@ -1610,10 +1584,10 @@ private fun PlaylistFormContent(
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
-                            Spacer(Modifier.height(8.dp))
+                            Spacer(Modifier.height(6.dp))
                             FlowRow(
                                 horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                verticalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalArrangement = Arrangement.spacedBy(6.dp),
                                 modifier = Modifier.fillMaxWidth()
                             ) {
                                 cleanChars.take(24).forEach { char ->
@@ -1699,8 +1673,8 @@ private fun PlaylistFormContent(
                     )
 
                     FlowRow(
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 18.dp)

@@ -5,10 +5,15 @@ import com.theveloper.pixelplay.presentation.navigation.navigateSafelyReplacing
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -47,11 +52,17 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.MusicOff
 import androidx.compose.material.icons.filled.RemoveCircleOutline
 import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.ChevronRight
+import androidx.compose.material.icons.rounded.DriveFileRenameOutline
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.AutoAwesome
+import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.DragIndicator
+import androidx.compose.material.icons.rounded.Info
+import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.PushPin
+import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -132,6 +143,7 @@ import com.theveloper.pixelplay.presentation.components.subcomps.TightWrapText
 import com.theveloper.pixelplay.presentation.navigation.Screen
 import com.theveloper.pixelplay.presentation.viewmodel.PlayerViewModel
 import com.theveloper.pixelplay.presentation.viewmodel.PlaylistViewModel
+import com.theveloper.pixelplay.presentation.viewmodel.PlaylistUiState
 import com.theveloper.pixelplay.presentation.viewmodel.PlaylistViewModel.Companion.FOLDER_PLAYLIST_PREFIX
 import com.theveloper.pixelplay.presentation.utils.LocalAppHapticsConfig
 import com.theveloper.pixelplay.presentation.utils.performAppCompatHapticFeedback
@@ -179,10 +191,9 @@ fun PlaylistEditScreen(
     val playlistEmptyFolder = stringResource(R.string.playlist_empty_folder_label)
     val playlistEmptyAddHint = stringResource(R.string.playlist_empty_add_hint)
     val playlistOptionsTitle = stringResource(R.string.playlist_options_title)
-    val editPlaylistLabel = stringResource(R.string.playlist_action_edit_playlist)
+    val editCoverLabel = stringResource(R.string.playlist_action_edit_cover)
     val deletePlaylistLabel = stringResource(R.string.playlist_action_delete_playlist)
     val setDefaultTransitionLabel = stringResource(R.string.playlist_action_set_default_transition)
-    val exportPlaylistLabel = stringResource(R.string.playlist_action_export_playlist)
     val deletePlaylistConfirmTitle = stringResource(R.string.playlist_dialog_delete_title)
     val deletePlaylistConfirmBody = stringResource(R.string.playlist_dialog_delete_body)
     val sortSheetTitle = stringResource(R.string.playlist_sort_songs_title)
@@ -204,16 +215,6 @@ fun PlaylistEditScreen(
     var showPlaylistOptionsSheet by remember { mutableStateOf(false) }
     var showEditPlaylistDialog by remember { mutableStateOf(false) }
     var showDeleteConfirmation by remember { mutableStateOf(false) }
-
-    val m3uExportLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.CreateDocument("audio/x-mpegurl")
-    ) { uri ->
-        uri?.let {
-            currentPlaylist?.let { playlist ->
-                playlistViewModel.exportM3u(playlist, it, context)
-            }
-        }
-    }
 
     val selectedSongForInfo by playerViewModel.selectedSongForInfo.collectAsStateWithLifecycle()
     val favoriteIds by playerViewModel.favoriteSongIds.collectAsStateWithLifecycle() // Reintroducir favoriteIds aquí
@@ -665,17 +666,10 @@ fun PlaylistEditScreen(
                             verticalArrangement = Arrangement.spacedBy(8.dp),
                             contentPadding = PaddingValues(
                                 top = 12.dp,
-                                bottom = MiniPlayerHeight + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 16.dp,
-                                end = 0.dp
-                            ).let {
-                                val showScrollBar = LocalShowScrollbar.current && (listState.canScrollForward || listState.canScrollBackward)
-                                PaddingValues(
-                                    top = it.calculateTopPadding(),
-                                    bottom = it.calculateBottomPadding(),
-                                    start = it.calculateLeftPadding(androidx.compose.ui.unit.LayoutDirection.Ltr),
-                                    end = if (showScrollBar) 24.dp else 0.dp
-                                )
-                            }
+                                start = 16.dp,
+                                end = 16.dp,
+                                bottom = MiniPlayerHeight + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 16.dp
+                            )
                         ) {
                             itemsIndexed(
                                 localReorderableSongs,
@@ -752,6 +746,7 @@ fun PlaylistEditScreen(
                                                 }
                                             }
                                         } else null,
+                                        onMoreOptionsClick = if (!isRemoveModeEnabled) stableOnMoreOptionsClick else null,
                                         onClick = {
                                             playerViewModel.playSongs(
                                                 localReorderableSongs,
@@ -771,7 +766,7 @@ fun PlaylistEditScreen(
                                 .align(Alignment.CenterEnd)
                                 .padding(
                                     bottom = if (playerStableState.currentSong != null) MiniPlayerHeight + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 20.dp else WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 16.dp,
-                                    end = 14.dp,
+                                    end = 6.dp,
                                     top = 18.dp // Increased to 16.dp as requested
                                 )
                         )
@@ -825,28 +820,34 @@ fun PlaylistEditScreen(
                     }
                 }
                 PlaylistActionItem(
-                    icon = rememberVectorPainter(Icons.Rounded.AutoAwesome),
-                    label = stringResource(R.string.playlist_action_ai_reorder),
+                    icon = rememberVectorPainter(Icons.Rounded.Download),
+                    label = stringResource(R.string.playlist_action_download_all),
                     onClick = {
                         showPlaylistOptionsSheet = false
-                        currentPlaylist?.let { playlistViewModel.reorderPlaylistWithAi(it.id) }
+                        val queuedCount = playlistViewModel.downloadAllSongs(songsInPlaylist)
+                        val message = when {
+                            songsInPlaylist.isEmpty() -> context.getString(R.string.playlist_empty_title)
+                            queuedCount > 0 -> context.getString(R.string.playlist_download_all_started, queuedCount)
+                            else -> context.getString(R.string.playlist_download_all_already_local)
+                        }
+                        playerViewModel.sendToast(message)
                     }
                 )
-                if (uiState.hasAiCleanedTitles && currentPlaylist != null) {
+                currentPlaylist?.let { playlist ->
                     PlaylistSwitchItem(
-                        icon = rememberVectorPainter(Icons.Rounded.AutoAwesome),
+                        icon = rememberVectorPainter(Icons.Rounded.DriveFileRenameOutline),
                         label = stringResource(R.string.playlist_action_use_ai_cleaned_title),
                         description = stringResource(R.string.playlist_action_use_ai_cleaned_title_desc),
                         checked = uiState.isUsingAiCleanedTitles,
                         onCheckedChange = {
-                            playlistViewModel.toggleUseAiCleanedTitles(currentPlaylist.id)
+                            playlistViewModel.toggleUseAiCleanedTitles(playlist.id)
                         }
                     )
                 }
                 if (!isFolderPlaylist) {
                     PlaylistActionItem(
                         icon = painterResource(R.drawable.rounded_edit_24),
-                        label = editPlaylistLabel,
+                        label = editCoverLabel,
                         onClick = {
                             showPlaylistOptionsSheet = false
                             showEditPlaylistDialog = true
@@ -861,15 +862,6 @@ fun PlaylistEditScreen(
                         }
                     )
                 }
-                PlaylistActionItem(
-                    icon = painterResource(R.drawable.rounded_attach_file_24),
-                    label = exportPlaylistLabel,
-                    onClick = {
-                        showPlaylistOptionsSheet = false
-                        val sanitizedName = PlaylistViewModel.sanitizeFileName(currentPlaylist?.name ?: fallbackPlaylistName)
-                        m3uExportLauncher.launch("$sanitizedName.m3u")
-                    }
-                )
             }
         }
     }
@@ -882,7 +874,13 @@ fun PlaylistEditScreen(
         }
     }
 
-    if (uiState.isAiReordering) {
+    val aiLoadingText = when {
+        uiState.isAiRenaming -> stringResource(R.string.playlist_ai_rename_loading)
+        uiState.isAiReordering -> stringResource(R.string.playlist_ai_reorder_loading)
+        else -> null
+    }
+
+    if (aiLoadingText != null) {
         Dialog(
             onDismissRequest = { /* Non-dismissible while processing */ }
         ) {
@@ -902,7 +900,7 @@ fun PlaylistEditScreen(
                         strokeWidth = 3.dp
                     )
                     Text(
-                        text = stringResource(R.string.playlist_ai_reorder_loading),
+                        text = aiLoadingText,
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurface
                     )
@@ -998,7 +996,13 @@ fun PlaylistEditScreen(
                 },
                 onDismiss = { showSongInfoBottomSheet = false },
                 onPlaySong = {
-                    playerViewModel.showAndPlaySong(currentSong)
+                    playerViewModel.playSongs(
+                        songsToPlay = songsInPlaylist,
+                        startSong = currentSong,
+                        queueName = currentPlaylist?.name ?: "Course",
+                        playlistId = playlistId,
+                        playlistCoverUri = currentPlaylist?.coverImageUri
+                    )
                 },
                 onAddToQueue = {
                     playerViewModel.addSongToQueue(currentSong) // Assumes such a method exists or will be added
@@ -1013,17 +1017,10 @@ fun PlaylistEditScreen(
                 },
                 onDeleteFromDevice = playerViewModel::deleteFromDevice,
                 onNavigateToAlbum = {
-                    scope.launch {
-                        val courseId = playerViewModel.resolveCourseIdForSong(currentSong)
-                        if (!courseId.isNullOrBlank()) {
-                            navController.navigateSafelyReplacing(
-                                route = Screen.PlaylistDetail.createRoute(courseId),
-                                patternToPop = Screen.PlaylistDetail.route
-                            )
-                        } else {
-                            playerViewModel.sendToast("Course not found")
-                        }
-                    }
+                    navController.navigateSafelyReplacing(
+                        route = Screen.PlaylistDetail.createRoute(currentSong.resolveCoursePlaylistId(playlistId)),
+                        patternToPop = Screen.PlaylistDetail.route
+                    )
                     showSongInfoBottomSheet = false
                 },
                 onNavigateToArtist = {
@@ -1090,31 +1087,17 @@ fun PlaylistEditScreen(
     val isSortSheetVisible by playerViewModel.isSortingSheetVisible.collectAsStateWithLifecycle()
 
     if (isSortSheetVisible) {
-        // Check if playlist is in Manual mode (which corresponds to Default Order)
-        val isManualMode = uiState.playlistSongsOrderMode is PlaylistSongsOrderMode.Manual
-        val rawOption = uiState.currentPlaylistSongsSortOption
-        // If in Manual mode, show SongDefaultOrder as selected; otherwise use the stored sort option
-        val currentSortOption = if (isManualMode) {
-            SortOption.SongDefaultOrder
-        } else if (currentPlaylist != null) {
-            rawOption
+        val currentSortOption = if (uiState.isUsingAiReorder) {
+            SortOption.SongAiOrder
         } else {
-            SortOption.SongTitleAZ
+            uiState.currentPlaylistSongsSortOption
         }
 
-        // Build options list inline to avoid potential static initialization issues
+        // Only keep AI Order and Title sort options for courses/playlists
         val songSortOptions = listOf(
-            SortOption.SongDefaultOrder,
+            SortOption.SongAiOrder,
             SortOption.SongTitleAZ,
-            SortOption.SongTitleZA,
-            SortOption.SongArtist,
-            SortOption.SongArtistDesc,
-            SortOption.SongAlbum,
-            SortOption.SongAlbumDesc,
-            SortOption.SongDateAdded,
-            SortOption.SongDateAddedAsc,
-            SortOption.SongDuration,
-            SortOption.SongDurationAsc
+            SortOption.SongTitleZA
         )
 
         LibrarySortBottomSheet(
@@ -1142,6 +1125,7 @@ fun PlaylistEditScreen(
         )
     }
 }
+
 
 
 @Composable

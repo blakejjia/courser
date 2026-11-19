@@ -105,6 +105,8 @@ class UserPreferencesRepository @Inject constructor(
         val CUSTOM_PLAYLIST_ORDER = stringPreferencesKey("custom_playlist_order_ids")
         val AI_CLEANED_TITLES_BY_PLAYLIST = stringPreferencesKey("ai_cleaned_titles_by_playlist")
         val USE_AI_CLEANED_TITLES_PLAYLISTS = stringSetPreferencesKey("use_ai_cleaned_titles_playlists")
+        val AI_REORDERED_SONG_IDS_BY_PLAYLIST = stringPreferencesKey("ai_reordered_song_ids_by_playlist")
+        val USE_AI_REORDER_PLAYLISTS = stringSetPreferencesKey("use_ai_reorder_playlists")
 
         // Sort options
         val SONGS_SORT_OPTION = stringPreferencesKey("songs_sort_option")
@@ -606,6 +608,29 @@ class UserPreferencesRepository @Inject constructor(
         dataStore.edit { preferences ->
             val current = preferences[PreferencesKeys.USE_AI_CLEANED_TITLES_PLAYLISTS] ?: emptySet()
             preferences[PreferencesKeys.USE_AI_CLEANED_TITLES_PLAYLISTS] = if (enabled) {
+                current + playlistId
+            } else {
+                current - playlistId
+            }
+        }
+    }
+
+    val aiReorderedSongIdsByPlaylistFlow: Flow<Map<String, List<String>>> =
+        pref { preferences ->
+            decodeJsonPref(preferences, PreferencesKeys.AI_REORDERED_SONG_IDS_BY_PLAYLIST, emptyMap())
+        }
+
+    val useAiReorderPlaylistsFlow: Flow<Set<String>> =
+        pref { it[PreferencesKeys.USE_AI_REORDER_PLAYLISTS] ?: emptySet() }.distinctUntilChanged()
+
+    suspend fun setAiReorderedSongIds(playlistId: String, songIds: List<String>) {
+        editJsonMap<List<String>>(PreferencesKeys.AI_REORDERED_SONG_IDS_BY_PLAYLIST) { put(playlistId, songIds) }
+    }
+
+    suspend fun setUseAiReorder(playlistId: String, enabled: Boolean) {
+        dataStore.edit { preferences ->
+            val current = preferences[PreferencesKeys.USE_AI_REORDER_PLAYLISTS] ?: emptySet()
+            preferences[PreferencesKeys.USE_AI_REORDER_PLAYLISTS] = if (enabled) {
                 current + playlistId
             } else {
                 current - playlistId

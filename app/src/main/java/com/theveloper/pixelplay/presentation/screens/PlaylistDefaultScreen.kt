@@ -404,7 +404,13 @@ fun PlaylistDefaultScreen(
                     },
                     onDismiss = { showSongInfoBottomSheet = false },
                     onPlaySong = {
-                        playerViewModel.showAndPlaySong(currentSong)
+                        playerViewModel.playSongs(
+                            songsToPlay = songs,
+                            startSong = currentSong,
+                            queueName = currentPlaylist?.name ?: "Course",
+                            playlistId = currentPlaylist?.id ?: currentSong.resolveCoursePlaylistId(playlistId),
+                            playlistCoverUri = currentPlaylist?.coverImageUri
+                        )
                     },
                     onAddToQueue = {
                         playerViewModel.addSongToQueue(currentSong)

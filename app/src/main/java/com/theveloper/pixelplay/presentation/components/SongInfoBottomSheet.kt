@@ -92,9 +92,13 @@ import racra.compose.smooth_corner_rect_library.AbsoluteSmoothCornerShape
 import androidx.core.net.toUri
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.theveloper.pixelplay.data.media.CoverArtUpdate
+import com.theveloper.pixelplay.data.download.DownloadStatus
+import androidx.compose.material.icons.rounded.Download
+import androidx.compose.material.icons.rounded.Folder
+import androidx.compose.material.icons.rounded.Refresh
+import androidx.compose.material.icons.rounded.Check
 import com.theveloper.pixelplay.ui.theme.MontserratFamily
 import com.theveloper.pixelplay.presentation.viewmodel.SongInfoBottomSheetViewModel
-import com.theveloper.pixelplay.presentation.viewmodel.SongInfoBottomSheetViewModel.ToneTarget
 import kotlinx.coroutines.launch
 
 import androidx.compose.ui.graphics.TransformOrigin
@@ -147,16 +151,17 @@ fun SongInfoBottomSheet(
     songInfoViewModel: SongInfoBottomSheetViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
-    val ringtonePermissionMissingMsg = stringResource(R.string.song_info_ringtone_permission_missing)
-    val ringtoneFailedFormat = stringResource(R.string.song_info_ringtone_failed)
     val shareChooserTitle = stringResource(R.string.song_info_share_chooser_title)
     val errorShareSongFormat = stringResource(R.string.song_info_error_share_song)
     var showEditSheet by remember { mutableStateOf(false) }
     var showArtistPicker by remember { mutableStateOf(false) }
-    var showTonePickerDialog by remember { mutableStateOf(false) }
-    var toneConfirmationTarget by remember { mutableStateOf<ToneTarget?>(null) }
-    var pendingTonePermissionSong by remember { mutableStateOf<Song?>(null) }
-    var pendingTonePermissionTarget by remember { mutableStateOf<ToneTarget?>(null) }
+    var showDeleteDownloadDialog by remember { mutableStateOf(false) }
+    val downloadStatusMap by songInfoViewModel.downloadStatusMap.collectAsStateWithLifecycle()
+    val isDownloaded = remember(song.id, downloadStatusMap) {
+        songInfoViewModel.isDownloaded(song)
+    }
+    val currentDownloadStatus = downloadStatusMap[song.id]
+        ?: if (isDownloaded) DownloadStatus.Completed else DownloadStatus.Idle
     val audioMeta by songInfoViewModel.audioMeta.collectAsStateWithLifecycle()
     val resolvedArtists by songInfoViewModel.resolvedArtists.collectAsStateWithLifecycle()
     val isPixelPlayWatchAvailable by songInfoViewModel.isPixelPlayWatchAvailable.collectAsStateWithLifecycle()
@@ -191,78 +196,7 @@ fun SongInfoBottomSheet(
         songInfoViewModel.refreshWatchAvailability()
     }
 
-    val ringtonePermissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.StartActivityForResult()
-    ) {
-        val pendingSong = pendingTonePermissionSong
-        val pendingTarget = pendingTonePermissionTarget
-        pendingTonePermissionSong = null
-        pendingTonePermissionTarget = null
-        if (pendingSong == null || pendingTarget == null) {
-            return@rememberLauncherForActivityResult
-        }
-        if (songInfoViewModel.hasSystemWritePermission()) {
-            songInfoViewModel.setSongAsTone(pendingSong, pendingTarget) { result ->
-                val message = when (result) {
-                    is SongInfoBottomSheetViewModel.ToneActionResult.Success -> result.message
-                    is SongInfoBottomSheetViewModel.ToneActionResult.Error -> result.message
-                    is SongInfoBottomSheetViewModel.ToneActionResult.NeedsSystemWritePermission -> result.message
-                }
-                Toast.makeText(context, message, Toast.LENGTH_LONG).show()
-            }
-        } else {
-            Toast.makeText(
-                context,
-                ringtonePermissionMissingMsg,
-                Toast.LENGTH_LONG
-            ).show()
-        }
-    }
 
-    fun requestToneSystemWritePermission(songToSet: Song, target: ToneTarget, message: String) {
-        pendingTonePermissionSong = songToSet
-        pendingTonePermissionTarget = target
-        Toast.makeText(context, message, Toast.LENGTH_LONG).show()
-        try {
-            ringtonePermissionLauncher.launch(songInfoViewModel.createSystemWriteSettingsIntent())
-        } catch (_: ActivityNotFoundException) {
-            try {
-                ringtonePermissionLauncher.launch(Intent(Settings.ACTION_SETTINGS))
-            } catch (e: Exception) {
-                pendingTonePermissionSong = null
-                pendingTonePermissionTarget = null
-                Toast.makeText(
-                    context,
-                    ringtoneFailedFormat.format(e.localizedMessage ?: ""),
-                    Toast.LENGTH_LONG
-                ).show()
-            }
-        }
-    }
-
-    fun handleToneResult(
-        songToSet: Song,
-        target: ToneTarget,
-        result: SongInfoBottomSheetViewModel.ToneActionResult
-    ) {
-        when (result) {
-            is SongInfoBottomSheetViewModel.ToneActionResult.Success -> {
-                Toast.makeText(context, result.message, Toast.LENGTH_LONG).show()
-            }
-            is SongInfoBottomSheetViewModel.ToneActionResult.Error -> {
-                Toast.makeText(context, result.message, Toast.LENGTH_LONG).show()
-            }
-            is SongInfoBottomSheetViewModel.ToneActionResult.NeedsSystemWritePermission -> {
-                requestToneSystemWritePermission(songToSet, target, result.message)
-            }
-        }
-    }
-
-    fun setCurrentSongAsTone(target: ToneTarget) {
-        songInfoViewModel.setSongAsTone(song, target) { result ->
-            handleToneResult(song, target, result)
-        }
-    }
 
     var lastShownWatchTransferError by remember(song.id) { mutableStateOf<String?>(null) }
     LaunchedEffect(
@@ -561,7 +495,15 @@ fun SongInfoBottomSheet(
                                                 currentSongTransferPercent = currentSongTransferPercent,
                                                 currentSongTransferStatus = currentSongTransfer?.status,
                                                 currentSongTransferTotalBytes = currentSongTransfer?.totalBytes ?: 0L,
-                                                onRingtoneClick = { showTonePickerDialog = true },
+                                                song = song,
+                                                downloadStatus = currentDownloadStatus,
+                                                onDownloadClick = {
+                                                    if (currentDownloadStatus is DownloadStatus.Completed) {
+                                                        showDeleteDownloadDialog = true
+                                                    } else {
+                                                        songInfoViewModel.downloadSong(song)
+                                                    }
+                                                },
                                                 onSendToWatchClick = {
                                                     songInfoViewModel.sendSongToWatch(song) { message ->
                                                         Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
@@ -569,12 +511,20 @@ fun SongInfoBottomSheet(
                                                 }
                                             )
                                         } else {
-                                            RingtoneActionButton(
+                                            DownloadActionButton(
                                                 modifier = Modifier
                                                     .fillMaxWidth()
                                                     .heightIn(min = 66.dp),
+                                                song = song,
+                                                downloadStatus = currentDownloadStatus,
                                                 showText = true,
-                                                onClick = { showTonePickerDialog = true },
+                                                onClick = {
+                                                    if (currentDownloadStatus is DownloadStatus.Completed) {
+                                                        showDeleteDownloadDialog = true
+                                                    } else {
+                                                        songInfoViewModel.downloadSong(song)
+                                                    }
+                                                },
                                             )
                                         }
 
@@ -780,268 +730,107 @@ fun SongInfoBottomSheet(
         )
     }
 
-    if (showTonePickerDialog) {
-        ToneTargetPickerDialog(
-            onDismiss = { showTonePickerDialog = false },
-            onTargetSelected = { target ->
-                showTonePickerDialog = false
-                toneConfirmationTarget = target
+    if (showDeleteDownloadDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteDownloadDialog = false },
+            title = { Text(stringResource(R.string.song_info_delete_offline_title)) },
+            text = { Text(stringResource(R.string.song_info_delete_offline_desc)) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showDeleteDownloadDialog = false
+                        songInfoViewModel.deleteOfflineCopy(song)
+                    }
+                ) {
+                    Text(stringResource(R.string.song_info_delete_offline_action))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteDownloadDialog = false }) {
+                    Text(stringResource(R.string.common_cancel))
+                }
             }
         )
     }
-
-    toneConfirmationTarget?.let { target ->
-        ToneConfirmationDialog(
-            song = song,
-            target = target,
-            onDismiss = { toneConfirmationTarget = null },
-            onConfirm = {
-                toneConfirmationTarget = null
-                setCurrentSongAsTone(target)
-            }
-        )
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun ToneTargetPickerDialog(
-    onDismiss: () -> Unit,
-    onTargetSelected: (ToneTarget) -> Unit,
-) {
-    BasicAlertDialog(onDismissRequest = onDismiss) {
-        Surface(
-            shape = AbsoluteSmoothCornerShape(
-                cornerRadiusTR = 32.dp,
-                smoothnessAsPercentBR = 60,
-                cornerRadiusBR = 32.dp,
-                smoothnessAsPercentTL = 60,
-                cornerRadiusTL = 32.dp,
-                smoothnessAsPercentBL = 60,
-                cornerRadiusBL = 32.dp,
-                smoothnessAsPercentTR = 60,
-            ),
-            color = MaterialTheme.colorScheme.surfaceContainerHigh,
-            tonalElevation = 6.dp,
-        ) {
-            Column(
-                modifier = Modifier.padding(24.dp),
-                verticalArrangement = Arrangement.spacedBy(18.dp),
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    ToneDialogIcon(target = null)
-                    Text(
-                        text = stringResource(R.string.song_info_tone_picker_title),
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold,
-                    )
-                }
-                Text(
-                    text = stringResource(R.string.song_info_tone_picker_body),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-
-                Column(
-                    modifier = Modifier.clip(RoundedCornerShape(22.dp)),
-                    verticalArrangement = Arrangement.spacedBy(3.dp),
-                ) {
-                    ToneTarget.values().forEach { target ->
-                        ToneTargetOption(
-                            target = target,
-                            onClick = { onTargetSelected(target) },
-                        )
-                    }
-                }
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End,
-                ) {
-                    TextButton(onClick = onDismiss) {
-                        Text(stringResource(R.string.common_cancel))
-                    }
-                }
-            }
-        }
-    }
 }
 
 @Composable
-private fun ToneTargetOption(
-    target: ToneTarget,
-    onClick: () -> Unit,
-) {
-    ListItem(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(shape = RoundedCornerShape(4.dp))
-            .clickable(onClick = onClick),
-        colors = ListItemDefaults.colors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
-        ),
-        leadingContent = {
-            ToneDialogIcon(
-                target = target,
-                modifier = Modifier.size(42.dp),
-                iconModifier = Modifier.size(22.dp),
-            )
-        },
-        headlineContent = {
-            Text(
-                text = stringResource(target.titleResId),
-                fontWeight = FontWeight.SemiBold,
-            )
-        },
-        supportingContent = {
-            Text(stringResource(target.subtitleResId))
-        },
-    )
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun ToneConfirmationDialog(
-    song: Song,
-    target: ToneTarget,
-    onDismiss: () -> Unit,
-    onConfirm: () -> Unit,
-) {
-    BasicAlertDialog(onDismissRequest = onDismiss) {
-        Surface(
-            shape = AbsoluteSmoothCornerShape(
-                cornerRadiusTR = 32.dp,
-                smoothnessAsPercentBR = 60,
-                cornerRadiusBR = 32.dp,
-                smoothnessAsPercentTL = 60,
-                cornerRadiusTL = 32.dp,
-                smoothnessAsPercentBL = 60,
-                cornerRadiusBL = 32.dp,
-                smoothnessAsPercentTR = 60,
-            ),
-            color = MaterialTheme.colorScheme.surfaceContainerHigh,
-            tonalElevation = 6.dp,
-        ) {
-            Column(
-                modifier = Modifier.padding(24.dp),
-                verticalArrangement = Arrangement.spacedBy(18.dp),
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    ToneDialogIcon(target = target)
-                    Text(
-                        text = stringResource(R.string.song_info_tone_confirm_title),
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold,
-                    )
-                }
-                Text(
-                    text = stringResource(
-                        R.string.song_info_tone_confirm_body,
-                        song.title,
-                        stringResource(target.confirmLabelResId),
-                    ),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.End),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    TextButton(onClick = onDismiss) {
-                        Text(stringResource(R.string.common_cancel))
-                    }
-                    FilledTonalButton(onClick = onConfirm) {
-                        Text(stringResource(R.string.song_info_tone_confirm_action))
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun ToneDialogIcon(
-    target: ToneTarget?,
-    modifier: Modifier = Modifier.size(56.dp),
-    iconModifier: Modifier = Modifier.size(28.dp),
-) {
-    Box(
-        modifier = modifier
-            .clip(CircleShape)
-            .background(MaterialTheme.colorScheme.secondaryContainer),
-        contentAlignment = Alignment.Center,
-    ) {
-        when (target) {
-            ToneTarget.Ringtone -> Icon(
-                imageVector = Icons.Rounded.MusicNote,
-                contentDescription = null,
-                modifier = iconModifier,
-                tint = MaterialTheme.colorScheme.onSecondaryContainer,
-            )
-            ToneTarget.Notification -> Icon(
-                painter = painterResource(R.drawable.rounded_notifications_active_24),
-                contentDescription = null,
-                modifier = iconModifier,
-                tint = MaterialTheme.colorScheme.onSecondaryContainer,
-            )
-            ToneTarget.Alarm -> Icon(
-                painter = painterResource(R.drawable.rounded_alarm_24),
-                contentDescription = null,
-                modifier = iconModifier,
-                tint = MaterialTheme.colorScheme.onSecondaryContainer,
-            )
-            null -> Icon(
-                painter = painterResource(R.drawable.rounded_notifications_active_24),
-                contentDescription = null,
-                modifier = iconModifier,
-                tint = MaterialTheme.colorScheme.onSecondaryContainer,
-            )
-        }
-    }
-}
-
-@Composable
-private fun RingtoneActionButton(
+private fun DownloadActionButton(
     modifier: Modifier,
+    song: Song,
+    downloadStatus: DownloadStatus,
     showText: Boolean,
     compactText: Boolean = false,
     interactionSource: MutableInteractionSource? = null,
     onClick: () -> Unit,
 ) {
+    val isLocal = song.isLocal || song.contentUriString.startsWith("content://") || song.contentUriString.startsWith("file://")
+    val isDownloaded = downloadStatus is DownloadStatus.Completed
+    val isDownloading = downloadStatus is DownloadStatus.Downloading
+
+    val containerColor = when {
+        isDownloaded -> MaterialTheme.colorScheme.primaryContainer
+        isDownloading -> MaterialTheme.colorScheme.tertiaryContainer
+        isLocal -> MaterialTheme.colorScheme.surfaceContainerHighest
+        else -> MaterialTheme.colorScheme.secondaryContainer
+    }
+    val contentColor = when {
+        isDownloaded -> MaterialTheme.colorScheme.onPrimaryContainer
+        isDownloading -> MaterialTheme.colorScheme.onTertiaryContainer
+        isLocal -> MaterialTheme.colorScheme.onSurfaceVariant
+        else -> MaterialTheme.colorScheme.onSecondaryContainer
+    }
+
     val colors = ButtonDefaults.filledTonalButtonColors(
-        containerColor = MaterialTheme.colorScheme.secondaryContainer,
-        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+        containerColor = containerColor,
+        contentColor = contentColor,
+        disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+        disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
     )
+
+    val labelText = when {
+        isLocal -> stringResource(R.string.song_info_already_local)
+        isDownloaded -> stringResource(R.string.song_info_downloaded_to_local)
+        downloadStatus is DownloadStatus.Downloading -> {
+            val progressPercent = (downloadStatus.progress * 100).toInt()
+            stringResource(R.string.song_info_downloading_progress, progressPercent)
+        }
+        downloadStatus is DownloadStatus.Failed -> stringResource(R.string.song_info_download_failed)
+        else -> stringResource(R.string.song_info_download_to_local)
+    }
 
     if (showText) {
         FilledTonalButton(
             modifier = modifier,
             colors = colors,
+            enabled = !isLocal,
             contentPadding = PaddingValues(horizontal = if (compactText) 12.dp else 18.dp),
             shape = CircleShape,
             onClick = onClick,
             interactionSource = interactionSource ?: remember { MutableInteractionSource() },
         ) {
-            Icon(
-                modifier = Modifier.size(if (compactText) 20.dp else 24.dp),
-                painter = painterResource(R.drawable.rounded_notifications_active_24),
-                contentDescription = stringResource(R.string.song_info_cd_set_sound_as),
-            )
+            if (isDownloading) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(if (compactText) 18.dp else 22.dp),
+                    strokeWidth = 2.dp,
+                    color = contentColor
+                )
+            } else {
+                val icon = when {
+                    isDownloaded -> Icons.Rounded.Check
+                    isLocal -> Icons.Rounded.Folder
+                    downloadStatus is DownloadStatus.Failed -> Icons.Rounded.Refresh
+                    else -> Icons.Rounded.Download
+                }
+                Icon(
+                    modifier = Modifier.size(if (compactText) 20.dp else 24.dp),
+                    imageVector = icon,
+                    contentDescription = labelText,
+                )
+            }
             Spacer(Modifier.width(if (compactText) 6.dp else 8.dp))
             Text(
-                text = stringResource(
-                    if (compactText) R.string.song_info_set_sound_as_short else R.string.song_info_set_sound_as_long
-                ),
+                text = labelText,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -1050,42 +839,36 @@ private fun RingtoneActionButton(
         FilledTonalIconButton(
             modifier = modifier,
             colors = IconButtonDefaults.filledTonalIconButtonColors(
-                containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                containerColor = containerColor,
+                contentColor = contentColor,
             ),
+            enabled = !isLocal,
             shape = CircleShape,
             onClick = onClick,
             interactionSource = interactionSource ?: remember { MutableInteractionSource() },
         ) {
-            Icon(
-                modifier = Modifier.size(FloatingActionButtonDefaults.LargeIconSize),
-                painter = painterResource(R.drawable.rounded_notifications_active_24),
-                contentDescription = stringResource(R.string.song_info_cd_set_sound_as),
-            )
+            if (isDownloading) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(20.dp),
+                    strokeWidth = 2.dp,
+                    color = contentColor
+                )
+            } else {
+                val icon = when {
+                    isDownloaded -> Icons.Rounded.Check
+                    isLocal -> Icons.Rounded.Folder
+                    downloadStatus is DownloadStatus.Failed -> Icons.Rounded.Refresh
+                    else -> Icons.Rounded.Download
+                }
+                Icon(
+                    modifier = Modifier.size(FloatingActionButtonDefaults.LargeIconSize),
+                    imageVector = icon,
+                    contentDescription = labelText,
+                )
+            }
         }
     }
 }
-
-private val ToneTarget.titleResId: Int
-    get() = when (this) {
-        ToneTarget.Ringtone -> R.string.song_info_tone_ringtone_title
-        ToneTarget.Notification -> R.string.song_info_tone_notification_title
-        ToneTarget.Alarm -> R.string.song_info_tone_alarm_title
-    }
-
-private val ToneTarget.subtitleResId: Int
-    get() = when (this) {
-        ToneTarget.Ringtone -> R.string.song_info_tone_ringtone_subtitle
-        ToneTarget.Notification -> R.string.song_info_tone_notification_subtitle
-        ToneTarget.Alarm -> R.string.song_info_tone_alarm_subtitle
-    }
-
-private val ToneTarget.confirmLabelResId: Int
-    get() = when (this) {
-        ToneTarget.Ringtone -> R.string.song_info_tone_ringtone_label
-        ToneTarget.Notification -> R.string.song_info_tone_notification_label
-        ToneTarget.Alarm -> R.string.song_info_tone_alarm_label
-    }
 
 @Composable
 private fun SongInfoSegmentedListItem(
@@ -1609,21 +1392,23 @@ private fun Row4Actions(
     currentSongTransferPercent: Int,
     currentSongTransferStatus: String?,
     currentSongTransferTotalBytes: Long,
-    onRingtoneClick: () -> Unit,
+    song: Song,
+    downloadStatus: DownloadStatus,
+    onDownloadClick: () -> Unit,
     onSendToWatchClick: () -> Unit,
 ) {
     val coroutineScope = androidx.compose.runtime.rememberCoroutineScope()
     var clickPending by remember { mutableStateOf(false) }
 
-    val ringtoneInteractionSource = remember { MutableInteractionSource() }
-    val isRingtonePressed by ringtoneInteractionSource.collectIsPressedAsState()
-    var ringtoneVisualPressed by remember { mutableStateOf(false) }
-    LaunchedEffect(isRingtonePressed) {
-        if (isRingtonePressed) {
-            ringtoneVisualPressed = true
+    val downloadInteractionSource = remember { MutableInteractionSource() }
+    val isDownloadPressed by downloadInteractionSource.collectIsPressedAsState()
+    var downloadVisualPressed by remember { mutableStateOf(false) }
+    LaunchedEffect(isDownloadPressed) {
+        if (isDownloadPressed) {
+            downloadVisualPressed = true
         } else {
             kotlinx.coroutines.delay(180)
-            ringtoneVisualPressed = false
+            downloadVisualPressed = false
         }
     }
 
@@ -1644,10 +1429,10 @@ private fun Row4Actions(
         stiffness = 300f
     )
 
-    val pressFractionRingtone by animateFloatAsState(
-        targetValue = if (ringtoneVisualPressed) 1f else 0f,
+    val pressFractionDownload by animateFloatAsState(
+        targetValue = if (downloadVisualPressed) 1f else 0f,
         animationSpec = pressSpec,
-        label = "RingtonePressFraction"
+        label = "DownloadPressFraction"
     )
     val pressFractionWatch by animateFloatAsState(
         targetValue = if (watchVisualPressed) 1f else 0f,
@@ -1655,8 +1440,8 @@ private fun Row4Actions(
         label = "WatchPressFraction"
     )
 
-    val weightRingtone = (0.38f + 0.08f * pressFractionRingtone - 0.08f * pressFractionWatch).coerceAtLeast(0.1f)
-    val weightWatch = (0.62f + 0.08f * pressFractionWatch - 0.08f * pressFractionRingtone).coerceAtLeast(0.1f)
+    val weightDownload = (0.38f + 0.08f * pressFractionDownload - 0.08f * pressFractionWatch).coerceAtLeast(0.1f)
+    val weightWatch = (0.62f + 0.08f * pressFractionWatch - 0.08f * pressFractionDownload).coerceAtLeast(0.1f)
 
     val sendToWatchContainerColor by animateColorAsState(
         targetValue = if (isSendingToWatch) {
@@ -1684,23 +1469,24 @@ private fun Row4Actions(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        RingtoneActionButton(
+        DownloadActionButton(
             modifier = Modifier
-                .weight(weightRingtone)
+                .weight(weightDownload)
                 .fillMaxHeight(),
+            song = song,
+            downloadStatus = downloadStatus,
             showText = true,
             compactText = true,
-            interactionSource = ringtoneInteractionSource,
+            interactionSource = downloadInteractionSource,
             onClick = {
-                if (clickPending) return@RingtoneActionButton
+                if (clickPending) return@DownloadActionButton
                 clickPending = true
-                ringtoneVisualPressed = true
-                android.util.Log.d("PixelPlayerDebug", "Row4Actions: Ringtone clicked")
+                downloadVisualPressed = true
                 coroutineScope.launch {
                     kotlinx.coroutines.delay(180)
-                    ringtoneVisualPressed = false
+                    downloadVisualPressed = false
                     clickPending = false
-                    onRingtoneClick()
+                    onDownloadClick()
                 }
             },
         )

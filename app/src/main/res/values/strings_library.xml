@@ -175,6 +175,17 @@
     <string name="song_info_ringtone_local_only">Only local songs can be used as ringtones.</string>
     <string name="song_info_ringtone_missing_file">Couldn\'t prepare this audio file for ringtone.</string>
     <string name="song_info_ringtone_failed">Couldn\'t set ringtone: %1$s</string>
+    <string name="song_info_download_to_local">Download to local</string>
+    <string name="song_info_downloading_progress">Downloading %1$d%%</string>
+    <string name="song_info_downloaded_to_local">Downloaded</string>
+    <string name="song_info_already_local">Local audio</string>
+    <string name="song_info_download_failed">Download failed, tap to retry</string>
+    <string name="song_info_delete_offline_title">Delete offline audio?</string>
+    <string name="song_info_delete_offline_desc">This removes the offline copy from your device. The cloud file remains untouched.</string>
+    <string name="song_info_delete_offline_action">Delete</string>
+    <string name="playlist_action_download_all">Download all course audio</string>
+    <string name="playlist_download_all_started">Added %1$d songs to download queue</string>
+    <string name="playlist_download_all_already_local">All audio files in this course are already downloaded or local.</string>
     <string name="song_info_tab_options">Options</string>
     <string name="song_info_tab_options_badge">OPTIONS</string>
     <string name="song_info_tab_info">Info</string>
@@ -198,6 +209,7 @@
     <string name="multi_selection_genres_queue_hint">Perform batch operations on all songs within these genres.</string>
 
     <!-- Sort Option Display Names -->
+    <string name="sort_display_ai_order">AI Order</string>
     <string name="sort_display_default_order">Default Order</string>
     <string name="sort_display_title_az">Title (A-Z)</string>
     <string name="sort_display_title_za">Title (Z-A)</string>

@@ -66,4 +66,25 @@ class SongProgressTest {
         assertEquals(0.89f, song.playbackPercentage, 0.001f)
         assertEquals(89, song.playbackProgressPercent)
     }
+
+    @Test
+    fun resolveCoursePlaylistId_withExplicitFallback_returnsFallback() {
+        val song = createSong().copy(path = "/storage/emulated/0/Courses/Spanish/Lesson1.mp3")
+        val playlistId = song.resolveCoursePlaylistId("custom_playlist_id")
+        assertEquals("custom_playlist_id", playlistId)
+    }
+
+    @Test
+    fun resolveCoursePlaylistId_fromPath_returnsFolderPlaylist() {
+        val song = createSong().copy(path = "/storage/emulated/0/Courses/Spanish/Lesson1.mp3")
+        val playlistId = song.resolveCoursePlaylistId()
+        assertTrue(playlistId.startsWith("folder_playlist:"))
+    }
+
+    @Test
+    fun resolveCoursePlaylistId_emptyPath_returnsDefault() {
+        val song = createSong().copy(path = "")
+        val playlistId = song.resolveCoursePlaylistId()
+        assertEquals(com.theveloper.pixelplay.data.database.CourseProgressEntity.DEFAULT_PLAYLIST_ID, playlistId)
+    }
 }

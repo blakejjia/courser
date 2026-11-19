@@ -696,17 +696,10 @@ fun SearchScreen(
                 },
                 onDeleteFromDevice = playerViewModel::deleteFromDevice,
                 onNavigateToAlbum = {
-                    scope.launch {
-                        val courseId = playerViewModel.resolveCourseIdForSong(currentSong)
-                        if (!courseId.isNullOrBlank()) {
-                            navController.navigateSafelyReplacing(
-                                route = Screen.PlaylistDetail.createRoute(courseId),
-                                patternToPop = Screen.PlaylistDetail.route
-                            )
-                        } else {
-                            playerViewModel.sendToast("Course not found")
-                        }
-                    }
+                    navController.navigateSafelyReplacing(
+                        route = Screen.PlaylistDetail.createRoute(currentSong.resolveCoursePlaylistId()),
+                        patternToPop = Screen.PlaylistDetail.route
+                    )
                     showSongInfoBottomSheet = false
                 },
                 onNavigateToArtist = {
@@ -1088,7 +1081,6 @@ fun SearchResultsList(
 ) {
     val localDensity = LocalDensity.current
     val playerStableState by playerViewModel.stablePlayerState.collectAsStateWithLifecycle()
-    val scope = rememberCoroutineScope()
 
     if (results.isEmpty()) {
         Box(
@@ -1134,7 +1126,12 @@ fun SearchResultsList(
             } else {
                 listOf(song)
             }
-            playerViewModel.showAndPlaySong(song, playbackQueue, searchQueueName)
+            playerViewModel.showAndPlaySong(
+                song = song,
+                contextSongs = playbackQueue,
+                queueName = searchQueueName,
+                playlistId = song.resolveCoursePlaylistId()
+            )
             onItemSelected()
         }
     }
@@ -1229,20 +1226,13 @@ fun SearchResultsList(
                                 }
                                 val onOpenClick = remember(
                                     item.album,
-                                    playerViewModel, onItemSelected, scope
+                                    playerViewModel, onItemSelected
                                 ) {
                                     {
-                                        scope.launch {
-                                            val courseId = playerViewModel.resolveCourseIdForAlbumId(item.album.id)
-                                            if (!courseId.isNullOrBlank()) {
-                                                navController.navigateSafelyReplacing(
-                                                    route = Screen.PlaylistDetail.createRoute(courseId),
-                                                    patternToPop = Screen.PlaylistDetail.route
-                                                )
-                                            } else {
-                                                playerViewModel.sendToast("Course not found")
-                                            }
-                                        }
+                                        navController.navigateSafelyReplacing(
+                                            route = Screen.PlaylistDetail.createRoute(item.album.id.toString()),
+                                            patternToPop = Screen.PlaylistDetail.route
+                                        )
                                         onItemSelected()
                                     }
                                 }

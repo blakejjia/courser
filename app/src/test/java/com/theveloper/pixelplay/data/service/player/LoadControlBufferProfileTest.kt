@@ -9,10 +9,11 @@ class LoadControlBufferProfileTest {
     fun normalDevice_usesFullPrefetchProfile() {
         val profile = loadControlBufferProfileFor(isLowRamDevice = false)
 
-        assertThat(profile.minBufferMs).isEqualTo(30_000)
-        assertThat(profile.maxBufferMs).isEqualTo(60_000)
-        assertThat(profile.bufferForPlaybackMs).isEqualTo(2_000)
+        assertThat(profile.minBufferMs).isEqualTo(60_000)
+        assertThat(profile.maxBufferMs).isEqualTo(240_000)
+        assertThat(profile.bufferForPlaybackMs).isEqualTo(2_500)
         assertThat(profile.bufferForPlaybackAfterRebufferMs).isEqualTo(5_000)
+        assertThat(profile.backBufferMs).isEqualTo(30_000)
     }
 
     @Test

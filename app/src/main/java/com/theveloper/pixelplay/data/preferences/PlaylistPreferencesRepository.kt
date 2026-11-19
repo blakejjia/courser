@@ -219,6 +219,18 @@ class PlaylistPreferencesRepository @Inject constructor(
     suspend fun setUseAiCleanedTitles(playlistId: String, enabled: Boolean) =
         userPreferencesRepository.setUseAiCleanedTitles(playlistId, enabled)
 
+    val aiReorderedSongIdsByPlaylistFlow: Flow<Map<String, List<String>>> =
+        userPreferencesRepository.aiReorderedSongIdsByPlaylistFlow
+
+    val useAiReorderPlaylistsFlow: Flow<Set<String>> =
+        userPreferencesRepository.useAiReorderPlaylistsFlow
+
+    suspend fun setAiReorderedSongIds(playlistId: String, songIds: List<String>) =
+        userPreferencesRepository.setAiReorderedSongIds(playlistId, songIds)
+
+    suspend fun setUseAiReorder(playlistId: String, enabled: Boolean) =
+        userPreferencesRepository.setUseAiReorder(playlistId, enabled)
+
     suspend fun setPlaylistSongOrderMode(playlistId: String, modeValue: String) =
         userPreferencesRepository.setPlaylistSongOrderMode(playlistId, modeValue)
 

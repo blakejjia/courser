@@ -99,8 +99,8 @@ private data class PlayerUiSheetSliceV2(
     val currentQueueSourceName: String = "",
     val preparingSongId: String? = null,
     val currentPlaylistCoverUri: String? = null,
-    val currentCourseCoverColorArgb: Int? = null,
-    val currentCourseCoverIconName: String? = null
+    val currentPlaylistCoverColor: Int? = null,
+    val currentPlaylistCoverIcon: String? = null
 )
 
 /**
@@ -201,8 +201,8 @@ fun UnifiedPlayerSheetV2(
                     currentQueueSourceName = state.currentQueueSourceName,
                     preparingSongId = state.preparingSongId,
                     currentPlaylistCoverUri = state.currentPlaylistCoverUri,
-                    currentCourseCoverColorArgb = state.currentCourseCoverColorArgb,
-                    currentCourseCoverIconName = state.currentCourseCoverIconName
+                    currentPlaylistCoverColor = state.currentPlaylistCoverColor,
+                    currentPlaylistCoverIcon = state.currentPlaylistCoverIcon
                 )
             }
             .distinctUntilChanged()
@@ -210,8 +210,8 @@ fun UnifiedPlayerSheetV2(
     val currentQueueSourceName = playerUiSheetSlice.currentQueueSourceName
     val preparingSongId = playerUiSheetSlice.preparingSongId
     val currentPlaylistCoverUri = playerUiSheetSlice.currentPlaylistCoverUri
-    val currentCourseCoverColorArgb = playerUiSheetSlice.currentCourseCoverColorArgb
-    val currentCourseCoverIconName = playerUiSheetSlice.currentCourseCoverIconName
+    val currentPlaylistCoverColor = playerUiSheetSlice.currentPlaylistCoverColor
+    val currentPlaylistCoverIcon = playerUiSheetSlice.currentPlaylistCoverIcon
 
     val currentSheetContentState by playerViewModel.sheetState.collectAsStateWithLifecycle()
     val predictiveBackCollapseProgress by playerViewModel.predictiveBackCollapseFraction.collectAsStateWithLifecycle()
@@ -768,8 +768,8 @@ fun UnifiedPlayerSheetV2(
                             containerHeight = containerHeight,
                             currentQueueSourceName = currentQueueSourceName,
                             currentPlaylistCoverUri = currentPlaylistCoverUri,
-                            currentCourseCoverColorArgb = currentCourseCoverColorArgb,
-                            currentCourseCoverIconName = currentCourseCoverIconName,
+                            currentPlaylistCoverColor = currentPlaylistCoverColor,
+                            currentPlaylistCoverIcon = currentPlaylistCoverIcon,
                             currentSheetContentState = currentSheetContentState,
                             carouselStyle = carouselStyle,
                             fullPlayerLoadingTweaks = fullPlayerLoadingTweaks,
@@ -795,6 +795,9 @@ fun UnifiedPlayerSheetV2(
                     containerHeight = containerHeight,
                     albumColorScheme = albumColorScheme,
                     currentQueueSourceName = currentQueueSourceName,
+                    currentPlaylistCoverUri = currentPlaylistCoverUri,
+                    currentPlaylistCoverColor = currentPlaylistCoverColor,
+                    currentPlaylistCoverIcon = currentPlaylistCoverIcon,
                     infrequentPlayerState = infrequentPlayerState,
                     carouselStyle = carouselStyle,
                     fullPlayerLoadingTweaks = fullPlayerLoadingTweaks,

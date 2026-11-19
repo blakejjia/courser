@@ -197,8 +197,8 @@ fun FullPlayerContent(
     currentPlaybackQueue: ImmutableList<Song>,
     currentQueueSourceName: String,
     currentPlaylistCoverUri: String? = null,
-    currentCourseCoverColorArgb: Int? = null,
-    currentCourseCoverIconName: String? = null,
+    currentPlaylistCoverColor: Int? = null,
+    currentPlaylistCoverIcon: String? = null,
     currentMediaItemIndex: Int = -1,
     isShuffleEnabled: Boolean,
     shuffleTransitionInProgress: Boolean,
@@ -397,10 +397,12 @@ fun FullPlayerContent(
     }
 
     val onAlbumSongSelected: (Song, Int) -> Unit = { newSong, index ->
+        val currentPlaylistId = playerViewModel.playerUiState.value.currentPlaylistId ?: newSong.resolveCoursePlaylistId()
         playerViewModel.showAndPlaySong(
             song = newSong,
             contextSongs = currentPlaybackQueue,
             queueName = currentQueueSourceName,
+            playlistId = currentPlaylistId,
             indexInQueue = index
         )
     }
@@ -524,12 +526,14 @@ fun FullPlayerContent(
             requestedScrollIndex = pendingCarouselIndex,
             onSongSelected = onAlbumSongSelected,
             onAlbumClick = { albumSong ->
-                playerViewModel.triggerCourseNavigationFromPlayer(song = albumSong)
+                val targetPlaylistId = playerViewModel.playerUiState.value.currentPlaylistId
+                    ?: albumSong.resolveCoursePlaylistId()
+                playerViewModel.triggerPlaylistNavigationFromPlayer(targetPlaylistId)
             },
             currentQueueSourceName = currentQueueSourceName,
             currentPlaylistCoverUri = currentPlaylistCoverUri,
-            currentCourseCoverColorArgb = currentCourseCoverColorArgb,
-            currentCourseCoverIconName = currentCourseCoverIconName,
+            currentPlaylistCoverColor = currentPlaylistCoverColor,
+            currentPlaylistCoverIcon = currentPlaylistCoverIcon,
             modifier = modifier
         )
     }
@@ -1040,8 +1044,8 @@ private fun FullPlayerAlbumCoverSection(
     onAlbumClick: (Song) -> Unit,
     currentQueueSourceName: String = "",
     currentPlaylistCoverUri: String? = null,
-    currentCourseCoverColorArgb: Int? = null,
-    currentCourseCoverIconName: String? = null,
+    currentPlaylistCoverColor: Int? = null,
+    currentPlaylistCoverIcon: String? = null,
     modifier: Modifier = Modifier
 ) {
     val shouldDelay = loadingTweaks.delayAll || loadingTweaks.delayAlbumCarousel
@@ -1127,8 +1131,8 @@ private fun FullPlayerAlbumCoverSection(
                 albumArtQuality = albumArtQuality,
                 courseTitle = currentQueueSourceName,
                 courseCoverUri = currentPlaylistCoverUri,
-                courseCoverColorArgb = currentCourseCoverColorArgb,
-                courseCoverIconName = currentCourseCoverIconName
+                courseCoverColorArgb = currentPlaylistCoverColor,
+                courseCoverIconName = currentPlaylistCoverIcon
             )
         }
     }

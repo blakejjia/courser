@@ -2,6 +2,7 @@ package com.theveloper.pixelplay.data.model
 
 import android.os.Parcelable
 import androidx.compose.runtime.Immutable
+import com.theveloper.pixelplay.data.database.CourseProgressEntity
 import kotlinx.parcelize.Parcelize
 
 @Immutable
@@ -58,6 +59,16 @@ data class Song(
             else -> false
         }
 
+    val isLocal: Boolean
+        get() = telegramFileId == null &&
+            neteaseId == null &&
+            gdriveFileId == null &&
+            qqMusicMid == null &&
+            navidromeId == null &&
+            jellyfinId == null &&
+            !contentUriString.startsWith("http://") &&
+            !contentUriString.startsWith("https://")
+
     /**
      * Playback progress ratio in range [0.0f, 1.0f].
      * Returns 1.0f if completed (>= 90%), or (resumePositionMs / duration) if duration > 0.
@@ -105,6 +116,24 @@ data class Song(
         get() = artists.find { it.isPrimary }
             ?: artists.firstOrNull()
             ?: ArtistRef(id = artistId, name = artist, isPrimary = true)
+
+    /**
+     * Resolves the canonical course/playlist ID for this song.
+     * In Courser, every audio track belongs to a course folder.
+     * If no fallback/context playlistId is provided, parses the parent folder path.
+     * If neither exists, falls back to [CourseProgressEntity.DEFAULT_PLAYLIST_ID].
+     */
+    fun resolveCoursePlaylistId(fallbackPlaylistId: String? = null): String {
+        if (!fallbackPlaylistId.isNullOrBlank()) return fallbackPlaylistId
+        val folderPath = path.substringBeforeLast('/', "").takeIf { it.isNotBlank() }
+        return if (folderPath != null) {
+            val encoded = runCatching { android.net.Uri.encode(folderPath) }.getOrNull()
+                ?: java.net.URLEncoder.encode(folderPath, "UTF-8")
+            "folder_playlist:$encoded"
+        } else {
+            CourseProgressEntity.DEFAULT_PLAYLIST_ID
+        }
+    }
 
     companion object {
         fun emptySong(): Song {

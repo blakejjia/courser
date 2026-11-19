@@ -24,25 +24,21 @@ import kotlinx.collections.immutable.ImmutableList
 import kotlinx.coroutines.flow.first
 
 import com.theveloper.pixelplay.data.preferences.AlbumArtQuality
-import androidx.compose.foundation.background
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import com.theveloper.pixelplay.R
 import com.theveloper.pixelplay.ui.theme.GoogleSansRounded
-import com.theveloper.pixelplay.utils.resolvePlaylistCoverContentColor
+import androidx.compose.ui.graphics.Color
+import com.theveloper.pixelplay.utils.CourseResolutionUtils
 
 // ====== TIPOS/STATE DEL CARRUSEL (wrapper para mantener compatibilidad) ======
 
@@ -222,12 +218,17 @@ fun AlbumCarouselSection(
             content = { index ->
                 val song = queue[index]
                 val isFocusedItem = carouselState.pagerState.currentPage == index
+                val displayCourseTitle = courseTitle.takeIf {
+                    it.isNotBlank() && it != "All Songs" && it != "Library" && it != "None"
+                } ?: song.album.takeIf { it.isNotBlank() && it != "Unknown" && it != "All Songs" }
+                ?: "Course"
+
                 Box(
                     Modifier
                         .fillMaxSize()
                         .aspectRatio(1f)
                         .clickable(
-                            enabled = isFocusedItem,
+                            enabled = isFocusedItem && song.albumId != -1L,
                             interactionSource = remember { MutableInteractionSource() },
                             indication = null,
                             onClick = { onAlbumClick(song) }
@@ -236,43 +237,39 @@ fun AlbumCarouselSection(
                     if (!courseCoverUri.isNullOrBlank()) {
                         OptimizedAlbumArt(
                             uri = courseCoverUri,
-                            title = courseTitle.ifBlank { song.title },
+                            title = displayCourseTitle,
                             modifier = Modifier.fillMaxSize(),
                             targetSize = targetSize
                         )
                     } else if (courseCoverIconName?.startsWith("text:") == true) {
                         CourseGridCover(
-                            title = courseTitle.ifBlank { song.title },
+                            title = displayCourseTitle,
                             customText = courseCoverIconName.removePrefix("text:"),
                             colorArgb = courseCoverColorArgb,
                             shape = RoundedCornerShape(24.dp),
                             modifier = Modifier.fillMaxSize()
                         )
                     } else if (courseCoverColorArgb != null && !courseCoverIconName.isNullOrBlank()) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .clip(RoundedCornerShape(24.dp))
-                                .background(Color(courseCoverColorArgb)),
-                            contentAlignment = Alignment.Center
+                        Surface(
+                            shape = RoundedCornerShape(24.dp),
+                            color = Color(courseCoverColorArgb),
+                            modifier = Modifier.fillMaxSize()
                         ) {
-                            Icon(
-                                imageVector = getCourseIconByName(courseCoverIconName) ?: Icons.Rounded.MusicNote,
-                                contentDescription = courseTitle,
-                                tint = resolvePlaylistCoverContentColor(courseCoverColorArgb, MaterialTheme.colorScheme),
-                                modifier = Modifier.size(64.dp)
-                            )
+                            Box(
+                                modifier = Modifier.fillMaxSize(),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = CourseResolutionUtils.resolveCourseIcon(courseCoverIconName),
+                                    contentDescription = displayCourseTitle,
+                                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    modifier = Modifier.size(64.dp)
+                                )
+                            }
                         }
-                    } else if (!song.albumArtUriString.isNullOrBlank()) {
-                        OptimizedAlbumArt(
-                            uri = song.albumArtUriString,
-                            title = song.title,
-                            modifier = Modifier.fillMaxSize(),
-                            targetSize = targetSize
-                        )
                     } else {
                         CourseGridCover(
-                            title = courseTitle.ifBlank { song.title.ifBlank { "Courser" } },
+                            title = displayCourseTitle,
                             colorArgb = courseCoverColorArgb,
                             shape = RoundedCornerShape(24.dp),
                             modifier = Modifier.fillMaxSize()

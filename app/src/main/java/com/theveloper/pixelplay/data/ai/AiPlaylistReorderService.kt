@@ -75,6 +75,93 @@ class AiPlaylistReorderService @Inject constructor(
         return parseRanksAndTitles(rawResponse).first
     }
 
+    suspend fun cleanSongTitles(songs: List<Song>): Result<Map<String, String>> {
+        if (songs.isEmpty()) {
+            return Result.success(emptyMap())
+        }
+
+        return try {
+            val songPayload = songs.mapIndexed { _, s ->
+                val cleanTitle = s.title.replace("\"", "'").take(100)
+                """{"id":"${s.id}","name":"$cleanTitle"}"""
+            }.joinToString(",", prefix = "[", postfix = "]")
+
+            val prompt = """
+                Analyze the following list of audio tracks or course lessons and clean up messy audio/lesson titles.
+                For each track:
+                - Provide a 'cleaned_title' removing extraneous platform tags (e.g., "[Bilibili]", "[Coursera]"), resolution/format tags ("1080p", "HD"), download hashes, and file extensions, while preserving lesson numbering and clean topic names.
+                - Do NOT change track order or ranks; only clean up their titles.
+
+                Input tracks:
+                $songPayload
+
+                Output Format:
+                {"track_id": "Cleaned Title", ...}
+            """.trimIndent()
+
+            val rawResponse = aiHandler.generateContent(
+                prompt = prompt,
+                type = AiSystemPromptType.COURSE_RENAME,
+                temperature = 0.1f
+            )
+
+            val parsedTitles = parseCleanedTitlesOnly(rawResponse)
+            if (parsedTitles.isEmpty()) {
+                throw IllegalStateException("AI returned an empty or unparseable rename response.")
+            }
+
+            Result.success(parsedTitles)
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to clean song titles with AI")
+            Result.failure(e)
+        }
+    }
+
+    internal fun parseCleanedTitlesOnly(rawResponse: String): Map<String, String> {
+        val cleaned = AiResponseCleaner.cleanJsonResponse(rawResponse)
+        val jsonText = AiResponseCleaner.extractJsonObject(cleaned) ?: cleaned
+
+        val titleMap = mutableMapOf<String, String>()
+        try {
+            val rootElement = json.parseToJsonElement(jsonText).jsonObject
+            for ((id, value) in rootElement) {
+                if (value is JsonObject) {
+                    val title = value["cleaned_title"]?.jsonPrimitive?.contentOrNull
+                        ?: value["title"]?.jsonPrimitive?.contentOrNull
+                    if (!title.isNullOrBlank()) {
+                        titleMap[id] = title.trim()
+                    }
+                } else if (value is JsonPrimitive) {
+                    val title = value.contentOrNull
+                    if (!title.isNullOrBlank()) {
+                        titleMap[id] = title.trim()
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            Timber.w(e, "Failed parsing JSON element with kotlinx.serialization, attempting fallback regex")
+            val titleObjRegex = """"([^"]+)"\s*:\s*\{[^}]*"cleaned_title"\s*:\s*"([^"]+)"""".toRegex()
+            titleObjRegex.findAll(jsonText).forEach { match ->
+                val id = match.groupValues[1]
+                val title = match.groupValues[2]
+                if (title.isNotBlank()) {
+                    titleMap[id] = title.trim()
+                }
+            }
+            if (titleMap.isEmpty()) {
+                val directTitleRegex = """"([^"]+)"\s*:\s*"([^"]+)"""".toRegex()
+                directTitleRegex.findAll(jsonText).forEach { match ->
+                    val id = match.groupValues[1]
+                    val title = match.groupValues[2]
+                    if (title.isNotBlank()) {
+                        titleMap[id] = title.trim()
+                    }
+                }
+            }
+        }
+        return titleMap
+    }
+
     internal fun parseRanksAndTitles(rawResponse: String): Pair<Map<String, Int>, Map<String, String>> {
         val cleaned = AiResponseCleaner.cleanJsonResponse(rawResponse)
         val jsonText = AiResponseCleaner.extractJsonObject(cleaned) ?: cleaned
