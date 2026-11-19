@@ -41,6 +41,7 @@ import androidx.compose.material3.LargeExtendedFloatingActionButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.derivedStateOf
@@ -122,8 +123,11 @@ fun PlaylistDefaultScreen(
         navController.navigateSafely(Screen.PlaylistEdit.createRoute(playlistId))
     }
 ) {
-    LaunchedEffect(playlistId) {
+    DisposableEffect(playlistId) {
         playlistViewModel.loadPlaylistDetails(playlistId)
+        onDispose {
+            playlistViewModel.clearPlaylistDetails()
+        }
     }
 
     val playlistUiState by playlistViewModel.uiState.collectAsStateWithLifecycle()

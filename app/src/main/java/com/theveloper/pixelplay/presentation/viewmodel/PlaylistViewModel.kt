@@ -15,6 +15,9 @@ import com.theveloper.pixelplay.data.playlist.M3uManager
 import com.theveloper.pixelplay.data.preferences.PlaylistPreferencesRepository
 import com.theveloper.pixelplay.data.repository.MusicRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -265,12 +268,20 @@ class PlaylistViewModel @Inject constructor(
         }
     }
 
+    private var playlistDetailsJob: Job? = null
+
+    fun clearPlaylistDetails() {
+        playlistDetailsJob?.cancel()
+        playlistDetailsJob = null
+    }
+
     fun loadPlaylistDetails(playlistId: String) {
-        viewModelScope.launch {
+        playlistDetailsJob?.cancel()
+        playlistDetailsJob = viewModelScope.launch {
             val shouldKeepExisting = _uiState.value.currentPlaylistDetails?.id == playlistId
             _uiState.update {
                 it.copy(
-                    isLoading = true,
+                    isLoading = !shouldKeepExisting,
                     playlistNotFound = false,
                     currentPlaylistDetails = if (shouldKeepExisting) it.currentPlaylistDetails else null,
                     currentPlaylistSongs = if (shouldKeepExisting) it.currentPlaylistSongs else emptyList()
@@ -292,53 +303,62 @@ class PlaylistViewModel @Inject constructor(
                             }
                         }
                         val courseId = CourseProgressEntity.localFolderCourseId(folderPath)
-                        val progress = courseProgressRepository.getProgress(courseId)
-                        val songsList = courseProgressRepository.enrichSongsWithProgress(rawSongsList)
+                        val songIds = rawSongsList.map { it.id }
 
-                        val savedFolderOrders = playlistPreferencesRepository.folderPlaylistSongOrdersFlow.first()
-                        val savedFolderOrder = savedFolderOrders[playlistId]
-                        val orderMode = _uiState.value.playlistOrderModes[playlistId]
-                            ?: if (savedFolderOrder != null) PlaylistSongsOrderMode.Manual
-                               else PlaylistSongsOrderMode.Sorted(_uiState.value.currentPlaylistSongsSortOption)
+                        val progressFlow = combine(
+                            courseProgressRepository.observeProgress(courseId),
+                            courseProgressRepository.observeSongEngagements(songIds)
+                        ) { progress, engagements -> progress to engagements }
 
-                        val orderedFolderSongs = if (savedFolderOrder != null && orderMode == PlaylistSongsOrderMode.Manual) {
-                            val songMap = songsList.associateBy { it.id }
-                            savedFolderOrder.mapNotNull { songMap[it] } + songsList.filterNot { it.id in savedFolderOrder }
-                        } else {
-                            when (orderMode) {
-                                is PlaylistSongsOrderMode.Sorted -> applySortToSongs(songsList, orderMode.option)
-                                PlaylistSongsOrderMode.Manual -> songsList
+                        combine(
+                            progressFlow,
+                            playlistPreferencesRepository.folderPlaylistSongOrdersFlow,
+                            playlistPreferencesRepository.aiCleanedTitlesByPlaylistFlow,
+                            playlistPreferencesRepository.useAiCleanedTitlesPlaylistsFlow
+                        ) { (progress, engagements), savedFolderOrders, allCleanedTitles, useCleanedPlaylists ->
+                            val songsList = courseProgressRepository.enrichSongsWithEngagements(rawSongsList, engagements)
+                            val savedFolderOrder = savedFolderOrders[playlistId]
+                            val orderMode = _uiState.value.playlistOrderModes[playlistId]
+                                ?: if (savedFolderOrder != null) PlaylistSongsOrderMode.Manual
+                                   else PlaylistSongsOrderMode.Sorted(_uiState.value.currentPlaylistSongsSortOption)
+
+                            val orderedFolderSongs = if (savedFolderOrder != null && orderMode == PlaylistSongsOrderMode.Manual) {
+                                val songMap = songsList.associateBy { it.id }
+                                savedFolderOrder.mapNotNull { songMap[it] } + songsList.filterNot { it.id in savedFolderOrder }
+                            } else {
+                                when (orderMode) {
+                                    is PlaylistSongsOrderMode.Sorted -> applySortToSongs(songsList, orderMode.option)
+                                    PlaylistSongsOrderMode.Manual -> songsList
+                                }
                             }
-                        }
 
-                        val pseudoPlaylist = Playlist(
-                            id = playlistId,
-                            name = folder.name,
-                            songIds = orderedFolderSongs.map { it.id },
-                            lastPlayedAt = progress?.lastPlayedAt?.takeIf { it > 0L },
-                            completionPercentage = progress?.completionRatio ?: 0f,
-                            lastPlayedSongId = progress?.currentSongId,
-                            lastPlayedSongTitle = progress?.currentSongTitle?.takeIf { it.isNotBlank() }
-                        )
-
-                        val allCleanedTitles = playlistPreferencesRepository.aiCleanedTitlesByPlaylistFlow.first()
-                        val cleanedTitles = allCleanedTitles[playlistId].orEmpty()
-                        val useCleanedPlaylists = playlistPreferencesRepository.useAiCleanedTitlesPlaylistsFlow.first()
-                        val isUsingCleaned = playlistId in useCleanedPlaylists && cleanedTitles.isNotEmpty()
-                        val displaySongs = applyCleanedTitlesIfEnabled(orderedFolderSongs, cleanedTitles, isUsingCleaned)
-
-                        _uiState.update {
-                            it.copy(
-                                currentPlaylistDetails = pseudoPlaylist,
-                                currentPlaylistSongs = displaySongs,
-                                playlistSongsOrderMode = orderMode,
-                                playlistOrderModes = it.playlistOrderModes + (playlistId to orderMode),
-                                isLoading = false,
-                                playlistNotFound = false,
-                                hasAiCleanedTitles = cleanedTitles.isNotEmpty(),
-                                isUsingAiCleanedTitles = isUsingCleaned
+                            val pseudoPlaylist = Playlist(
+                                id = playlistId,
+                                name = folder.name,
+                                songIds = orderedFolderSongs.map { it.id },
+                                lastPlayedAt = progress?.lastPlayedAt?.takeIf { it > 0L },
+                                completionPercentage = progress?.completionRatio ?: 0f,
+                                lastPlayedSongId = progress?.currentSongId,
+                                lastPlayedSongTitle = progress?.currentSongTitle?.takeIf { it.isNotBlank() }
                             )
-                        }
+
+                            val cleanedTitles = allCleanedTitles[playlistId].orEmpty()
+                            val isUsingCleaned = playlistId in useCleanedPlaylists && cleanedTitles.isNotEmpty()
+                            val displaySongs = applyCleanedTitlesIfEnabled(orderedFolderSongs, cleanedTitles, isUsingCleaned)
+
+                            _uiState.update {
+                                it.copy(
+                                    currentPlaylistDetails = pseudoPlaylist,
+                                    currentPlaylistSongs = displaySongs,
+                                    playlistSongsOrderMode = orderMode,
+                                    playlistOrderModes = it.playlistOrderModes + (playlistId to orderMode),
+                                    isLoading = false,
+                                    playlistNotFound = false,
+                                    hasAiCleanedTitles = cleanedTitles.isNotEmpty(),
+                                    isUsingAiCleanedTitles = isUsingCleaned
+                                )
+                            }
+                        }.collect()
                     } else {
                         Log.w("PlaylistVM", "Folder playlist with path $folderPath not found.")
                         _uiState.update {
@@ -356,41 +376,57 @@ class PlaylistViewModel @Inject constructor(
                         .find { it.id == playlistId }
 
                     if (playlist != null) {
-                        val orderMode = _uiState.value.playlistOrderModes[playlistId]
-                            ?: PlaylistSongsOrderMode.Manual
-
-                        // Colectar la lista de canciones del Flow devuelto por el repositorio en un hilo de IO
-                        val rawSongsList: List<Song> = withContext(kotlinx.coroutines.Dispatchers.IO) {
+                        val rawSongsList: List<Song> = withContext(Dispatchers.IO) {
                             musicRepository.getSongsByIds(playlist.songIds).first()
                         }
-                        val songsList = courseProgressRepository.enrichSongsWithProgress(rawSongsList)
+                        val courseId = CourseProgressEntity.playlistCourseId(playlistId)
+                        val songIds = playlist.songIds
 
-                        val orderedSongs = when (orderMode) {
-                            is PlaylistSongsOrderMode.Sorted -> applySortToSongs(songsList, orderMode.option)
-                            PlaylistSongsOrderMode.Manual -> songsList
-                        }
+                        val progressFlow = combine(
+                            courseProgressRepository.observeProgress(courseId),
+                            courseProgressRepository.observeSongEngagements(songIds)
+                        ) { progress, engagements -> progress to engagements }
 
-                        val allCleanedTitles = playlistPreferencesRepository.aiCleanedTitlesByPlaylistFlow.first()
-                        val cleanedTitles = allCleanedTitles[playlistId].orEmpty()
-                        val useCleanedPlaylists = playlistPreferencesRepository.useAiCleanedTitlesPlaylistsFlow.first()
-                        val isUsingCleaned = playlistId in useCleanedPlaylists && cleanedTitles.isNotEmpty()
-                        val displaySongs = applyCleanedTitlesIfEnabled(orderedSongs, cleanedTitles, isUsingCleaned)
+                        combine(
+                            progressFlow,
+                            playlistPreferencesRepository.aiCleanedTitlesByPlaylistFlow,
+                            playlistPreferencesRepository.useAiCleanedTitlesPlaylistsFlow
+                        ) { (progress, engagements), allCleanedTitles, useCleanedPlaylists ->
+                            val songsList = courseProgressRepository.enrichSongsWithEngagements(rawSongsList, engagements)
+                            val orderMode = _uiState.value.playlistOrderModes[playlistId]
+                                ?: PlaylistSongsOrderMode.Manual
 
-                        // La actualización del UI se hace en el hilo principal
-                        _uiState.update {
-                            it.copy(
-                                currentPlaylistDetails = playlist,
-                                currentPlaylistSongs = displaySongs,
-                                currentPlaylistSongsSortOption = (orderMode as? PlaylistSongsOrderMode.Sorted)?.option
-                                    ?: it.currentPlaylistSongsSortOption,
-                                playlistSongsOrderMode = orderMode,
-                                playlistOrderModes = it.playlistOrderModes + (playlistId to orderMode),
-                                isLoading = false,
-                                playlistNotFound = false,
-                                hasAiCleanedTitles = cleanedTitles.isNotEmpty(),
-                                isUsingAiCleanedTitles = isUsingCleaned
+                            val orderedSongs = when (orderMode) {
+                                is PlaylistSongsOrderMode.Sorted -> applySortToSongs(songsList, orderMode.option)
+                                PlaylistSongsOrderMode.Manual -> songsList
+                            }
+
+                            val updatedPlaylist = playlist.copy(
+                                lastPlayedAt = progress?.lastPlayedAt?.takeIf { it > 0L },
+                                completionPercentage = progress?.completionRatio ?: playlist.completionPercentage,
+                                lastPlayedSongId = progress?.currentSongId ?: playlist.lastPlayedSongId,
+                                lastPlayedSongTitle = progress?.currentSongTitle?.takeIf { it.isNotBlank() } ?: playlist.lastPlayedSongTitle
                             )
-                        }
+
+                            val cleanedTitles = allCleanedTitles[playlistId].orEmpty()
+                            val isUsingCleaned = playlistId in useCleanedPlaylists && cleanedTitles.isNotEmpty()
+                            val displaySongs = applyCleanedTitlesIfEnabled(orderedSongs, cleanedTitles, isUsingCleaned)
+
+                            _uiState.update {
+                                it.copy(
+                                    currentPlaylistDetails = updatedPlaylist,
+                                    currentPlaylistSongs = displaySongs,
+                                    currentPlaylistSongsSortOption = (orderMode as? PlaylistSongsOrderMode.Sorted)?.option
+                                        ?: it.currentPlaylistSongsSortOption,
+                                    playlistSongsOrderMode = orderMode,
+                                    playlistOrderModes = it.playlistOrderModes + (playlistId to orderMode),
+                                    isLoading = false,
+                                    playlistNotFound = false,
+                                    hasAiCleanedTitles = cleanedTitles.isNotEmpty(),
+                                    isUsingAiCleanedTitles = isUsingCleaned
+                                )
+                            }
+                        }.collect()
                     } else {
                         Log.w("PlaylistVM", "Playlist with id $playlistId not found.")
                         _uiState.update {

@@ -124,8 +124,10 @@ class CourseProgressRepository @Inject constructor(
         }
     }
 
-    fun observeSongEngagements(songIds: List<String>): Flow<Map<String, SongEngagementEntity>> =
-        engagementDao.observeEngagementsForSongs(songIds).map { list -> list.associateBy { it.songId } }
+    fun observeSongEngagements(songIds: List<String>): Flow<Map<String, SongEngagementEntity>> {
+        if (songIds.isEmpty()) return kotlinx.coroutines.flow.flowOf(emptyMap())
+        return engagementDao.observeEngagementsForSongs(songIds).map { list -> list.associateBy { it.songId } }
+    }
 
     /**
      * Enriches a list of [Song]s with their individual learning progress,
@@ -134,6 +136,11 @@ class CourseProgressRepository @Inject constructor(
     suspend fun enrichSongsWithProgress(songs: List<Song>): List<Song> {
         if (songs.isEmpty()) return songs
         val engagements = getSongEngagements(songs.map { it.id })
+        return enrichSongsWithEngagements(songs, engagements)
+    }
+
+    fun enrichSongsWithEngagements(songs: List<Song>, engagements: Map<String, SongEngagementEntity>): List<Song> {
+        if (songs.isEmpty() || engagements.isEmpty()) return songs
         return songs.map { song ->
             val engagement = engagements[song.id]
             if (engagement != null) {
