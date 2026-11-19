@@ -2,6 +2,7 @@ package com.theveloper.pixelplay.presentation.viewmodel
 
 import com.theveloper.pixelplay.data.model.Song
 import com.theveloper.pixelplay.data.preferences.UserPreferencesRepository
+import com.theveloper.pixelplay.data.repository.CourseProgressRepository
 import com.theveloper.pixelplay.data.repository.DailyLearningQueueBuilder
 import com.theveloper.pixelplay.data.repository.MusicRepository
 import kotlinx.collections.immutable.ImmutableList
@@ -30,10 +31,13 @@ import javax.inject.Singleton
 class DailyMixStateHolder @Inject constructor(
     private val dailyLearningQueueBuilder: DailyLearningQueueBuilder,
     private val userPreferencesRepository: UserPreferencesRepository,
-    private val musicRepository: MusicRepository
+    private val musicRepository: MusicRepository,
+    private val courseProgressRepository: CourseProgressRepository? = null
 ) {
     private var scope: CoroutineScope? = null
     private var updateJob: Job? = null
+    private var dailyMixProgressJob: Job? = null
+    private var yourMixProgressJob: Job? = null
 
     private val _dailyMixSongs = MutableStateFlow<ImmutableList<Song>>(persistentListOf())
     val dailyMixSongs: StateFlow<ImmutableList<Song>> = _dailyMixSongs.asStateFlow()
@@ -48,12 +52,34 @@ class DailyMixStateHolder @Inject constructor(
         scope = coroutineScope
     }
 
+    private fun observeDailyMixProgress(songs: List<Song>) {
+        dailyMixProgressJob?.cancel()
+        if (songs.isEmpty() || courseProgressRepository == null) return
+        dailyMixProgressJob = scope?.launch {
+            courseProgressRepository.observeEnrichedSongs(songs).collect { enriched ->
+                _dailyMixSongs.value = enriched.toImmutableList()
+            }
+        }
+    }
+
+    private fun observeYourMixProgress(songs: List<Song>) {
+        yourMixProgressJob?.cancel()
+        if (songs.isEmpty() || courseProgressRepository == null) return
+        yourMixProgressJob = scope?.launch {
+            courseProgressRepository.observeEnrichedSongs(songs).collect { enriched ->
+                _yourMixSongs.value = enriched.toImmutableList()
+            }
+        }
+    }
+
     /**
      * Remove a song from the daily mix.
      */
     fun removeFromDailyMix(songId: String) {
         _dailyMixSongs.update { currentList ->
-            currentList.filterNot { it.id == songId }.toImmutableList()
+            val updated = currentList.filterNot { it.id == songId }.toImmutableList()
+            observeDailyMixProgress(updated)
+            updated
         }
     }
 
@@ -68,6 +94,8 @@ class DailyMixStateHolder @Inject constructor(
                 val mix = session.songs.toImmutableList()
                 _dailyMixSongs.value = mix
                 _yourMixSongs.value = mix
+                observeDailyMixProgress(mix)
+                observeYourMixProgress(mix)
                 userPreferencesRepository.saveDailyMixSongIds(mix.map { it.id })
             } else {
                 val allSongs = musicRepository.getAllSongsOnce()
@@ -75,6 +103,8 @@ class DailyMixStateHolder @Inject constructor(
                     val mix = allSongs.take(20).toImmutableList()
                     _dailyMixSongs.value = mix
                     _yourMixSongs.value = mix
+                    observeDailyMixProgress(mix)
+                    observeYourMixProgress(mix)
                     userPreferencesRepository.saveDailyMixSongIds(mix.map { it.id })
                 } else {
                     _yourMixSongs.value = persistentListOf()
@@ -93,6 +123,8 @@ class DailyMixStateHolder @Inject constructor(
                 val mix = session.songs.toImmutableList()
                 _dailyMixSongs.value = mix
                 _yourMixSongs.value = mix
+                observeDailyMixProgress(mix)
+                observeYourMixProgress(mix)
             } else {
                 val dailyMixIds = userPreferencesRepository.dailyMixSongIdsFlow.first()
                 if (dailyMixIds.isNotEmpty() && _dailyMixSongs.value.isEmpty()) {
@@ -102,7 +134,9 @@ class DailyMixStateHolder @Inject constructor(
                     if (songs.isNotEmpty()) {
                         val songMap = songs.associateBy { it.id }
                         val orderedSongs = dailyMixIds.mapNotNull { songMap[it] }
-                        _dailyMixSongs.value = orderedSongs.toImmutableList()
+                        val immutableSongs = orderedSongs.toImmutableList()
+                        _dailyMixSongs.value = immutableSongs
+                        observeDailyMixProgress(immutableSongs)
                     }
                 }
             }
@@ -118,7 +152,9 @@ class DailyMixStateHolder @Inject constructor(
                 if (songs.isNotEmpty()) {
                     val songMap = songs.associateBy { it.id }
                     val orderedSongs = yourMixIds.mapNotNull { songMap[it] }
-                    _yourMixSongs.value = orderedSongs.toImmutableList()
+                    val immutableSongs = orderedSongs.toImmutableList()
+                    _yourMixSongs.value = immutableSongs
+                    observeYourMixProgress(immutableSongs)
                 }
             }
         }
@@ -156,7 +192,9 @@ class DailyMixStateHolder @Inject constructor(
      * Set the daily mix songs directly (used for AI-generated mixes).
      */
     fun setDailyMixSongs(songs: List<Song>) {
-        _dailyMixSongs.value = songs.toImmutableList()
+        val immutableSongs = songs.toImmutableList()
+        _dailyMixSongs.value = immutableSongs
+        observeDailyMixProgress(immutableSongs)
         scope?.launch {
             userPreferencesRepository.saveDailyMixSongIds(songs.map { it.id })
         }
@@ -175,6 +213,8 @@ class DailyMixStateHolder @Inject constructor(
 
     fun onCleared() {
         updateJob?.cancel()
+        dailyMixProgressJob?.cancel()
+        yourMixProgressJob?.cancel()
         scope = null
     }
 }

@@ -4,8 +4,12 @@ import com.theveloper.pixelplay.data.database.CourseProgressDao
 import com.theveloper.pixelplay.data.database.CourseProgressEntity
 import com.theveloper.pixelplay.data.database.EngagementDao
 import com.theveloper.pixelplay.data.database.SongEngagementEntity
+import com.theveloper.pixelplay.data.model.SearchResultItem
 import com.theveloper.pixelplay.data.model.Song
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import timber.log.Timber
 import javax.inject.Inject
@@ -164,6 +168,55 @@ class CourseProgressRepository @Inject constructor(
         )
     }
 
+    /**
+     * Reactively enriches a static or in-memory list of [Song]s with their latest
+     * [resumePositionMs] and [isCompleted] by observing [EngagementDao].
+     * Whenever progress changes in Room, this Flow emits an updated list.
+     */
+    fun observeEnrichedSongs(songs: List<Song>): Flow<List<Song>> {
+        if (songs.isEmpty()) return flowOf(emptyList())
+        val songIds = songs.map { it.id }
+        return observeSongEngagements(songIds).map { engagements ->
+            enrichSongsWithEngagements(songs, engagements)
+        }
+    }
+
+    /**
+     * Reactively transforms a [Flow] of [List<Song>] by piping every emitted song list
+     * through Room [observeSongEngagements]. Any subsequent progress writes for those songs
+     * will trigger a new emission with fresh progress fields.
+     */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    fun enrichSongsFlow(songsFlow: Flow<List<Song>>): Flow<List<Song>> {
+        return songsFlow.flatMapLatest { songs ->
+            observeEnrichedSongs(songs)
+        }
+    }
+
+    /**
+     * Reactively enriches search results with latest per-track progress for all [SearchResultItem.SongItem]s.
+     */
+    fun enrichSearchResults(
+        items: List<SearchResultItem>,
+        engagements: Map<String, SongEngagementEntity>
+    ): List<SearchResultItem> {
+        if (items.isEmpty() || engagements.isEmpty()) return items
+        return items.map { item ->
+            if (item is SearchResultItem.SongItem) {
+                val engagement = engagements[item.song.id]
+                if (engagement != null) {
+                    SearchResultItem.SongItem(
+                        item.song.copy(
+                            lastPlayedAt = engagement.lastPlayedTimestamp.takeIf { it > 0L },
+                            resumePositionMs = engagement.lastResumePositionMs,
+                            isCompleted = engagement.isCompleted
+                        )
+                    )
+                } else item
+            } else item
+        }
+    }
+
     // ── Write: cursor update (call on pause / track-change / 30s heartbeat) ──
 
     /**
@@ -306,3 +359,10 @@ class CourseProgressRepository @Inject constructor(
     suspend fun clearAll() =
         courseProgressDao.clearAll()
 }
+
+/**
+ * Extension on [Flow<List<Song>>] to easily append real-time progress enrichment.
+ */
+fun Flow<List<Song>>.withProgress(courseProgressRepository: CourseProgressRepository): Flow<List<Song>> =
+    courseProgressRepository.enrichSongsFlow(this)
+

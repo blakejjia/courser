@@ -5,15 +5,19 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.theveloper.pixelplay.data.model.Genre
 import com.theveloper.pixelplay.data.model.Song
+import com.theveloper.pixelplay.data.repository.CourseProgressRepository
 import com.theveloper.pixelplay.data.repository.MusicRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.Dispatchers
 import javax.inject.Inject
 
 // --- Model Types for Sectioned Display ---
@@ -100,20 +104,22 @@ data class GenreDetailUiState(
 @HiltViewModel
 class GenreDetailViewModel @Inject constructor(
     private val musicRepository: MusicRepository,
-    private val savedStateHandle: SavedStateHandle
+    private val savedStateHandle: SavedStateHandle,
+    private val courseProgressRepository: CourseProgressRepository? = null
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(GenreDetailUiState())
     val uiState: StateFlow<GenreDetailUiState> = _uiState.asStateFlow()
 
     private var artistMap: Map<String, String?> = emptyMap()
+    private var genreDetailsJob: Job? = null
 
     init {
         savedStateHandle.get<String>("genreId")?.let { genreId ->
             val decodedGenreId = java.net.URLDecoder.decode(genreId, "UTF-8")
             loadGenreDetails(decodedGenreId)
         } ?: run {
-            _uiState.value = _uiState.value.copy(error = "Genre ID not found", isLoadingGenreName = false, isLoadingSongs = false)
+            _uiState.update { it.copy(error = "Genre ID not found", isLoadingGenreName = false, isLoadingSongs = false) }
         }
     }
 
@@ -126,58 +132,64 @@ class GenreDetailViewModel @Inject constructor(
     )
 
     private fun loadGenreDetails(genreId: String) {
-        viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoadingGenreName = true, isLoadingSongs = true, error = null)
+        genreDetailsJob?.cancel()
+        genreDetailsJob = viewModelScope.launch {
+            _uiState.update { it.copy(isLoadingGenreName = true, isLoadingSongs = true, error = null) }
 
             try {
                 // Step 1: Fast load of the Genre object to stabilize the UI theme as early as possible.
-                // This prevents a major recomposition (theme switch) mid-animation.
                 val initialGenre = withContext(Dispatchers.Default) {
                     val genres = musicRepository.getGenres().first()
                     genres.find { it.id.equals(genreId, ignoreCase = true) }
                 }
-                
+
                 if (initialGenre != null) {
-                    _uiState.value = _uiState.value.copy(genre = initialGenre, isLoadingGenreName = false)
+                    _uiState.update { it.copy(genre = initialGenre, isLoadingGenreName = false) }
                 }
 
-                // Step 2: Heavy data processing for songs and sections
-                val result = withContext(Dispatchers.Default) {
-                    val genres = musicRepository.getGenres().first()
-                    val genre = initialGenre ?: genres.find { it.id.equals(genreId, ignoreCase = true) }
-                        ?: Genre(
-                            id = genreId,
-                            name = genreId.replace("_", " ").replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }, 
-                            lightColorHex = "#9E9E9E", onLightColorHex = "#000000",
-                            darkColorHex = "#616161", onDarkColorHex = "#FFFFFF"
-                        )
+                val genre = initialGenre ?: Genre(
+                    id = genreId,
+                    name = genreId.replace("_", " ").replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() },
+                    lightColorHex = "#9E9E9E", onLightColorHex = "#000000",
+                    darkColorHex = "#616161", onDarkColorHex = "#FFFFFF"
+                )
 
-                    val songs = musicRepository.getMusicByGenre(genre.name).first()
-                    val artists = musicRepository.getArtists().first()
+                val rawSongsFlow = musicRepository.getMusicByGenre(genre.name)
+                val songsFlow = courseProgressRepository?.enrichSongsFlow(rawSongsFlow) ?: rawSongsFlow
+                val artistsFlow = musicRepository.getArtists()
+
+                combine(songsFlow, artistsFlow) { songs, artists ->
                     artistMap = artists.associate { it.name.trim().lowercase() to it.imageUrl }
-
-                    val sections = buildDisplaySections(songs, SortOption.ARTIST)
+                    val currentSort = _uiState.value.sortOption
+                    val sections = buildDisplaySections(songs, currentSort)
                     val flattened = flattenSections(sections, artistMap)
-                    val sorted = songs.sortedBy { it.artist ?: "Unknown Artist" }
-                    
+                    val sorted = when (currentSort) {
+                        SortOption.ARTIST -> songs.sortedBy { it.artist ?: "Unknown Artist" }
+                        SortOption.ALBUM -> songs.sortedBy { it.album ?: "Unknown Album" }
+                        SortOption.TITLE -> songs.sortedBy { it.title }
+                    }
                     ProcessingResult(genre, songs, sorted, sections, flattened)
+                }.collect { result ->
+                    _uiState.update {
+                        it.copy(
+                            genre = result.genre,
+                            songs = result.songs,
+                            sortedSongs = result.sortedSongs,
+                            displaySections = result.sections,
+                            flattenedItems = result.flattened,
+                            isLoadingGenreName = false,
+                            isLoadingSongs = false
+                        )
+                    }
                 }
-
-                _uiState.value = _uiState.value.copy(
-                    genre = result.genre,
-                    songs = result.songs,
-                    sortedSongs = result.sortedSongs,
-                    displaySections = result.sections,
-                    flattenedItems = result.flattened,
-                    isLoadingGenreName = false,
-                    isLoadingSongs = false
-                )
             } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(
-                    error = "Failed to load genre details: ${e.message}",
-                    isLoadingGenreName = false,
-                    isLoadingSongs = false
-                )
+                _uiState.update {
+                    it.copy(
+                        error = "Failed to load genre details: ${e.message}",
+                        isLoadingGenreName = false,
+                        isLoadingSongs = false
+                    )
+                }
             }
         }
     }
@@ -190,7 +202,7 @@ class GenreDetailViewModel @Inject constructor(
         if (currentState.sortOption == newSort) return
 
         viewModelScope.launch {
-            _uiState.value = currentState.copy(isLoadingSongs = true)
+            _uiState.update { it.copy(isLoadingSongs = true) }
             val (updatedSections, updatedFlattened, updatedSorted) = withContext(Dispatchers.Default) {
                 val sections = buildDisplaySections(currentState.songs, newSort)
                 val flattened = flattenSections(sections, artistMap)
@@ -201,13 +213,15 @@ class GenreDetailViewModel @Inject constructor(
                 }
                 Triple(sections, flattened, sorted)
             }
-            _uiState.value = currentState.copy(
-                sortOption = newSort,
-                displaySections = updatedSections,
-                flattenedItems = updatedFlattened,
-                sortedSongs = updatedSorted,
-                isLoadingSongs = false
-            )
+            _uiState.update {
+                it.copy(
+                    sortOption = newSort,
+                    displaySections = updatedSections,
+                    flattenedItems = updatedFlattened,
+                    sortedSongs = updatedSorted,
+                    isLoadingSongs = false
+                )
+            }
         }
     }
 

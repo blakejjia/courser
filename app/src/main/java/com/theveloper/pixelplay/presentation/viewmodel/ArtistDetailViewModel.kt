@@ -11,6 +11,7 @@ import com.theveloper.pixelplay.R
 import com.theveloper.pixelplay.data.model.Artist
 import com.theveloper.pixelplay.data.model.Song
 import com.theveloper.pixelplay.data.repository.ArtistImageRepository
+import com.theveloper.pixelplay.data.repository.CourseProgressRepository
 import com.theveloper.pixelplay.data.repository.MusicRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -56,7 +57,8 @@ class ArtistDetailViewModel @Inject constructor(
     private val musicRepository: MusicRepository,
     private val artistImageRepository: ArtistImageRepository,
     val themeStateHolder: ThemeStateHolder,
-    savedStateHandle: SavedStateHandle
+    savedStateHandle: SavedStateHandle,
+    private val courseProgressRepository: CourseProgressRepository? = null
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ArtistDetailUiState())
@@ -100,7 +102,8 @@ class ArtistDetailViewModel @Inject constructor(
             _uiState.update { it.copy(isLoading = true, error = null) }
             try {
                 val artistDetailsFlow = musicRepository.getArtistById(id)
-                val artistSongsFlow = musicRepository.getSongsForArtist(id)
+                val rawArtistSongsFlow = musicRepository.getSongsForArtist(id)
+                val artistSongsFlow = courseProgressRepository?.enrichSongsFlow(rawArtistSongsFlow) ?: rawArtistSongsFlow
 
                 combine(artistDetailsFlow, artistSongsFlow) { artist, songs ->
                     Log.d("ArtistDebug", "loadArtistData: id=$id found=${artist != null} songs=${songs.size}")

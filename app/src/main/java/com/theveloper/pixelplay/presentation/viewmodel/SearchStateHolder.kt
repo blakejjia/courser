@@ -3,6 +3,7 @@ package com.theveloper.pixelplay.presentation.viewmodel
 import com.theveloper.pixelplay.data.model.SearchFilterType
 import com.theveloper.pixelplay.data.model.SearchHistoryItem
 import com.theveloper.pixelplay.data.model.SearchResultItem
+import com.theveloper.pixelplay.data.repository.CourseProgressRepository
 import com.theveloper.pixelplay.data.repository.MusicRepository
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
@@ -17,6 +18,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import timber.log.Timber
@@ -37,6 +41,7 @@ import kotlinx.coroutines.FlowPreview
 @Singleton
 class SearchStateHolder @Inject constructor(
     private val musicRepository: MusicRepository,
+    private val courseProgressRepository: CourseProgressRepository? = null,
 ) {
     private companion object {
         const val SEARCH_DEBOUNCE_MS = 300L
@@ -92,7 +97,24 @@ class SearchStateHolder @Inject constructor(
 
                     try {
                         val currentFilter = _selectedSearchFilter.value
-                        musicRepository.searchAll(normalizedQuery, currentFilter).collect { resultsList ->
+                        val rawSearchFlow = musicRepository.searchAll(normalizedQuery, currentFilter)
+                        @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+                        val searchFlow = if (courseProgressRepository != null) {
+                            rawSearchFlow.flatMapLatest { resultsList ->
+                                val songIds = resultsList.filterIsInstance<SearchResultItem.SongItem>().map { it.song.id }
+                                if (songIds.isEmpty()) {
+                                    flowOf(resultsList)
+                                } else {
+                                    courseProgressRepository.observeSongEngagements(songIds).map { engagements ->
+                                        courseProgressRepository.enrichSearchResults(resultsList, engagements)
+                                    }
+                                }
+                            }
+                        } else {
+                            rawSearchFlow
+                        }
+
+                        searchFlow.collect { resultsList ->
                             // Sort: prioritize Song/Album matches over Artist/Playlist matches
                             val sortedResults = resultsList.sortedWith(
                                 compareBy { result ->

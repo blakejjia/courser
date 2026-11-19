@@ -70,6 +70,7 @@ import com.theveloper.pixelplay.data.service.player.CastPlayer
 import com.theveloper.pixelplay.data.service.http.MediaFileHttpServerService
 import com.theveloper.pixelplay.data.service.player.DualPlayerEngine
 import com.theveloper.pixelplay.data.repository.CourseFolderManager
+import com.theveloper.pixelplay.data.repository.CourseProgressRepository
 import com.theveloper.pixelplay.data.repository.CourseSyncProgress
 import com.theveloper.pixelplay.data.worker.SyncManager
 import com.theveloper.pixelplay.utils.ValidatedLyricsImport
@@ -222,7 +223,8 @@ class PlayerViewModel @Inject constructor(
     private val sessionToken: SessionToken,
     private val mediaControllerFactory: com.theveloper.pixelplay.data.media.MediaControllerFactory,
     private val courseFolderManager: CourseFolderManager? = null,
-    private val playlistPreferencesRepository: PlaylistPreferencesRepository? = null
+    private val playlistPreferencesRepository: PlaylistPreferencesRepository? = null,
+    private val courseProgressRepository: CourseProgressRepository? = null
 ) : ViewModel() {
 
     private val _playerUiState = MutableStateFlow(PlayerUiState())
@@ -232,9 +234,18 @@ class PlayerViewModel @Inject constructor(
     // recompose whenever the queue changes. Consumers that actually need the
     // queue (FullPlayer carousel, queue sheet) collect this narrower flow
     // directly, keeping the unrelated subtree stable.
+    // Reactively enriched with per-track lesson progress and completion indicators.
     val queueFlow: StateFlow<ImmutableList<Song>> = _playerUiState
         .map { it.currentPlaybackQueue }
         .distinctUntilChanged()
+        .flatMapLatest { queue ->
+            if (queue.isEmpty() || courseProgressRepository == null) {
+                flowOf(queue)
+            } else {
+                courseProgressRepository.observeEnrichedSongs(queue)
+                    .map { it.toImmutableList() }
+            }
+        }
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.Eagerly,
@@ -2562,7 +2573,8 @@ class PlayerViewModel @Inject constructor(
     }
 
     fun observeSongs(songIds: List<String>): Flow<List<Song>> {
-        return musicRepository.getSongsByIds(songIds)
+        val songsFlow = musicRepository.getSongsByIds(songIds)
+        return courseProgressRepository?.enrichSongsFlow(songsFlow) ?: songsFlow
     }
 
     fun searchSongs(query: String): Flow<List<Song>> {
