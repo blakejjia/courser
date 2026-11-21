@@ -71,7 +71,7 @@ jobs:
       - name: Build Debug APK (Universal)
         if: ${{ github.event_name != 'workflow_dispatch' || inputs.build_type == 'both' || inputs.build_type == 'debug' }}
         run: |
-          ./gradlew :app:assembleDebug --no-daemon --console=plain
+          ./gradlew :app:assembleDebug -Ppixelplay.enableAbiSplits=false --no-daemon --console=plain
           if [ -f app/build/outputs/apk/debug/app-debug.apk ]; then
             cp app/build/outputs/apk/debug/app-debug.apk build-apks/Courser-debug.apk
           fi
@@ -79,7 +79,7 @@ jobs:
       - name: Build Release APK (Universal)
         if: ${{ github.event_name != 'workflow_dispatch' || inputs.build_type == 'both' || inputs.build_type == 'release' }}
         run: |
-          ./gradlew :app:assembleRelease --no-daemon --console=plain
+          ./gradlew :app:assembleRelease -Ppixelplay.enableAbiSplits=false --no-daemon --console=plain
           if [ -f app/build/outputs/apk/release/app-release.apk ]; then
             cp app/build/outputs/apk/release/app-release.apk build-apks/Courser-release.apk
           fi
